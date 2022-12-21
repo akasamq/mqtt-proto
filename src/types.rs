@@ -88,6 +88,13 @@ impl QoS {
     }
 }
 
+/// Combined [`QoS`] and [`Pid`].
+///
+/// Used only in [`Publish`] packets.
+///
+/// [`Publish`]: struct.Publish.html
+/// [`QoS`]: enum.QoS.html
+/// [`Pid`]: struct.Pid.html
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum QosPid {
     Level0,
@@ -119,6 +126,11 @@ impl QosPid {
     }
 }
 
+/// Topic name.
+///
+/// See [MQTT 4.7]. The internal value is `Arc<String>`.
+///
+/// [MQTT 4.7]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718106
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TopicName(Arc<String>);
 
@@ -136,6 +148,11 @@ impl Deref for TopicName {
     }
 }
 
+/// Topic filter.
+///
+/// See [MQTT 4.7]. The internal value is `Arc<String>`.
+///
+/// [MQTT 4.7]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718106
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TopicFilter(Arc<String>);
 

@@ -1,4 +1,3 @@
-use std::io;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -7,13 +6,6 @@ use bytes::Bytes;
 use crate::*;
 use PacketType::*;
 use QoS::*;
-
-pub(crate) fn unexpected_eof() -> Error {
-    Error::IoError(
-        io::ErrorKind::UnexpectedEof,
-        "unexpected end of file".to_string(),
-    )
-}
 
 #[test]
 fn header_firstbyte() {
@@ -116,7 +108,7 @@ fn inner_length_too_long() {
         0x00, 0x04, 't' as u8, 'e' as u8, 's' as u8, 't' as u8, // client_id
         0x00, 0x03, 'm' as u8, 'q' as u8, // password with invalid length
     ];
-    assert_eq!(Err(unexpected_eof()), Packet::decode(data));
+    assert_eq!(Ok(None), Packet::decode(data));
 
     let slice: &[u8] = &[
         0b00010000, 20, // Connect packet, remaining_len=20
@@ -125,7 +117,7 @@ fn inner_length_too_long() {
         0x00, 0x04, 't' as u8, 'e' as u8, 's' as u8, 't' as u8, // client_id
         0x00, 0x03, 'm' as u8, 'q' as u8, // password with invalid length
     ];
-    assert_eq!(Err(unexpected_eof()), Packet::decode(slice));
+    assert_eq!(Ok(None), Packet::decode(slice));
 }
 
 #[test]
@@ -142,7 +134,7 @@ fn test_decode_half_connect() {
               // 0x00, 0x04, 'r' as u8, 'u' as u8, 's' as u8, 't' as u8, // username = 'rust'
               // 0x00, 0x02, 'm' as u8, 'q' as u8, // password = 'mq'
     ];
-    assert_eq!(Err(unexpected_eof()), Packet::decode(data));
+    assert_eq!(Ok(None), Packet::decode(data));
     assert_eq!(12, data.len());
 }
 
@@ -184,7 +176,7 @@ fn test_decode_packet_n() {
     ];
 
     let pkt1 = crate::Connect {
-        protocol: Protocol::MQTT311,
+        protocol: Protocol::MqttV311,
         keep_alive: 10,
         client_id: Arc::new("test".to_owned()),
         clean_session: true,
@@ -203,11 +195,11 @@ fn test_decode_packet_n() {
 
     // decode 3 packets in a sequence stored in the same buffer
     let mut offset = 0;
-    let decode_pkt1 = Packet::decode(&data[offset..]).unwrap();
+    let decode_pkt1 = Packet::decode(&data[offset..]).unwrap().unwrap();
     offset += total_len(pkt1.encode_len()).unwrap();
-    let decode_pkt2 = Packet::decode(&data[offset..]).unwrap();
+    let decode_pkt2 = Packet::decode(&data[offset..]).unwrap().unwrap();
     offset += total_len(0).unwrap();
-    let decode_pkt3 = Packet::decode(&data[offset..]).unwrap();
+    let decode_pkt3 = Packet::decode(&data[offset..]).unwrap().unwrap();
 
     assert_eq!(Packet::Connect(pkt1), decode_pkt1);
     assert_eq!(pkt2, decode_pkt2);
@@ -218,7 +210,7 @@ fn test_decode_packet_n() {
 fn test_decode_connack() {
     let data: &[u8] = &[0b00100000, 2, 0b00000000, 0b00000001];
     assert_eq!(
-        Packet::decode(data).unwrap(),
+        Packet::decode(data).unwrap().unwrap(),
         Packet::Connack(crate::Connack {
             session_present: false,
             code: ConnectReturnCode::UnacceptableProtocolVersion,
@@ -229,19 +221,19 @@ fn test_decode_connack() {
 #[test]
 fn test_decode_ping_req() {
     let data: &[u8] = &[0b11000000, 0b00000000];
-    assert_eq!(Ok(Packet::Pingreq), Packet::decode(data));
+    assert_eq!(Ok(Some(Packet::Pingreq)), Packet::decode(data));
 }
 
 #[test]
 fn test_decode_ping_resp() {
     let data: &[u8] = &[0b11010000, 0b00000000];
-    assert_eq!(Ok(Packet::Pingresp), Packet::decode(data));
+    assert_eq!(Ok(Some(Packet::Pingresp)), Packet::decode(data));
 }
 
 #[test]
 fn test_decode_disconnect() {
     let data: &[u8] = &[0b11100000, 0b00000000];
-    assert_eq!(Ok(Packet::Disconnect), Packet::decode(data));
+    assert_eq!(Ok(Some(Packet::Disconnect)), Packet::decode(data));
 }
 
 #[test]
@@ -261,7 +253,7 @@ fn test_decode_publish() {
     );
     assert_eq!(data.len(), 38);
 
-    match Packet::decode(data).unwrap() {
+    match Packet::decode(data).unwrap().unwrap() {
         Packet::Publish(p) => {
             assert_eq!(p.dup, false);
             assert_eq!(p.retain, false);
@@ -273,7 +265,7 @@ fn test_decode_publish() {
     }
 
     let data2 = &data[12..];
-    match Packet::decode(data2).unwrap() {
+    match Packet::decode(data2).unwrap().unwrap() {
         Packet::Publish(p) => {
             assert_eq!(p.dup, true);
             assert_eq!(p.retain, false);
@@ -285,7 +277,7 @@ fn test_decode_publish() {
     }
 
     let data3 = &data[24..];
-    match Packet::decode(data3).unwrap() {
+    match Packet::decode(data3).unwrap().unwrap() {
         Packet::Publish(p) => {
             assert_eq!(p.dup, true);
             assert_eq!(p.retain, true);
@@ -300,25 +292,37 @@ fn test_decode_publish() {
 #[test]
 fn test_decode_pub_ack() {
     let data: &[u8] = &[0b01000000, 0b00000010, 0, 10];
-    assert_eq!(Packet::decode(data).unwrap(), Packet::Puback(Pid::new(10)));
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        Packet::Puback(Pid::new(10))
+    );
 }
 
 #[test]
 fn test_decode_pub_rec() {
     let data: &[u8] = &[0b01010000, 0b00000010, 0, 10];
-    assert_eq!(Packet::decode(data).unwrap(), Packet::Pubrec(Pid::new(10)));
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        Packet::Pubrec(Pid::new(10))
+    );
 }
 
 #[test]
 fn test_decode_pub_rel() {
     let data: &[u8] = &[0b01100010, 0b00000010, 0, 10];
-    assert_eq!(Packet::decode(data).unwrap(), Packet::Pubrel(Pid::new(10)));
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        Packet::Pubrel(Pid::new(10))
+    );
 }
 
 #[test]
 fn test_decode_pub_comp() {
     let data: &[u8] = &[0b01110000, 0b00000010, 0, 10];
-    assert_eq!(Packet::decode(data).unwrap(), Packet::Pubcomp(Pid::new(10)));
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        Packet::Pubcomp(Pid::new(10))
+    );
 }
 
 #[test]
@@ -327,7 +331,7 @@ fn test_decode_subscribe() {
         0b10000010, 8, 0, 10, 0, 3, 'a' as u8, '/' as u8, 'b' as u8, 0,
     ];
     assert_eq!(
-        Packet::decode(data).unwrap(),
+        Packet::decode(data).unwrap().unwrap(),
         Packet::Subscribe(crate::Subscribe {
             pid: Pid::new(10),
             subscribes: vec![(
@@ -342,7 +346,7 @@ fn test_decode_subscribe() {
 fn test_decode_suback() {
     let data: &[u8] = &[0b10010000, 3, 0, 10, 0b00000010];
     assert_eq!(
-        Packet::decode(data).unwrap(),
+        Packet::decode(data).unwrap().unwrap(),
         Packet::Suback(crate::Suback {
             pid: Pid::new(10),
             subscribes: vec![SubscribeReturnCode::MaxLevel2],
@@ -354,7 +358,7 @@ fn test_decode_suback() {
 fn test_decode_unsubscribe() {
     let data: &[u8] = &[0b10100010, 5, 0, 10, 0, 1, 'a' as u8];
     assert_eq!(
-        Packet::decode(data).unwrap(),
+        Packet::decode(data).unwrap().unwrap(),
         Packet::Unsubscribe(crate::Unsubscribe {
             pid: Pid::new(10),
             subscribes: vec![TopicFilter::try_from("a".to_owned()).unwrap(),],
@@ -366,7 +370,7 @@ fn test_decode_unsubscribe() {
 fn test_decode_unsub_ack() {
     let data: &[u8] = &[0b10110000, 2, 0, 10];
     assert_eq!(
-        Packet::decode(data).unwrap(),
+        Packet::decode(data).unwrap().unwrap(),
         Packet::Unsuback(Pid::new(10))
     );
 }

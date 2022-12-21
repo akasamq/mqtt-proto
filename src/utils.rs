@@ -34,8 +34,9 @@ pub(crate) async fn read_u8<T: AsyncRead + Unpin>(reader: &mut T) -> Result<u8, 
 }
 
 #[inline]
-pub(crate) fn write_u8<W: io::Write>(writer: &mut W, value: u8) -> io::Result<()> {
-    writer.write_all(slice::from_ref(&value))
+pub(crate) fn write_bytes<W: io::Write>(writer: &mut W, data: &[u8]) -> io::Result<()> {
+    write_u16(writer, data.len() as u16)?;
+    writer.write_all(data)
 }
 
 #[inline]
@@ -44,7 +45,6 @@ pub(crate) fn write_u16<W: io::Write>(writer: &mut W, value: u16) -> io::Result<
 }
 
 #[inline]
-pub(crate) fn write_bytes<W: io::Write>(writer: &mut W, data: &[u8]) -> io::Result<()> {
-    write_u16(writer, data.len() as u16)?;
-    writer.write_all(data)
+pub(crate) fn write_u8<W: io::Write>(writer: &mut W, value: u8) -> io::Result<()> {
+    writer.write_all(slice::from_ref(&value))
 }

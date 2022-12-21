@@ -7,18 +7,21 @@ use crate::{
     TopicFilter,
 };
 
+/// Subscribe packet payload type.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Subscribe {
     pub pid: Pid,
     pub subscribes: Vec<(TopicFilter, QoS)>,
 }
 
+/// Suback packet payload type.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Suback {
     pub pid: Pid,
     pub subscribes: Vec<SubscribeReturnCode>,
 }
 
+/// Unsubscribe packet payload type.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Unsubscribe {
     pub pid: Pid,
@@ -156,7 +159,8 @@ impl Encodable for Unsubscribe {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Subscribe return code type.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SubscribeReturnCode {
     MaxLevel0,
     MaxLevel1,

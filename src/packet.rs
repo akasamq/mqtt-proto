@@ -1,3 +1,4 @@
+use std::io;
 use std::slice;
 
 use futures_lite::{
@@ -10,24 +11,40 @@ use crate::{
     Unsubscribe,
 };
 
+/// MQTT packet types.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Packet {
+    /// [MQTT 3.1](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718028)
     Connect(Connect),
+    /// [MQTT 3.2](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718033)
     Connack(Connack),
+    /// [MQTT 3.3](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718037)
     Publish(Publish),
+    /// [MQTT 3.4](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718043)
     Puback(Pid),
+    /// [MQTT 3.5](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718048)
     Pubrec(Pid),
+    /// [MQTT 3.6](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718053)
     Pubrel(Pid),
+    /// [MQTT 3.7](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718058)
     Pubcomp(Pid),
+    /// [MQTT 3.8](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718063)
     Subscribe(Subscribe),
+    /// [MQTT 3.9](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718068)
     Suback(Suback),
+    /// [MQTT 3.10](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718072)
     Unsubscribe(Unsubscribe),
+    /// [MQTT 3.11](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718077)
     Unsuback(Pid),
+    /// [MQTT 3.12](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718081)
     Pingreq,
+    /// [MQTT 3.13](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718086)
     Pingresp,
+    /// [MQTT 3.14](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718090)
     Disconnect,
 }
 
+/// MQTT packet type variant, without the associated data.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum PacketType {
     Connect,
@@ -48,6 +65,9 @@ pub enum PacketType {
 
 impl Packet {
     /// Return the packet type variant.
+    ///
+    /// This can be used for matching, categorising, debuging, etc. Most users
+    /// will match directly on `Packet` instead.
     pub fn get_type(&self) -> PacketType {
         match self {
             Packet::Connect(_) => PacketType::Connect,
@@ -67,10 +87,7 @@ impl Packet {
         }
     }
 
-    pub fn decode(mut reader: &[u8]) -> Result<Self, Error> {
-        block_on(Self::decode_async(&mut reader))
-    }
-
+    /// Asynchronously decode a packet from an async reader.
     pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
         let header = Header::decode_async(reader).await?;
         Ok(match header.typ {
@@ -98,12 +115,30 @@ impl Packet {
         })
     }
 
+    /// Asynchronously encode the packet to an async writer.
     pub async fn encode_async<T: AsyncWrite + Unpin>(&self, writer: &mut T) -> Result<(), Error> {
         let data = self.encode()?;
         writer.write_all(data.as_slice()).await?;
         Ok(())
     }
 
+    /// Decode a packet from some bytes. If not enough bytes to decode a packet,
+    /// it will return `Ok(None)`.
+    pub fn decode(mut bytes: &[u8]) -> Result<Option<Self>, Error> {
+        match block_on(Self::decode_async(&mut bytes)) {
+            Ok(pkt) => Ok(Some(pkt)),
+            Err(Error::IoError(kind, info)) => {
+                if kind == io::ErrorKind::UnexpectedEof {
+                    Ok(None)
+                } else {
+                    Err(Error::IoError(kind, info))
+                }
+            }
+            Err(err) => Err(err),
+        }
+    }
+
+    /// Encode the packet to a dynamic vector or fixed array.
     pub fn encode(&self) -> Result<VarBytes, Error> {
         const VOID_PACKET_REMAINING_LEN: u8 = 0;
         let data = match self {
@@ -180,6 +215,7 @@ impl Packet {
         Ok(data)
     }
 
+    /// Return the total length of bytes the packet encoded into.
     pub fn encode_len(&self) -> Result<usize, Error> {
         let remaining_len = match self {
             Packet::Connect(inner) => inner.encode_len(),
@@ -201,6 +237,7 @@ impl Packet {
     }
 }
 
+/// A bytes data structure represent a dynamic vector or fixed array.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum VarBytes {
     Dynamic(Vec<u8>),
@@ -209,6 +246,7 @@ pub enum VarBytes {
 }
 
 impl VarBytes {
+    /// Return the slice of the internal bytes.
     pub fn as_slice(&self) -> &[u8] {
         match self {
             VarBytes::Dynamic(vec) => vec,
@@ -218,6 +256,7 @@ impl VarBytes {
     }
 }
 
+/// Fixed header type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Header {
     pub typ: PacketType,
@@ -295,6 +334,7 @@ impl Header {
     }
 }
 
+/// Return the total encoded length by a given remaining length.
 #[inline]
 pub fn total_len(remaining_len: usize) -> Result<usize, Error> {
     let header_len = if remaining_len < 128 {

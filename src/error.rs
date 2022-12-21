@@ -2,16 +2,21 @@ use std::io;
 
 use thiserror::Error;
 
+/// Errors returned by encoding and decoding process.
+///
+/// * [`Packet::decode_async()`](enum.Packet.html#method.decode_async)
+/// * [`Packet::encode_async()`](enum.Packet.html#method.encode_async)
+/// * [`Packet::decode()`](enum.Packet.html#method.decode)
+/// * [`Packet::encode()`](enum.Packet.html#method.encode)
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum Error {
     /// Trying to decode with an invalid remaining length.
     #[error("invalid remaining length")]
     InvalidRemainingLength,
 
-    /// Tried to encode ProcessIdentifier==0.
-    #[error("invalid pid to encode")]
-    InvalidPid,
-
+    // /// Tried to encode ProcessIdentifier==0.
+    // #[error("invalid pid to encode")]
+    // InvalidPid,
     /// Tried to decode a QoS > 2.
     #[error("invalid qos: `{0}`")]
     InvalidQos(u8),

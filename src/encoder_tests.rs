@@ -13,23 +13,33 @@ fn assert_decode(pkt: Packet, len: usize) {
     assert_eq!(pkt.encode_len().unwrap(), len);
     assert_eq!(data_async.len(), len);
 
-    let decoded_pkt = Packet::decode(&data_async).unwrap();
+    let decoded_pkt = Packet::decode(&data_async).unwrap().unwrap();
     assert_eq!(pkt, decoded_pkt);
 }
 
 #[test]
 fn test_encode_connect() {
     let packet = Connect {
-        protocol: Protocol::MQTT311,
+        protocol: Protocol::MqttV311,
         keep_alive: 120,
         client_id: Arc::new("imvj".to_owned()),
         clean_session: true,
         last_will: None,
         username: None,
         password: None,
-    }
-    .into();
-    assert_decode(packet, 18);
+    };
+    assert_decode(packet.into(), 18);
+
+    let packet = Connect {
+        protocol: Protocol::MqttV31,
+        keep_alive: 120,
+        client_id: Arc::new("imvj".to_owned()),
+        clean_session: true,
+        last_will: None,
+        username: None,
+        password: None,
+    };
+    assert_decode(packet.into(), 20);
 }
 
 #[test]

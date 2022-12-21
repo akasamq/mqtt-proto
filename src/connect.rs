@@ -14,6 +14,7 @@ use crate::{
 pub const MQISDP: &[u8] = b"MQIsdp";
 pub const MQTT: &[u8] = b"MQTT";
 
+/// Connect packet payload type.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Connect {
     pub protocol: Protocol,
@@ -25,6 +26,7 @@ pub struct Connect {
     pub password: Option<Bytes>,
 }
 
+/// Connack packet payload type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Connack {
     pub session_present: bool,
@@ -150,30 +152,30 @@ impl Connack {
 }
 
 /// Protocol version.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Protocol {
     /// [MQTT 3.1]
     ///
     /// [MQTT 3.1]: https://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html
-    MQTT31 = 3,
+    MqttV31 = 3,
 
     /// [MQTT 3.1.1] is the most commonly implemented version.
     ///
     /// [MQTT 3.1.1]: https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html
-    MQTT311 = 4,
+    MqttV311 = 4,
 
     /// [MQTT 5.0] is the latest version
     ///
     /// [MQTT 5.0]: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html
-    MQTT50 = 5,
+    MqttV50 = 5,
 }
 
 impl Protocol {
     pub fn new(name: &[u8], level: u8) -> Result<Protocol, Error> {
         match (name, level) {
-            (MQISDP, 3) => Ok(Protocol::MQTT31),
-            (MQTT, 4) => Ok(Protocol::MQTT311),
-            (MQTT, 5) => Ok(Protocol::MQTT50),
+            (MQISDP, 3) => Ok(Protocol::MqttV31),
+            (MQTT, 4) => Ok(Protocol::MqttV311),
+            (MQTT, 5) => Ok(Protocol::MqttV50),
             _ => {
                 let name = core::str::from_utf8(name)?;
                 Err(Error::InvalidProtocol(name.into(), level))
@@ -183,9 +185,9 @@ impl Protocol {
 
     pub fn to_pair(self) -> (&'static [u8], u8) {
         match self {
-            Self::MQTT31 => (MQISDP, 3),
-            Self::MQTT311 => (MQTT, 4),
-            Self::MQTT50 => (MQTT, 5),
+            Self::MqttV31 => (MQISDP, 3),
+            Self::MqttV311 => (MQTT, 4),
+            Self::MqttV50 => (MQTT, 5),
         }
     }
 
@@ -207,14 +209,19 @@ impl Encodable for Protocol {
 
     fn encode_len(&self) -> usize {
         match self {
-            Self::MQTT31 => 2 + 6 + 1,
-            Self::MQTT311 => 2 + 4 + 1,
-            Self::MQTT50 => 2 + 4 + 1,
+            Self::MqttV31 => 2 + 6 + 1,
+            Self::MqttV311 => 2 + 4 + 1,
+            Self::MqttV50 => 2 + 4 + 1,
         }
     }
 }
 
 /// Message that the server should publish when the client disconnects.
+///
+/// Sent by the client in the [Connect] packet. [MQTT 3.1.3.3].
+///
+/// [Connect]: struct.Connect.html
+/// [MQTT 3.1.3.3]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718031
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LastWill {
     pub topic_name: TopicName,
@@ -223,8 +230,14 @@ pub struct LastWill {
     pub retain: bool,
 }
 
+/// Return code of a [Connack] packet.
+///
+/// See [MQTT 3.2.2.3] for interpretations.
+///
+/// [Connack]: struct.Connack.html
+/// [MQTT 3.2.2.3]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718035
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ConnectReturnCode {
     Accepted = 0,
     UnacceptableProtocolVersion = 1,

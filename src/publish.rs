@@ -8,6 +8,7 @@ use crate::{
     TopicName,
 };
 
+/// Publish packet payload type.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Publish {
     pub dup: bool,
