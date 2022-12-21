@@ -26,6 +26,10 @@ pub struct Unsubscribe {
 }
 
 impl Subscribe {
+    pub fn new(pid: Pid, subscribes: Vec<(TopicFilter, QoS)>) -> Self {
+        Self { pid, subscribes }
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         mut remaining_len: usize,
@@ -70,6 +74,10 @@ impl Encodable for Subscribe {
 }
 
 impl Suback {
+    pub fn new(pid: Pid, subscribes: Vec<SubscribeReturnCode>) -> Self {
+        Self { pid, subscribes }
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         mut remaining_len: usize,
@@ -103,6 +111,10 @@ impl Encodable for Suback {
 }
 
 impl Unsubscribe {
+    pub fn new(pid: Pid, subscribes: Vec<TopicFilter>) -> Self {
+        Self { pid, subscribes }
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         mut remaining_len: usize,

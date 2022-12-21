@@ -152,3 +152,33 @@ impl Deref for TopicFilter {
         self.0.as_str()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pid_add_sub() {
+        let t: Vec<(u16, u16, u16, u16)> = vec![
+            (2, 1, 1, 3),
+            (100, 1, 99, 101),
+            (1, 1, core::u16::MAX, 2),
+            (1, 2, core::u16::MAX - 1, 3),
+            (1, 3, core::u16::MAX - 2, 4),
+            (core::u16::MAX, 1, core::u16::MAX - 1, 1),
+            (core::u16::MAX, 2, core::u16::MAX - 2, 2),
+            (10, core::u16::MAX, 10, 10),
+            (10, 0, 10, 10),
+            (1, 0, 1, 1),
+            (core::u16::MAX, 0, core::u16::MAX, core::u16::MAX),
+        ];
+        for (cur, d, prev, next) in t {
+            let cur = Pid::new(cur);
+            assert!(cur.is_valid());
+            let sub = cur - d;
+            let add = cur + d;
+            assert_eq!(prev, sub.value(), "{:?} - {} should be {}", cur, d, prev);
+            assert_eq!(next, add.value(), "{:?} + {} should be {}", cur, d, next);
+        }
+    }
+}

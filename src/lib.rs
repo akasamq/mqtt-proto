@@ -6,6 +6,11 @@ mod subscribe;
 mod types;
 mod utils;
 
+#[cfg(test)]
+mod decoder_tests;
+#[cfg(test)]
+mod encoder_tests;
+
 pub use connect::{Connack, Connect, ConnectReturnCode, LastWill, Protocol};
 pub use error::Error;
 pub use packet::{total_len, Header, Packet, PacketType, VarBytes};

@@ -153,23 +153,27 @@ impl Connack {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Protocol {
     /// [MQTT 3.1]
-    /// https://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html
-    MQTT310 = 3,
+    ///
+    /// [MQTT 3.1]: https://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html
+    MQTT31 = 3,
 
     /// [MQTT 3.1.1] is the most commonly implemented version.
+    ///
     /// [MQTT 3.1.1]: https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html
     MQTT311 = 4,
 
+    /// [MQTT 5.0] is the latest version
+    ///
     /// [MQTT 5.0]: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html
-    MQTT500 = 5,
+    MQTT50 = 5,
 }
 
 impl Protocol {
     pub fn new(name: &[u8], level: u8) -> Result<Protocol, Error> {
         match (name, level) {
-            (MQISDP, 3) => Ok(Protocol::MQTT310),
+            (MQISDP, 3) => Ok(Protocol::MQTT31),
             (MQTT, 4) => Ok(Protocol::MQTT311),
-            (MQTT, 5) => Ok(Protocol::MQTT500),
+            (MQTT, 5) => Ok(Protocol::MQTT50),
             _ => {
                 let name = core::str::from_utf8(name)?;
                 Err(Error::InvalidProtocol(name.into(), level))
@@ -179,9 +183,9 @@ impl Protocol {
 
     pub fn to_pair(self) -> (&'static [u8], u8) {
         match self {
-            Self::MQTT310 => (MQISDP, 3),
+            Self::MQTT31 => (MQISDP, 3),
             Self::MQTT311 => (MQTT, 4),
-            Self::MQTT500 => (MQTT, 5),
+            Self::MQTT50 => (MQTT, 5),
         }
     }
 
@@ -203,9 +207,9 @@ impl Encodable for Protocol {
 
     fn encode_len(&self) -> usize {
         match self {
-            Self::MQTT310 => 2 + 6 + 1,
+            Self::MQTT31 => 2 + 6 + 1,
             Self::MQTT311 => 2 + 4 + 1,
-            Self::MQTT500 => 2 + 4 + 1,
+            Self::MQTT50 => 2 + 4 + 1,
         }
     }
 }

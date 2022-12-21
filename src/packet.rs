@@ -1,6 +1,9 @@
 use std::slice;
 
-use futures_lite::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use futures_lite::{
+    future::block_on,
+    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
+};
 
 use crate::{
     read_u16, Connack, Connect, Encodable, Error, Pid, Publish, QoS, QosPid, Suback, Subscribe,
@@ -62,6 +65,10 @@ impl Packet {
             Packet::Pingresp => PacketType::Pingresp,
             Packet::Disconnect => PacketType::Disconnect,
         }
+    }
+
+    pub fn decode(mut reader: &[u8]) -> Result<Self, Error> {
+        block_on(Self::decode_async(&mut reader))
     }
 
     pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
@@ -172,6 +179,26 @@ impl Packet {
         };
         Ok(data)
     }
+
+    pub fn encode_len(&self) -> Result<usize, Error> {
+        let remaining_len = match self {
+            Packet::Connect(inner) => inner.encode_len(),
+            Packet::Connack(_) => 2,
+            Packet::Publish(inner) => inner.encode_len(),
+            Packet::Puback(_) => 2,
+            Packet::Pubrec(_) => 2,
+            Packet::Pubrel(_) => 2,
+            Packet::Pubcomp(_) => 2,
+            Packet::Subscribe(inner) => inner.encode_len(),
+            Packet::Suback(inner) => inner.encode_len(),
+            Packet::Unsubscribe(inner) => inner.encode_len(),
+            Packet::Unsuback(_) => 2,
+            Packet::Pingreq => 0,
+            Packet::Pingresp => 0,
+            Packet::Disconnect => 0,
+        };
+        total_len(remaining_len)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -201,22 +228,33 @@ pub struct Header {
 }
 
 impl Header {
-    pub fn new(hd: u8, remaining_len: usize) -> Result<Header, Error> {
+    pub fn new(typ: PacketType, dup: bool, qos: QoS, retain: bool, remaining_len: usize) -> Self {
+        Self {
+            typ,
+            dup,
+            qos,
+            retain,
+            remaining_len,
+        }
+    }
+
+    pub fn new_with(hd: u8, remaining_len: usize) -> Result<Header, Error> {
+        const FLAGS_MASK: u8 = 0b1111;
         let (typ, flags_ok) = match hd >> 4 {
-            1 => (PacketType::Connect, hd & 0b1111 == 0),
-            2 => (PacketType::Connack, hd & 0b1111 == 0),
+            1 => (PacketType::Connect, hd & FLAGS_MASK == 0),
+            2 => (PacketType::Connack, hd & FLAGS_MASK == 0),
             3 => (PacketType::Publish, true),
-            4 => (PacketType::Puback, hd & 0b1111 == 0),
-            5 => (PacketType::Pubrec, hd & 0b1111 == 0),
-            6 => (PacketType::Pubrel, hd & 0b1111 == 0b0010),
-            7 => (PacketType::Pubcomp, hd & 0b1111 == 0),
-            8 => (PacketType::Subscribe, hd & 0b1111 == 0b0010),
-            9 => (PacketType::Suback, hd & 0b1111 == 0),
-            10 => (PacketType::Unsubscribe, hd & 0b1111 == 0b0010),
-            11 => (PacketType::Unsuback, hd & 0b1111 == 0),
-            12 => (PacketType::Pingreq, hd & 0b1111 == 0),
-            13 => (PacketType::Pingresp, hd & 0b1111 == 0),
-            14 => (PacketType::Disconnect, hd & 0b1111 == 0),
+            4 => (PacketType::Puback, hd & FLAGS_MASK == 0),
+            5 => (PacketType::Pubrec, hd & FLAGS_MASK == 0),
+            6 => (PacketType::Pubrel, hd & FLAGS_MASK == 0b0010),
+            7 => (PacketType::Pubcomp, hd & FLAGS_MASK == 0),
+            8 => (PacketType::Subscribe, hd & FLAGS_MASK == 0b0010),
+            9 => (PacketType::Suback, hd & FLAGS_MASK == 0),
+            10 => (PacketType::Unsubscribe, hd & FLAGS_MASK == 0b0010),
+            11 => (PacketType::Unsuback, hd & FLAGS_MASK == 0),
+            12 => (PacketType::Pingreq, hd & FLAGS_MASK == 0),
+            13 => (PacketType::Pingresp, hd & FLAGS_MASK == 0),
+            14 => (PacketType::Disconnect, hd & FLAGS_MASK == 0),
             _ => (PacketType::Connect, false),
         };
         if !flags_ok {
@@ -229,6 +267,10 @@ impl Header {
             retain: hd & 1 == 1,
             remaining_len,
         })
+    }
+
+    pub fn decode(mut reader: &[u8]) -> Result<Self, Error> {
+        block_on(Self::decode_async(&mut reader))
     }
 
     pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
@@ -249,7 +291,7 @@ impl Header {
                 return Err(Error::InvalidHeader);
             }
         }
-        Header::new(typ, remaining_len)
+        Header::new_with(typ, remaining_len)
     }
 }
 
@@ -311,7 +353,7 @@ fn encode_inner<E: Encodable>(inner: &E, control_byte: u8) -> Result<Vec<u8>, Er
 macro_rules! packet_from {
     ($($t:ident),+) => {
         $(
-            impl<'a> From<$t> for Packet {
+            impl From<$t> for Packet {
                 fn from(p: $t) -> Self {
                     Packet::$t(p)
                 }

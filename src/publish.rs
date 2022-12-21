@@ -68,7 +68,7 @@ impl Encodable for Publish {
                 write_u16(writer, pid.value())?;
             }
         }
-        write_bytes(writer, self.payload.as_ref())?;
+        writer.write_all(self.payload.as_ref())?;
         Ok(())
     }
 
