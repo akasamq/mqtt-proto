@@ -1,8 +1,7 @@
-use core::{convert::TryFrom, fmt, num::NonZeroU16};
+use std::convert::TryFrom;
 use std::io;
+use std::ops::Deref;
 use std::sync::Arc;
-
-use futures_lite::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 use crate::Error;
 
@@ -11,35 +10,29 @@ pub trait Encodable {
     fn encode_len(&self) -> usize;
 }
 
+/// Packet identifier
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd)]
-pub struct Pid(NonZeroU16);
+pub struct Pid(u16);
+
 impl Pid {
-    /// Returns a new `Pid` with value `1`.
-    pub fn new() -> Self {
-        Pid(NonZeroU16::new(1).unwrap())
+    pub fn new(value: u16) -> Self {
+        Pid(value)
     }
 
     /// Get the `Pid` as a raw `u16`.
-    pub fn get(self) -> u16 {
-        self.0.get()
+    pub fn value(self) -> u16 {
+        self.0
     }
 
-    pub async fn decode<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
-        let mut pid_buf = [0u8; 2];
-        reader.read_exact(&mut pid_buf).await?;
-        Pid::try_from(u16::from_be_bytes(pid_buf))
-    }
-
-    pub fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        writer.write_all(&self.get().to_be_bytes())
-    }
-    pub const fn encode_len(self) -> usize {
-        2
+    /// Pid should be non-zero value
+    pub fn is_valid(self) -> bool {
+        self.0 != 0
     }
 }
+
 impl Default for Pid {
     fn default() -> Pid {
-        Pid::new()
+        Pid(1)
     }
 }
 
@@ -48,11 +41,11 @@ impl core::ops::Add<u16> for Pid {
 
     /// Adding a `u16` to a `Pid` will wrap around and avoid 0.
     fn add(self, u: u16) -> Pid {
-        let n = match self.get().overflowing_add(u) {
+        let n = match self.0.overflowing_add(u) {
             (n, false) => n,
             (n, true) => n + 1,
         };
-        Pid(NonZeroU16::new(n).unwrap())
+        Pid(n)
     }
 }
 
@@ -61,31 +54,12 @@ impl core::ops::Sub<u16> for Pid {
 
     /// Subing a `u16` to a `Pid` will wrap around and avoid 0.
     fn sub(self, u: u16) -> Pid {
-        let n = match self.get().overflowing_sub(u) {
+        let n = match self.0.overflowing_sub(u) {
             (0, _) => core::u16::MAX,
             (n, false) => n,
             (n, true) => n - 1,
         };
-        Pid(NonZeroU16::new(n).unwrap())
-    }
-}
-
-impl From<Pid> for u16 {
-    /// Convert `Pid` to `u16`.
-    fn from(p: Pid) -> Self {
-        p.0.get()
-    }
-}
-
-impl TryFrom<u16> for Pid {
-    type Error = Error;
-
-    /// Convert `u16` to `Pid`. Will fail for value 0.
-    fn try_from(u: u16) -> Result<Self, Error> {
-        match NonZeroU16::new(u) {
-            Some(nz) => Ok(Pid(nz)),
-            None => Err(Error::InvalidPid),
-        }
+        Pid(n)
     }
 }
 
@@ -148,5 +122,33 @@ impl QosPid {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TopicName(Arc<String>);
 
+impl TryFrom<String> for TopicName {
+    type Error = Error;
+    fn try_from(value: String) -> Result<Self, Error> {
+        // FIXME: check topic name
+        Ok(TopicName(Arc::new(value)))
+    }
+}
+impl Deref for TopicName {
+    type Target = str;
+    fn deref(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TopicFilter(Arc<String>);
+
+impl TryFrom<String> for TopicFilter {
+    type Error = Error;
+    fn try_from(value: String) -> Result<Self, Error> {
+        // FIXME: check topic filter
+        Ok(TopicFilter(Arc::new(value)))
+    }
+}
+impl Deref for TopicFilter {
+    type Target = str;
+    fn deref(&self) -> &str {
+        self.0.as_str()
+    }
+}

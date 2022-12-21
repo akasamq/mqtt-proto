@@ -1,10 +1,15 @@
+use std::convert::TryFrom;
 use std::io;
+use std::slice;
 use std::sync::Arc;
 
 use bytes::Bytes;
-use futures_lite::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use futures_lite::io::{AsyncRead, AsyncReadExt};
 
-use crate::{Encodable, Error, QoS, TopicName};
+use crate::{
+    read_bytes, read_string, read_u16, read_u8, write_bytes, write_u16, write_u8, Encodable, Error,
+    QoS, TopicName,
+};
 
 pub const MQISDP: &[u8] = b"MQIsdp";
 pub const MQTT: &[u8] = b"MQTT";
@@ -27,33 +32,120 @@ pub struct Connack {
 }
 
 impl Connect {
-    pub async fn decode<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
-        let protocol = Protocol::decode(reader).await?;
-        todo!()
+    pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
+        let protocol = Protocol::decode_async(reader).await?;
+        let connect_flags: u8 = read_u8(reader).await?;
+        let keep_alive = read_u16(reader).await?;
+        let client_id = Arc::new(read_string(reader).await?);
+        let last_will = if connect_flags & 0b100 != 0 {
+            let topic_name = read_string(reader).await?;
+            let message = read_bytes(reader).await?;
+            let qos = QoS::from_u8((connect_flags & 0b11000) >> 3)?;
+            let retain = (connect_flags & 0b00100000) != 0;
+            Some(LastWill {
+                topic_name: TopicName::try_from(topic_name)?,
+                message: Bytes::from(message),
+                qos,
+                retain,
+            })
+        } else {
+            None
+        };
+        let username = if connect_flags & 0b10000000 != 0 {
+            Some(Arc::new(read_string(reader).await?))
+        } else {
+            None
+        };
+        let password = if connect_flags & 0b01000000 != 0 {
+            Some(Bytes::from(read_bytes(reader).await?))
+        } else {
+            None
+        };
+        let clean_session = (connect_flags & 0b10) != 0;
+        Ok(Connect {
+            protocol,
+            keep_alive,
+            client_id,
+            username,
+            password,
+            last_will,
+            clean_session,
+        })
     }
 }
 
 impl Encodable for Connect {
     fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        todo!()
+        self.protocol.encode(writer)?;
+        let mut connect_flags: u8 = 0b00000000;
+        if self.clean_session {
+            connect_flags |= 0b10;
+        }
+        if self.username.is_some() {
+            connect_flags |= 0b10000000;
+        }
+        if self.password.is_some() {
+            connect_flags |= 0b01000000;
+        }
+        if let Some(last_will) = self.last_will.as_ref() {
+            connect_flags |= 0b00000100;
+            connect_flags |= (last_will.qos as u8) << 3;
+            if last_will.retain {
+                connect_flags |= 0b00100000;
+            }
+        }
+
+        write_u8(writer, connect_flags)?;
+        write_u16(writer, self.keep_alive)?;
+        write_bytes(writer, self.client_id.as_bytes())?;
+        if let Some(last_will) = self.last_will.as_ref() {
+            write_bytes(writer, last_will.topic_name.as_bytes())?;
+            write_bytes(writer, last_will.message.as_ref())?;
+        }
+        if let Some(username) = self.username.as_ref() {
+            write_bytes(writer, username.as_bytes())?;
+        }
+        if let Some(password) = self.password.as_ref() {
+            write_bytes(writer, password.as_ref())?;
+        }
+        Ok(())
     }
+
     fn encode_len(&self) -> usize {
-        todo!()
+        let mut length = self.protocol.encode_len();
+        // flags + keep-alive
+        length += 1 + 2;
+        // client identifier
+        length += 2 + self.client_id.len();
+        if let Some(last_will) = self.last_will.as_ref() {
+            length += 4;
+            length += last_will.topic_name.len();
+            length += last_will.message.len();
+        }
+        if let Some(username) = self.username.as_ref() {
+            length += 2 + username.len();
+        }
+        if let Some(password) = self.password.as_ref() {
+            length += 2 + password.len();
+        }
+        length
     }
 }
 
 impl Connack {
-    pub async fn decode<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
-        todo!()
-    }
-}
-
-impl Encodable for Connack {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        todo!()
-    }
-    fn encode_len(&self) -> usize {
-        todo!()
+    pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
+        let mut payload = [0u8; 2];
+        reader.read_exact(&mut payload).await?;
+        let session_present = match payload[0] {
+            0 => false,
+            1 => true,
+            _ => return Err(Error::InvalidConnackFlags(payload[0])),
+        };
+        let code = ConnectReturnCode::from_u8(payload[1])?;
+        Ok(Connack {
+            session_present,
+            code,
+        })
     }
 }
 
@@ -93,26 +185,23 @@ impl Protocol {
         }
     }
 
-    pub async fn decode<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
-        let mut strlen_buf = [0u8; 2];
-        reader.read_exact(&mut strlen_buf).await?;
-        let len = u16::from_be_bytes(strlen_buf) as usize;
-        let mut name_buf = vec![0; len];
-        reader.read_exact(&mut name_buf).await?;
-        let mut level = 0u8;
-        reader.read_exact(std::slice::from_mut(&mut level)).await?;
+    pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
+        let name_buf = read_bytes(reader).await?;
+        let level = read_u8(reader).await?;
         Protocol::new(&name_buf, level)
     }
+}
 
-    pub fn encode<W: io::Write>(self, writer: &mut W) -> io::Result<()> {
+impl Encodable for Protocol {
+    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
         let (name, level) = self.to_pair();
         writer.write_all(&(name.len() as u16).to_be_bytes())?;
         writer.write_all(name)?;
-        writer.write_all(std::slice::from_ref(&level))?;
+        writer.write_all(slice::from_ref(&level))?;
         Ok(())
     }
 
-    pub fn encode_len(self) -> usize {
+    fn encode_len(&self) -> usize {
         match self {
             Self::MQTT310 => 2 + 6 + 1,
             Self::MQTT311 => 2 + 4 + 1,
@@ -124,7 +213,7 @@ impl Protocol {
 /// Message that the server should publish when the client disconnects.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LastWill {
-    pub topic: TopicName,
+    pub topic_name: TopicName,
     pub message: Bytes,
     pub qos: QoS,
     pub retain: bool,

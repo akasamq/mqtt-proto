@@ -1,7 +1,10 @@
+use std::slice;
+
 use futures_lite::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 use crate::{
-    Connack, Connect, Encodable, Error, Pid, Publish, QoS, QosPid, Suback, Subscribe, Unsubscribe,
+    read_u16, Connack, Connect, Encodable, Error, Pid, Publish, QoS, QosPid, Suback, Subscribe,
+    Unsubscribe,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -61,111 +64,130 @@ impl Packet {
         }
     }
 
-    pub async fn decode<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
-        let header = Header::decode(reader).await?;
+    pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
+        let header = Header::decode_async(reader).await?;
         Ok(match header.typ {
             PacketType::Pingreq => Packet::Pingreq,
             PacketType::Pingresp => Packet::Pingresp,
             PacketType::Disconnect => Packet::Disconnect,
 
-            PacketType::Connect => Connect::decode(reader).await?.into(),
-            PacketType::Connack => Connack::decode(reader).await?.into(),
-            PacketType::Publish => Publish::decode(reader, header).await?.into(),
-            PacketType::Puback => Packet::Puback(Pid::decode(reader).await?),
-            PacketType::Pubrec => Packet::Pubrec(Pid::decode(reader).await?),
-            PacketType::Pubrel => Packet::Pubrel(Pid::decode(reader).await?),
-            PacketType::Pubcomp => Packet::Pubcomp(Pid::decode(reader).await?),
-            PacketType::Subscribe => Subscribe::decode(reader, header.remaining_len)
+            PacketType::Connect => Connect::decode_async(reader).await?.into(),
+            PacketType::Connack => Connack::decode_async(reader).await?.into(),
+            PacketType::Publish => Publish::decode_async(reader, header).await?.into(),
+            PacketType::Puback => Packet::Puback(Pid::new(read_u16(reader).await?)),
+            PacketType::Pubrec => Packet::Pubrec(Pid::new(read_u16(reader).await?)),
+            PacketType::Pubrel => Packet::Pubrel(Pid::new(read_u16(reader).await?)),
+            PacketType::Pubcomp => Packet::Pubcomp(Pid::new(read_u16(reader).await?)),
+            PacketType::Subscribe => Subscribe::decode_async(reader, header.remaining_len)
                 .await?
                 .into(),
-            PacketType::Suback => Suback::decode(reader, header.remaining_len).await?.into(),
-            PacketType::Unsubscribe => Unsubscribe::decode(reader, header.remaining_len)
+            PacketType::Suback => Suback::decode_async(reader, header.remaining_len)
                 .await?
                 .into(),
-            PacketType::Unsuback => Packet::Unsuback(Pid::decode(reader).await?),
+            PacketType::Unsubscribe => Unsubscribe::decode_async(reader, header.remaining_len)
+                .await?
+                .into(),
+            PacketType::Unsuback => Packet::Unsuback(Pid::new(read_u16(reader).await?)),
         })
     }
 
-    pub async fn encode<T: AsyncWrite + Unpin>(&self, writer: &mut T) -> Result<(), Error> {
-        match self {
+    pub async fn encode_async<T: AsyncWrite + Unpin>(&self, writer: &mut T) -> Result<(), Error> {
+        let data = self.encode()?;
+        writer.write_all(data.as_slice()).await?;
+        Ok(())
+    }
+
+    pub fn encode(&self) -> Result<VarBytes, Error> {
+        const VOID_PACKET_REMAINING_LEN: u8 = 0;
+        let data = match self {
             Packet::Connect(connect) => {
-                let header: u8 = 0b00010000;
-                writer.write_all(&encode_inner(connect, header)?).await?;
+                const CONTROL_BYTE: u8 = 0b00010000;
+                VarBytes::Dynamic(encode_inner(connect, CONTROL_BYTE)?)
             }
             Packet::Connack(connack) => {
-                let header: u8 = 0b00100000;
-                writer.write_all(&encode_inner(connack, header)?).await?;
+                const CONTROL_BYTE: u8 = 0b00100000;
+                const REMAINING_LEN: u8 = 2;
+                let flags: u8 = connack.session_present.into();
+                let rc: u8 = connack.code as u8;
+                VarBytes::Fixed4([CONTROL_BYTE, REMAINING_LEN, flags, rc])
             }
             Packet::Publish(publish) => {
-                let mut header: u8 = match publish.qos_pid {
+                let mut control_byte: u8 = match publish.qos_pid {
                     QosPid::Level0 => 0b00110000,
                     QosPid::Level1(_) => 0b00110010,
                     QosPid::Level2(_) => 0b00110100,
                 };
                 if publish.dup {
-                    header |= 0b00001000;
+                    control_byte |= 0b00001000;
                 }
                 if publish.retain {
-                    header |= 0b00000001;
+                    control_byte |= 0b00000001;
                 }
-                writer.write_all(&encode_inner(publish, header)?).await?;
+                VarBytes::Dynamic(encode_inner(publish, control_byte)?)
             }
             Packet::Puback(pid) => {
-                let header: u8 = 0b01000000;
-                let length: u8 = 2;
-                writer.write_all(&with_pid(header, length, *pid)).await?;
+                const CONTROL_BYTE: u8 = 0b01000000;
+                VarBytes::Fixed4(encode_with_pid(CONTROL_BYTE, *pid))
             }
             Packet::Pubrec(pid) => {
-                let header: u8 = 0b01010000;
-                let length: u8 = 2;
-                writer.write_all(&with_pid(header, length, *pid)).await?;
+                const CONTROL_BYTE: u8 = 0b01010000;
+                VarBytes::Fixed4(encode_with_pid(CONTROL_BYTE, *pid))
             }
             Packet::Pubrel(pid) => {
-                let header: u8 = 0b01100010;
-                let length: u8 = 2;
-                writer.write_all(&with_pid(header, length, *pid)).await?;
+                const CONTROL_BYTE: u8 = 0b01100010;
+                VarBytes::Fixed4(encode_with_pid(CONTROL_BYTE, *pid))
             }
             Packet::Pubcomp(pid) => {
-                let header: u8 = 0b01110000;
-                let length: u8 = 2;
-                writer.write_all(&with_pid(header, length, *pid)).await?;
+                const CONTROL_BYTE: u8 = 0b01110000;
+                VarBytes::Fixed4(encode_with_pid(CONTROL_BYTE, *pid))
             }
             Packet::Subscribe(subscribe) => {
-                let header: u8 = 0b10000010;
-                writer.write_all(&encode_inner(subscribe, header)?).await?;
+                const CONTROL_BYTE: u8 = 0b10000010;
+                VarBytes::Dynamic(encode_inner(subscribe, CONTROL_BYTE)?)
             }
             Packet::Suback(suback) => {
-                let header: u8 = 0b10010000;
-                writer.write_all(&encode_inner(suback, header)?).await?;
+                const CONTROL_BYTE: u8 = 0b10010000;
+                VarBytes::Dynamic(encode_inner(suback, CONTROL_BYTE)?)
             }
             Packet::Unsubscribe(unsubscribe) => {
-                let header = 0b10100010;
-                writer
-                    .write_all(&encode_inner(unsubscribe, header)?)
-                    .await?;
+                const CONTROL_BYTE: u8 = 0b10100010;
+                VarBytes::Dynamic(encode_inner(unsubscribe, CONTROL_BYTE)?)
             }
             Packet::Unsuback(pid) => {
-                let header: u8 = 0b10110000;
-                let length: u8 = 2;
-                writer.write_all(&with_pid(header, length, *pid)).await?;
+                const CONTROL_BYTE: u8 = 0b10110000;
+                VarBytes::Fixed4(encode_with_pid(CONTROL_BYTE, *pid))
             }
             Packet::Pingreq => {
-                let header: u8 = 0b11000000;
-                let length: u8 = 0;
-                writer.write_all(&[header, length]).await?;
+                const CONTROL_BYTE: u8 = 0b11000000;
+                VarBytes::Fixed2([CONTROL_BYTE, VOID_PACKET_REMAINING_LEN])
             }
             Packet::Pingresp => {
-                let header: u8 = 0b11010000;
-                let length: u8 = 0;
-                writer.write_all(&[header, length]).await?;
+                const CONTROL_BYTE: u8 = 0b11010000;
+                VarBytes::Fixed2([CONTROL_BYTE, VOID_PACKET_REMAINING_LEN])
             }
             Packet::Disconnect => {
-                let header: u8 = 0b11100000;
-                let length: u8 = 0;
-                writer.write_all(&[header, length]).await?;
+                const CONTROL_BYTE: u8 = 0b11100000;
+                VarBytes::Fixed2([CONTROL_BYTE, VOID_PACKET_REMAINING_LEN])
             }
+        };
+        Ok(data)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum VarBytes {
+    Dynamic(Vec<u8>),
+    Fixed2([u8; 2]),
+    Fixed4([u8; 4]),
+}
+
+impl VarBytes {
+    pub fn as_slice(&self) -> &[u8] {
+        match self {
+            VarBytes::Dynamic(vec) => vec,
+            VarBytes::Fixed2(arr) => &arr[..],
+            VarBytes::Fixed4(arr) => &arr[..],
         }
-        Ok(())
     }
 }
 
@@ -209,15 +231,15 @@ impl Header {
         })
     }
 
-    pub async fn decode<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
+    pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
         let mut typ = 0u8;
-        reader.read_exact(std::slice::from_mut(&mut typ)).await?;
+        reader.read_exact(slice::from_mut(&mut typ)).await?;
 
         let mut byte = 0u8;
         let mut remaining_len: usize = 0;
         let mut i = 0;
         loop {
-            reader.read_exact(std::slice::from_mut(&mut byte)).await?;
+            reader.read_exact(slice::from_mut(&mut byte)).await?;
             remaining_len |= (usize::from(byte) & 0x7F) << (7 * i);
             if byte & 0x80 == 0 {
                 break;
@@ -242,20 +264,26 @@ pub fn total_len(remaining_len: usize) -> Result<usize, Error> {
     } else if remaining_len < 268435456 {
         5
     } else {
-        return Err(Error::InvalidLength);
+        return Err(Error::InvalidRemainingLength);
     };
     Ok(header_len + remaining_len)
 }
 
 #[inline]
-fn with_pid(header: u8, length: u8, pid: Pid) -> [u8; 4] {
-    let val = pid.get();
-    [header, length, (val >> 8) as u8, (val & 0xFF) as u8]
+fn encode_with_pid(control_byte: u8, pid: Pid) -> [u8; 4] {
+    const REMAINING_LEN: u8 = 2;
+    let val = pid.value();
+    [
+        control_byte,
+        REMAINING_LEN,
+        (val >> 8) as u8,
+        (val & 0xFF) as u8,
+    ]
 }
 
 #[inline]
-fn encode_header(buf: &mut Vec<u8>, header: u8, mut remaining_len: usize) {
-    buf.push(header);
+fn encode_header(buf: &mut Vec<u8>, control_byte: u8, mut remaining_len: usize) {
+    buf.push(control_byte);
     loop {
         let mut byte = (remaining_len % 128) as u8;
         remaining_len /= 128;
@@ -270,11 +298,11 @@ fn encode_header(buf: &mut Vec<u8>, header: u8, mut remaining_len: usize) {
 }
 
 #[inline]
-fn encode_inner<E: Encodable>(inner: &E, header: u8) -> Result<Vec<u8>, Error> {
+fn encode_inner<E: Encodable>(inner: &E, control_byte: u8) -> Result<Vec<u8>, Error> {
     let remaining_len = inner.encode_len();
     let total = total_len(remaining_len)?;
     let mut buf = Vec::with_capacity(total);
-    encode_header(&mut buf, header, remaining_len);
+    encode_header(&mut buf, control_byte, remaining_len);
     inner.encode(&mut buf)?;
     debug_assert_eq!(buf.len(), total);
     Ok(buf)

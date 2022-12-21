@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 bytes = "1.3.0"
 futures-lite = "1.12.0"
-heapless = "0.7.16"
 thiserror = "1.0.38"
 
 [features]
