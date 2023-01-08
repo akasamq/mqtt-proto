@@ -15,6 +15,7 @@ pub trait Encodable {
 pub struct Pid(u16);
 
 impl Pid {
+    /// WARNING: the value 0 of packet identifier is not allowed by MQTT protocol.
     pub fn new(value: u16) -> Self {
         Pid(value)
     }

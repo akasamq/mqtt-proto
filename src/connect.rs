@@ -50,6 +50,8 @@ impl Connect {
                 qos,
                 retain,
             })
+        } else if connect_flags & 0b11000 != 0 {
+            return Err(Error::InvalidConnectFlags(connect_flags));
         } else {
             None
         };

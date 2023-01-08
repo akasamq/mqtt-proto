@@ -21,6 +21,10 @@ pub enum Error {
     #[error("invalid qos: `{0}`")]
     InvalidQos(u8),
 
+    /// Tired to decode connect flags, that will flag is 0 but will qos is not 0.
+    #[error("invalid connect flags: `{0}`")]
+    InvalidConnectFlags(u8),
+
     /// Tired to decode connack flags not 0 or 1.
     #[error("invalid connack flags: `{0}`")]
     InvalidConnackFlags(u8),
