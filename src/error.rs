@@ -14,6 +14,10 @@ pub enum Error {
     #[error("invalid remaining length")]
     InvalidRemainingLength,
 
+    /// No subscription in subscribe packet
+    #[error("empty subscription")]
+    EmptySubscription,
+
     // /// Tried to encode ProcessIdentifier==0.
     // #[error("invalid pid to encode")]
     // InvalidPid,

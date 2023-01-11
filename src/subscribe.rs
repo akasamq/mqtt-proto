@@ -41,6 +41,9 @@ impl Subscribe {
         remaining_len = remaining_len
             .checked_sub(2)
             .ok_or(Error::InvalidRemainingLength)?;
+        if remaining_len == 0 {
+            return Err(Error::EmptySubscription);
+        }
         let mut subscribes = Vec::new();
         while remaining_len > 0 {
             let topic_filter = TopicFilter::try_from(read_string(reader).await?)?;
@@ -126,6 +129,9 @@ impl Unsubscribe {
         remaining_len = remaining_len
             .checked_sub(2)
             .ok_or(Error::InvalidRemainingLength)?;
+        if remaining_len == 0 {
+            return Err(Error::EmptySubscription);
+        }
         let mut subscribes = Vec::new();
         while remaining_len > 0 {
             let topic_filter = TopicFilter::try_from(read_string(reader).await?)?;
