@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 
+use crate::v3::*;
 use crate::*;
 use PacketType::*;
 use QoS::*;
@@ -175,7 +176,7 @@ fn test_decode_packet_n() {
         0b11010000, 0b00000000,
     ];
 
-    let pkt1 = crate::Connect {
+    let pkt1 = crate::v3::Connect {
         protocol: Protocol::MqttV311,
         keep_alive: 10,
         client_id: Arc::new("test".to_owned()),
@@ -211,7 +212,7 @@ fn test_decode_connack() {
     let data: &[u8] = &[0b00100000, 2, 0b00000000, 0b00000001];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        Packet::Connack(crate::Connack {
+        Packet::Connack(crate::v3::Connack {
             session_present: false,
             code: ConnectReturnCode::UnacceptableProtocolVersion,
         })
@@ -332,7 +333,7 @@ fn test_decode_subscribe() {
     ];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        Packet::Subscribe(crate::Subscribe {
+        Packet::Subscribe(crate::v3::Subscribe {
             pid: Pid::new(10),
             subscribes: vec![(
                 TopicFilter::try_from("a/b".to_owned()).unwrap(),
@@ -347,7 +348,7 @@ fn test_decode_suback() {
     let data: &[u8] = &[0b10010000, 3, 0, 10, 0b00000010];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        Packet::Suback(crate::Suback {
+        Packet::Suback(crate::v3::Suback {
             pid: Pid::new(10),
             subscribes: vec![SubscribeReturnCode::MaxLevel2],
         })
@@ -359,7 +360,7 @@ fn test_decode_unsubscribe() {
     let data: &[u8] = &[0b10100010, 5, 0, 10, 0, 1, 'a' as u8];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        Packet::Unsubscribe(crate::Unsubscribe {
+        Packet::Unsubscribe(crate::v3::Unsubscribe {
             pid: Pid::new(10),
             subscribes: vec![TopicFilter::try_from("a".to_owned()).unwrap(),],
         })

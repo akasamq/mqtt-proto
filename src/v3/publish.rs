@@ -3,9 +3,9 @@ use std::io;
 use bytes::Bytes;
 use futures_lite::io::{AsyncRead, AsyncReadExt};
 
+use super::Header;
 use crate::{
-    read_string, read_u16, write_bytes, write_u16, Encodable, Error, Header, Pid, QoS, QosPid,
-    TopicName,
+    read_string, read_u16, write_bytes, write_u16, Encodable, Error, Pid, QoS, QosPid, TopicName,
 };
 
 /// Publish packet payload type.

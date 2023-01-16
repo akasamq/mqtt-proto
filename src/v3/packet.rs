@@ -6,10 +6,8 @@ use futures_lite::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
 };
 
-use crate::{
-    read_u16, Connack, Connect, Encodable, Error, Pid, Publish, QoS, QosPid, Suback, Subscribe,
-    Unsubscribe,
-};
+use super::{Connack, Connect, Publish, Suback, Subscribe, Unsubscribe};
+use crate::{read_u16, Encodable, Error, Pid, QoS, QosPid};
 
 /// MQTT packet types.
 #[derive(Debug, Clone, PartialEq, Eq)]

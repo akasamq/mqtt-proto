@@ -1,6 +1,5 @@
 use std::convert::TryFrom;
 use std::io;
-use std::slice;
 use std::sync::Arc;
 
 use bytes::Bytes;
@@ -8,11 +7,8 @@ use futures_lite::io::{AsyncRead, AsyncReadExt};
 
 use crate::{
     read_bytes, read_string, read_u16, read_u8, write_bytes, write_u16, write_u8, Encodable, Error,
-    QoS, TopicName,
+    Protocol, QoS, TopicName,
 };
-
-pub const MQISDP: &[u8] = b"MQIsdp";
-pub const MQTT: &[u8] = b"MQTT";
 
 /// Connect packet payload type.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -150,71 +146,6 @@ impl Connack {
             session_present,
             code,
         })
-    }
-}
-
-/// Protocol version.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Protocol {
-    /// [MQTT 3.1]
-    ///
-    /// [MQTT 3.1]: https://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html
-    MqttV31 = 3,
-
-    /// [MQTT 3.1.1] is the most commonly implemented version.
-    ///
-    /// [MQTT 3.1.1]: https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html
-    MqttV311 = 4,
-
-    /// [MQTT 5.0] is the latest version
-    ///
-    /// [MQTT 5.0]: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html
-    MqttV50 = 5,
-}
-
-impl Protocol {
-    pub fn new(name: &[u8], level: u8) -> Result<Protocol, Error> {
-        match (name, level) {
-            (MQISDP, 3) => Ok(Protocol::MqttV31),
-            (MQTT, 4) => Ok(Protocol::MqttV311),
-            (MQTT, 5) => Ok(Protocol::MqttV50),
-            _ => {
-                let name = core::str::from_utf8(name)?;
-                Err(Error::InvalidProtocol(name.into(), level))
-            }
-        }
-    }
-
-    pub fn to_pair(self) -> (&'static [u8], u8) {
-        match self {
-            Self::MqttV31 => (MQISDP, 3),
-            Self::MqttV311 => (MQTT, 4),
-            Self::MqttV50 => (MQTT, 5),
-        }
-    }
-
-    pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
-        let name_buf = read_bytes(reader).await?;
-        let level = read_u8(reader).await?;
-        Protocol::new(&name_buf, level)
-    }
-}
-
-impl Encodable for Protocol {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        let (name, level) = self.to_pair();
-        writer.write_all(&(name.len() as u16).to_be_bytes())?;
-        writer.write_all(name)?;
-        writer.write_all(slice::from_ref(&level))?;
-        Ok(())
-    }
-
-    fn encode_len(&self) -> usize {
-        match self {
-            Self::MqttV31 => 2 + 6 + 1,
-            Self::MqttV311 => 2 + 4 + 1,
-            Self::MqttV50 => 2 + 4 + 1,
-        }
     }
 }
 

@@ -1,21 +1,8 @@
-mod connect;
-mod error;
-mod packet;
-mod publish;
-mod subscribe;
-mod types;
-mod utils;
+mod common;
+pub mod v3;
+pub mod v5;
 
-#[cfg(test)]
-mod tests;
-
-pub use connect::{Connack, Connect, ConnectReturnCode, LastWill, Protocol};
-pub use error::Error;
-pub use packet::{total_len, Header, Packet, PacketType, VarBytes};
-pub use publish::Publish;
-pub use subscribe::{Suback, Subscribe, SubscribeReturnCode, Unsubscribe};
-pub use types::{Encodable, Pid, QoS, QosPid, TopicFilter, TopicName};
-
-pub(crate) use utils::{
+pub(crate) use common::{
     read_bytes, read_string, read_u16, read_u8, write_bytes, write_u16, write_u8,
 };
+pub use common::{Encodable, Error, Pid, Protocol, QoS, QosPid, TopicFilter, TopicName};

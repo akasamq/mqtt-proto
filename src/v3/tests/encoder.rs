@@ -3,6 +3,7 @@ use std::sync::Arc;
 use bytes::Bytes;
 use futures_lite::future::block_on;
 
+use crate::v3::*;
 use crate::*;
 
 fn assert_decode(pkt: Packet, len: usize) {
@@ -22,24 +23,24 @@ fn test_encode_connect() {
     let packet = Connect {
         protocol: Protocol::MqttV311,
         keep_alive: 120,
-        client_id: Arc::new("imvj".to_owned()),
-        clean_session: true,
-        last_will: None,
-        username: None,
-        password: None,
-    };
-    assert_decode(packet.into(), 18);
-
-    let packet = Connect {
-        protocol: Protocol::MqttV31,
-        keep_alive: 120,
-        client_id: Arc::new("imvj".to_owned()),
+        client_id: Arc::new("sample".to_owned()),
         clean_session: true,
         last_will: None,
         username: None,
         password: None,
     };
     assert_decode(packet.into(), 20);
+
+    let packet = Connect {
+        protocol: Protocol::MqttV31,
+        keep_alive: 120,
+        client_id: Arc::new("sample".to_owned()),
+        clean_session: true,
+        last_will: None,
+        username: None,
+        password: None,
+    };
+    assert_decode(packet.into(), 22);
 }
 
 #[test]
