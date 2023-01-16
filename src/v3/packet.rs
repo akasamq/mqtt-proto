@@ -1,13 +1,12 @@
 use std::io;
-use std::slice;
 
 use futures_lite::{
     future::block_on,
-    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
+    io::{AsyncRead, AsyncWrite, AsyncWriteExt},
 };
 
 use super::{Connack, Connect, Publish, Suback, Subscribe, Unsubscribe};
-use crate::{read_u16, Encodable, Error, Pid, QoS, QosPid};
+use crate::{decode_raw_header, read_u16, Encodable, Error, Pid, QoS, QosPid};
 
 /// MQTT packet types.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -311,23 +310,7 @@ impl Header {
     }
 
     pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
-        let mut typ = 0u8;
-        reader.read_exact(slice::from_mut(&mut typ)).await?;
-
-        let mut byte = 0u8;
-        let mut remaining_len: usize = 0;
-        let mut i = 0;
-        loop {
-            reader.read_exact(slice::from_mut(&mut byte)).await?;
-            remaining_len |= (usize::from(byte) & 0x7F) << (7 * i);
-            if byte & 0x80 == 0 {
-                break;
-            } else if i < 3 {
-                i += 1;
-            } else {
-                return Err(Error::InvalidHeader);
-            }
-        }
+        let (typ, remaining_len) = decode_raw_header(reader).await?;
         Header::new_with(typ, remaining_len)
     }
 }

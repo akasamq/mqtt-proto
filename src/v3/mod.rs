@@ -1,4 +1,4 @@
-//! Codec for MQTT v3.1 and v3.1.1
+//! Codec for MQTT v3.1.1 and v3.1
 
 mod connect;
 mod packet;

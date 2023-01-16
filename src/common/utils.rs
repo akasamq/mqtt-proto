@@ -48,3 +48,26 @@ pub(crate) fn write_u16<W: io::Write>(writer: &mut W, value: u16) -> io::Result<
 pub(crate) fn write_u8<W: io::Write>(writer: &mut W, value: u8) -> io::Result<()> {
     writer.write_all(slice::from_ref(&value))
 }
+
+/// Read first byte(packet type and flags) and decode remaining length
+#[inline]
+pub async fn decode_raw_header<T: AsyncRead + Unpin>(reader: &mut T) -> Result<(u8, usize), Error> {
+    let mut typ = 0u8;
+    reader.read_exact(slice::from_mut(&mut typ)).await?;
+
+    let mut byte = 0u8;
+    let mut remaining_len: usize = 0;
+    let mut i = 0;
+    loop {
+        reader.read_exact(slice::from_mut(&mut byte)).await?;
+        remaining_len |= (usize::from(byte) & 0x7F) << (7 * i);
+        if byte & 0x80 == 0 {
+            break;
+        } else if i < 3 {
+            i += 1;
+        } else {
+            return Err(Error::InvalidHeader);
+        }
+    }
+    Ok((typ, remaining_len))
+}
