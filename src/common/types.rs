@@ -1,4 +1,5 @@
 use std::convert::TryFrom;
+use std::fmt;
 use std::io;
 use std::ops::Deref;
 use std::slice;
@@ -61,6 +62,17 @@ impl Protocol {
         let name_buf = read_bytes(reader).await?;
         let level = read_u8(reader).await?;
         Protocol::new(&name_buf, level)
+    }
+}
+
+impl fmt::Display for Protocol {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let output = match self {
+            Self::MqttV31 => "v3.1",
+            Self::MqttV311 => "v3.1.1",
+            Self::MqttV50 => "v5.0",
+        };
+        write!(f, "{}", output)
     }
 }
 

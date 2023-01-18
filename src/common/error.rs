@@ -40,6 +40,9 @@ pub enum Error {
     #[error("invalid header")]
     InvalidHeader,
 
+    #[error("invalid variable byte integer")]
+    InvalidVarByteInt,
+
     /// Trying to decode a non-utf8 string.
     #[error("invalid string")]
     InvalidString(#[from] core::str::Utf8Error),

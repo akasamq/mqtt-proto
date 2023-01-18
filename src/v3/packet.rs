@@ -6,9 +6,11 @@ use futures_lite::{
 };
 
 use super::{Connack, Connect, Publish, Suback, Subscribe, Unsubscribe};
-use crate::{decode_raw_header, read_u16, Encodable, Error, Pid, QoS, QosPid};
+use crate::{
+    decode_raw_header, packet_from, read_u16, total_len, Encodable, Error, Pid, QoS, QosPid,
+};
 
-/// MQTT packet types.
+/// MQTT v3.x packet types.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Packet {
     /// [MQTT 3.1](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718028)
@@ -41,7 +43,7 @@ pub enum Packet {
     Disconnect,
 }
 
-/// MQTT packet type variant, without the associated data.
+/// MQTT v3.x packet type variant, without the associated data.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum PacketType {
     Connect,
@@ -291,7 +293,7 @@ impl Header {
             12 => (PacketType::Pingreq, hd & FLAGS_MASK == 0),
             13 => (PacketType::Pingresp, hd & FLAGS_MASK == 0),
             14 => (PacketType::Disconnect, hd & FLAGS_MASK == 0),
-            _ => (PacketType::Connect, false),
+            _ => return Err(Error::InvalidHeader),
         };
         if !flags_ok {
             return Err(Error::InvalidHeader);
@@ -313,23 +315,6 @@ impl Header {
         let (typ, remaining_len) = decode_raw_header(reader).await?;
         Header::new_with(typ, remaining_len)
     }
-}
-
-/// Return the total encoded length by a given remaining length.
-#[inline]
-pub fn total_len(remaining_len: usize) -> Result<usize, Error> {
-    let header_len = if remaining_len < 128 {
-        2
-    } else if remaining_len < 16384 {
-        3
-    } else if remaining_len < 2097152 {
-        4
-    } else if remaining_len < 268435456 {
-        5
-    } else {
-        return Err(Error::InvalidRemainingLength);
-    };
-    Ok(header_len + remaining_len)
 }
 
 #[inline]
@@ -369,18 +354,6 @@ fn encode_inner<E: Encodable>(inner: &E, control_byte: u8) -> Result<Vec<u8>, Er
     inner.encode(&mut buf)?;
     debug_assert_eq!(buf.len(), total);
     Ok(buf)
-}
-
-macro_rules! packet_from {
-    ($($t:ident),+) => {
-        $(
-            impl From<$t> for Packet {
-                fn from(p: $t) -> Self {
-                    Packet::$t(p)
-                }
-            }
-        )+
-    }
 }
 
 packet_from!(Connect, Publish, Suback, Connack, Subscribe, Unsubscribe);

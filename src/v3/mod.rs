@@ -9,6 +9,6 @@ mod subscribe;
 mod tests;
 
 pub use connect::{Connack, Connect, ConnectReturnCode, LastWill};
-pub use packet::{total_len, Header, Packet, PacketType, VarBytes};
+pub use packet::{Header, Packet, PacketType, VarBytes};
 pub use publish::Publish;
 pub use subscribe::{Suback, Subscribe, SubscribeReturnCode, Unsubscribe};

@@ -14,9 +14,9 @@ use crate::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Connect {
     pub protocol: Protocol,
+    pub clean_session: bool,
     pub keep_alive: u16,
     pub client_id: Arc<String>,
-    pub clean_session: bool,
     pub last_will: Option<LastWill>,
     pub username: Option<Arc<String>>,
     pub password: Option<Bytes>,
