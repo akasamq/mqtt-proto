@@ -24,9 +24,6 @@ pub struct Connect {
     /// [Clean start]: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901039
     pub clean_start: bool,
 
-    /// Properties
-    pub properties: ConnectProperties,
-
     /// The [keep alive]. A time interval measured in seconds. It is the
     /// maximum time interval that is permitted to elapse between the point at
     /// which the Client finishes transmitting one MQTT Control Packet and the
@@ -34,6 +31,9 @@ pub struct Connect {
     ///
     /// [keep alive]: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901045
     pub keep_alive: u16,
+
+    /// Properties
+    pub properties: ConnectProperties,
 
     /// The [client identifier] (ClientID).
     ///
@@ -222,11 +222,11 @@ impl ConnectProperties {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LastWill {
+    pub qos: QoS,
+    pub retain: bool,
     pub properties: WillProperties,
     pub topic_name: TopicName,
     pub payload: Bytes,
-    pub qos: QoS,
-    pub retain: bool,
 }
 
 impl LastWill {
@@ -239,11 +239,11 @@ impl LastWill {
         let topic_name = TopicName::try_from(read_string(reader).await?)?;
         let payload = Bytes::from(read_bytes(reader).await?);
         Ok(LastWill {
+            qos,
+            retain,
             properties,
             topic_name,
             payload,
-            qos,
-            retain,
         })
     }
 }
