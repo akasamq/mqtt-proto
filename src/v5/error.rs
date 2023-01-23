@@ -15,8 +15,8 @@ pub enum ErrorV5 {
     #[error("invalid property type: `{0}`")]
     InvalidPropertyType(u8),
 
-    #[error("invalid payload format: `{0}`")]
-    InvalidPayloadFormat(u8),
+    #[error("invalid byte property value: type=`{0}`, value=`{1}`")]
+    InvalidBytePropertyValue(PropertyType, u8),
 
     #[error("duplicated property: `{0}`")]
     DuplicatedProperty(PropertyType),

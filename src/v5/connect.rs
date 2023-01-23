@@ -5,7 +5,10 @@ use std::sync::Arc;
 use bytes::Bytes;
 use futures_lite::io::{AsyncRead, AsyncReadExt};
 
-use super::{ErrorV5, Header, PacketType, PropertyType, PropertyValue, UserProperty};
+use super::{
+    decode_properties, encode_properties, encode_properties_len, ErrorV5, Header, PacketType,
+    PropertyType, PropertyValue, UserProperty,
+};
 use crate::{
     decode_var_int, read_bytes, read_string, read_u16, read_u32, read_u8, var_int_len, write_bytes,
     write_u16, write_u32, write_u8, write_var_int, Encodable, Error, Protocol, QoS, TopicName,
@@ -202,75 +205,21 @@ impl ConnectProperties {
         reader: &mut T,
         packet_type: PacketType,
     ) -> Result<Self, ErrorV5> {
-        let (mut property_len, _bytes) = decode_var_int(reader).await?;
         let mut properties = ConnectProperties::default();
-        while property_len > 0 {
-            let property_type = PropertyType::from_u8(read_u8(reader).await?)?;
-            match property_type {
-                PropertyType::SessionExpiryInterval => {
-                    PropertyValue::decode_u32(
-                        reader,
-                        property_type,
-                        &mut properties.session_expiry_interval,
-                    )
-                    .await?;
-                }
-                PropertyType::ReceiveMaximum => {
-                    PropertyValue::decode_u16(reader, property_type, &mut properties.receive_max)
-                        .await?;
-                }
-                PropertyType::MaximumPacketSize => {
-                    PropertyValue::decode_u32(
-                        reader,
-                        property_type,
-                        &mut properties.max_packet_size,
-                    )
-                    .await?;
-                }
-                PropertyType::TopicAliasMaximum => {
-                    PropertyValue::decode_u16(
-                        reader,
-                        property_type,
-                        &mut properties.topic_alias_max,
-                    )
-                    .await?;
-                }
-                PropertyType::RequestResponseInformation => {
-                    PropertyValue::decode_bool(
-                        reader,
-                        property_type,
-                        &mut properties.request_response_info,
-                    )
-                    .await?;
-                }
-                PropertyType::RequestProblemInformation => {
-                    PropertyValue::decode_bool(
-                        reader,
-                        property_type,
-                        &mut properties.request_problem_info,
-                    )
-                    .await?;
-                }
-                PropertyType::UserProperty => {
-                    let user_property = PropertyValue::decode_user_property(reader).await?;
-                    properties.user_properties.push(user_property);
-                }
-                PropertyType::AuthenticationMethod => {
-                    PropertyValue::decode_string(
-                        reader,
-                        property_type,
-                        &mut properties.auth_method,
-                    )
-                    .await?;
-                }
-                PropertyType::AuthenticationData => {
-                    PropertyValue::decode_bytes(reader, property_type, &mut properties.auth_data)
-                        .await?;
-                }
-                _ => return Err(ErrorV5::InvalidProperty(property_type, packet_type)),
-            }
-            property_len -= 1;
-        }
+        decode_properties!(
+            packet_type,
+            properties,
+            reader,
+            SessionExpiryInterval,
+            ReceiveMaximum,
+            MaximumPacketSize,
+            TopicAliasMaximum,
+            RequestResponseInformation,
+            RequestProblemInformation,
+            UserProperty,
+            AuthenticationMethod,
+            AuthenticationData,
+        );
         if properties.auth_data.is_some() && properties.auth_method.is_none() {
             return Err(ErrorV5::AuthMethodMissing);
         }
@@ -280,115 +229,35 @@ impl ConnectProperties {
 
 impl Encodable for ConnectProperties {
     fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        let mut property_len = self.user_properties.len();
-        if self.session_expiry_interval.is_some() {
-            property_len += 1;
-        }
-        if self.receive_max.is_some() {
-            property_len += 1;
-        }
-        if self.max_packet_size.is_some() {
-            property_len += 1;
-        }
-        if self.topic_alias_max.is_some() {
-            property_len += 1;
-        }
-        if self.request_response_info.is_some() {
-            property_len += 1;
-        }
-        if self.request_problem_info.is_some() {
-            property_len += 1;
-        }
-        if self.auth_method.is_some() {
-            property_len += 1;
-        }
-        if self.auth_data.is_some() {
-            property_len += 1;
-        }
-
-        write_var_int(writer, property_len)?;
-        if let Some(value) = self.session_expiry_interval {
-            write_u8(writer, PropertyType::SessionExpiryInterval as u8)?;
-            write_u32(writer, value)?;
-        }
-        if let Some(value) = self.receive_max {
-            write_u8(writer, PropertyType::ReceiveMaximum as u8)?;
-            write_u16(writer, value)?;
-        }
-        if let Some(value) = self.max_packet_size {
-            write_u8(writer, PropertyType::MaximumPacketSize as u8)?;
-            write_u32(writer, value)?;
-        }
-        if let Some(value) = self.topic_alias_max {
-            write_u8(writer, PropertyType::TopicAliasMaximum as u8)?;
-            write_u16(writer, value)?;
-        }
-        if let Some(value) = self.request_response_info {
-            write_u8(writer, PropertyType::RequestResponseInformation as u8)?;
-            write_u8(writer, if value { 1u8 } else { 0u8 })?;
-        }
-        if let Some(value) = self.request_problem_info {
-            write_u8(writer, PropertyType::RequestProblemInformation as u8)?;
-            write_u8(writer, if value { 1u8 } else { 0u8 })?;
-        }
-        if let Some(value) = self.auth_method.as_ref() {
-            write_u8(writer, PropertyType::AuthenticationMethod as u8)?;
-            write_bytes(writer, value.as_bytes())?;
-        }
-        if let Some(value) = self.auth_data.as_ref() {
-            write_u8(writer, PropertyType::AuthenticationData as u8)?;
-            write_bytes(writer, value.as_ref())?;
-        }
-        for UserProperty { name, value } in &self.user_properties {
-            write_u8(writer, PropertyType::UserProperty as u8)?;
-            write_bytes(writer, name.as_bytes())?;
-            write_bytes(writer, value.as_bytes())?;
-        }
+        encode_properties!(
+            self,
+            writer,
+            SessionExpiryInterval,
+            ReceiveMaximum,
+            MaximumPacketSize,
+            TopicAliasMaximum,
+            RequestResponseInformation,
+            RequestProblemInformation,
+            AuthenticationMethod,
+            AuthenticationData,
+        );
         Ok(())
     }
 
     fn encode_len(&self) -> usize {
         let mut len = 0;
-        let mut property_len = self.user_properties.len();
-        if self.session_expiry_interval.is_some() {
-            property_len += 1;
-            len += 4;
-        }
-        if self.receive_max.is_some() {
-            property_len += 1;
-            len += 2;
-        }
-        if self.max_packet_size.is_some() {
-            property_len += 1;
-            len += 4;
-        }
-        if self.topic_alias_max.is_some() {
-            property_len += 1;
-            len += 2;
-        }
-        if self.request_response_info.is_some() {
-            property_len += 1;
-            len += 1;
-        }
-        if self.request_problem_info.is_some() {
-            property_len += 1;
-            len += 1;
-        }
-        if let Some(value) = self.auth_method.as_ref() {
-            property_len += 1;
-            len += 2 + value.len();
-        }
-        if let Some(value) = self.auth_data.as_ref() {
-            property_len += 1;
-            len += 2 + value.len();
-        }
-        len += var_int_len(property_len).expect("huge user properties");
-        len += property_len;
-        len += self
-            .user_properties
-            .iter()
-            .map(|property| 4 + property.name.len() + property.value.len())
-            .sum::<usize>();
+        encode_properties_len!(
+            self,
+            len,
+            SessionExpiryInterval,
+            ReceiveMaximum,
+            MaximumPacketSize,
+            TopicAliasMaximum,
+            RequestResponseInformation,
+            RequestProblemInformation,
+            AuthenticationMethod,
+            AuthenticationData,
+        );
         len
     }
 }
@@ -461,160 +330,50 @@ impl WillProperties {
     pub(crate) async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
     ) -> Result<Self, ErrorV5> {
-        let (mut property_len, _bytes) = decode_var_int(reader).await?;
         let mut properties = WillProperties::default();
-        while property_len > 0 {
-            let property_type = PropertyType::from_u8(read_u8(reader).await?)?;
-            match property_type {
-                PropertyType::WillDelayInterval => {
-                    PropertyValue::decode_u32(
-                        reader,
-                        property_type,
-                        &mut properties.delay_interval,
-                    )
-                    .await?;
-                }
-                PropertyType::PayloadFormatIndicator => {
-                    PropertyValue::decode_bool(
-                        reader,
-                        property_type,
-                        &mut properties.payload_is_utf8,
-                    )
-                    .await?;
-                }
-                PropertyType::MessageExpiryInterval => {
-                    PropertyValue::decode_u32(
-                        reader,
-                        property_type,
-                        &mut properties.message_expiry_interval,
-                    )
-                    .await?;
-                }
-                PropertyType::ContentType => {
-                    PropertyValue::decode_string(
-                        reader,
-                        property_type,
-                        &mut properties.content_type,
-                    )
-                    .await?;
-                }
-                PropertyType::ResponseTopic => {
-                    PropertyValue::decode_topic_name(
-                        reader,
-                        property_type,
-                        &mut properties.response_topic,
-                    )
-                    .await?;
-                }
-                PropertyType::CorrelationData => {
-                    PropertyValue::decode_bytes(
-                        reader,
-                        property_type,
-                        &mut properties.correlation_data,
-                    )
-                    .await?;
-                }
-                PropertyType::UserProperty => {
-                    let user_property = PropertyValue::decode_user_property(reader).await?;
-                    properties.user_properties.push(user_property);
-                }
-                _ => return Err(ErrorV5::InvalidWillProperty(property_type)),
-            }
-            property_len -= 1;
-        }
+        decode_properties!(
+            LastWill,
+            properties,
+            reader,
+            WillDelayInterval,
+            PayloadFormatIndicator,
+            MessageExpiryInterval,
+            ContentType,
+            ResponseTopic,
+            CorrelationData,
+            UserProperty,
+        );
         Ok(properties)
     }
 }
 
 impl Encodable for WillProperties {
     fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        let mut property_len = self.user_properties.len();
-        if self.delay_interval.is_some() {
-            property_len += 1;
-        }
-        if self.payload_is_utf8.is_some() {
-            property_len += 1;
-        }
-        if self.message_expiry_interval.is_some() {
-            property_len += 1;
-        }
-        if self.content_type.is_some() {
-            property_len += 1;
-        }
-        if self.response_topic.is_some() {
-            property_len += 1;
-        }
-        if self.correlation_data.is_some() {
-            property_len += 1;
-        }
-
-        write_var_int(writer, property_len)?;
-        if let Some(value) = self.delay_interval {
-            write_u8(writer, PropertyType::WillDelayInterval as u8)?;
-            write_u32(writer, value)?;
-        }
-        if let Some(value) = self.payload_is_utf8 {
-            write_u8(writer, PropertyType::PayloadFormatIndicator as u8)?;
-            write_u8(writer, if value { 1u8 } else { 0u8 })?;
-        }
-        if let Some(value) = self.message_expiry_interval {
-            write_u8(writer, PropertyType::MessageExpiryInterval as u8)?;
-            write_u32(writer, value)?;
-        }
-        if let Some(value) = self.content_type.as_ref() {
-            write_u8(writer, PropertyType::ContentType as u8)?;
-            write_bytes(writer, value.as_bytes())?;
-        }
-        if let Some(value) = self.response_topic.as_ref() {
-            write_u8(writer, PropertyType::ResponseTopic as u8)?;
-            write_bytes(writer, value.as_bytes())?;
-        }
-        if let Some(value) = self.correlation_data.as_ref() {
-            write_u8(writer, PropertyType::CorrelationData as u8)?;
-            write_bytes(writer, value.as_ref())?;
-        }
-        for UserProperty { name, value } in &self.user_properties {
-            write_u8(writer, PropertyType::UserProperty as u8)?;
-            write_bytes(writer, name.as_bytes())?;
-            write_bytes(writer, value.as_bytes())?;
-        }
+        encode_properties!(
+            self,
+            writer,
+            WillDelayInterval,
+            PayloadFormatIndicator,
+            MessageExpiryInterval,
+            ContentType,
+            ResponseTopic,
+            CorrelationData,
+        );
         Ok(())
     }
 
     fn encode_len(&self) -> usize {
         let mut len = 0;
-        let mut property_len = self.user_properties.len();
-        if self.delay_interval.is_some() {
-            property_len += 1;
-            len += 4;
-        }
-        if self.payload_is_utf8.is_some() {
-            property_len += 1;
-            len += 1;
-        }
-        if self.message_expiry_interval.is_some() {
-            property_len += 1;
-            len += 4;
-        }
-        if let Some(value) = self.content_type.as_ref() {
-            property_len += 1;
-            len += 2 + value.len();
-        }
-        if let Some(value) = self.response_topic.as_ref() {
-            property_len += 1;
-            len += 2 + value.len();
-        }
-        if let Some(value) = self.correlation_data.as_ref() {
-            property_len += 1;
-            len += 2 + value.len();
-        }
-        len += var_int_len(property_len).expect("huge user properties");
-        len += property_len;
-        len += self
-            .user_properties
-            .iter()
-            .map(|property| 4 + property.name.len() + property.value.len())
-            .sum::<usize>();
+        encode_properties_len!(
+            self,
+            len,
+            WillDelayInterval,
+            PayloadFormatIndicator,
+            MessageExpiryInterval,
+            ContentType,
+            ResponseTopic,
+            CorrelationData,
+        );
         len
     }
 }

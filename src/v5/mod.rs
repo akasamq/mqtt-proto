@@ -9,7 +9,10 @@ mod publish;
 mod subscribe;
 mod types;
 
-pub(crate) use types::PropertyValue;
+pub(crate) use types::{
+    decode_properties, decode_property, encode_properties, encode_properties_len, encode_property,
+    encode_property_len, property_field, PropertyValue,
+};
 
 pub use connect::{
     Auth, Connack, Connect, ConnectProperties, Disconnect, LastWill, WillProperties,
