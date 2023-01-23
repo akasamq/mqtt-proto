@@ -7,8 +7,8 @@ use futures_lite::io::{AsyncRead, AsyncReadExt};
 
 use super::{ErrorV5, Header, PacketType, PropertyType, PropertyValue, UserProperty};
 use crate::{
-    decode_var_int, read_bytes, read_string, read_u16, read_u32, read_u8, write_bytes, write_u16,
-    write_u32, write_u8, Encodable, Error, Protocol, QoS, TopicName,
+    decode_var_int, read_bytes, read_string, read_u16, read_u32, read_u8, var_int_len, write_bytes,
+    write_u16, write_u32, write_u8, write_var_int, Encodable, Error, Protocol, QoS, TopicName,
 };
 
 /// [Connect] packet payload type.
@@ -55,7 +55,7 @@ pub struct Connect {
 impl Connect {
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
-        mut header: Header,
+        header: Header,
     ) -> Result<Self, ErrorV5> {
         let protocol = Protocol::decode_async(reader).await?;
         if protocol != Protocol::MqttV50 {
@@ -113,6 +113,64 @@ impl Connect {
             username,
             password,
         })
+    }
+}
+
+impl Encodable for Connect {
+    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        let mut connect_flags: u8 = 0b00000000;
+        if self.clean_start {
+            connect_flags |= 0b10;
+        }
+        if self.username.is_some() {
+            connect_flags |= 0b10000000;
+        }
+        if self.password.is_some() {
+            connect_flags |= 0b01000000;
+        }
+        if let Some(last_will) = self.last_will.as_ref() {
+            connect_flags |= 0b00000100;
+            connect_flags |= (last_will.qos as u8) << 3;
+            if last_will.retain {
+                connect_flags |= 0b00100000;
+            }
+        }
+
+        self.protocol.encode(writer)?;
+        write_u8(writer, connect_flags)?;
+        write_u16(writer, self.keep_alive)?;
+        self.properties.encode(writer)?;
+        write_bytes(writer, self.client_id.as_bytes())?;
+        if let Some(last_will) = self.last_will.as_ref() {
+            last_will.encode(writer)?;
+        }
+        if let Some(username) = self.username.as_ref() {
+            write_bytes(writer, username.as_bytes())?;
+        }
+        if let Some(password) = self.password.as_ref() {
+            write_bytes(writer, password.as_ref())?;
+        }
+        Ok(())
+    }
+
+    fn encode_len(&self) -> usize {
+        let mut len = self.protocol.encode_len();
+        // flags + keep-alive
+        len += 1 + 2;
+        // properties
+        len += self.properties.encode_len();
+        // client identifier
+        len += 2 + self.client_id.len();
+        if let Some(last_will) = self.last_will.as_ref() {
+            len += last_will.encode_len();
+        }
+        if let Some(username) = self.username.as_ref() {
+            len += 2 + username.len();
+        }
+        if let Some(password) = self.password.as_ref() {
+            len += 2 + password.len();
+        }
+        len
     }
 }
 
@@ -220,6 +278,121 @@ impl ConnectProperties {
     }
 }
 
+impl Encodable for ConnectProperties {
+    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        let mut property_len = self.user_properties.len();
+        if self.session_expiry_interval.is_some() {
+            property_len += 1;
+        }
+        if self.receive_max.is_some() {
+            property_len += 1;
+        }
+        if self.max_packet_size.is_some() {
+            property_len += 1;
+        }
+        if self.topic_alias_max.is_some() {
+            property_len += 1;
+        }
+        if self.request_response_info.is_some() {
+            property_len += 1;
+        }
+        if self.request_problem_info.is_some() {
+            property_len += 1;
+        }
+        if self.auth_method.is_some() {
+            property_len += 1;
+        }
+        if self.auth_data.is_some() {
+            property_len += 1;
+        }
+
+        write_var_int(writer, property_len)?;
+        if let Some(value) = self.session_expiry_interval {
+            write_u8(writer, PropertyType::SessionExpiryInterval as u8)?;
+            write_u32(writer, value)?;
+        }
+        if let Some(value) = self.receive_max {
+            write_u8(writer, PropertyType::ReceiveMaximum as u8)?;
+            write_u16(writer, value)?;
+        }
+        if let Some(value) = self.max_packet_size {
+            write_u8(writer, PropertyType::MaximumPacketSize as u8)?;
+            write_u32(writer, value)?;
+        }
+        if let Some(value) = self.topic_alias_max {
+            write_u8(writer, PropertyType::TopicAliasMaximum as u8)?;
+            write_u16(writer, value)?;
+        }
+        if let Some(value) = self.request_response_info {
+            write_u8(writer, PropertyType::RequestResponseInformation as u8)?;
+            write_u8(writer, if value { 1u8 } else { 0u8 })?;
+        }
+        if let Some(value) = self.request_problem_info {
+            write_u8(writer, PropertyType::RequestProblemInformation as u8)?;
+            write_u8(writer, if value { 1u8 } else { 0u8 })?;
+        }
+        if let Some(value) = self.auth_method.as_ref() {
+            write_u8(writer, PropertyType::AuthenticationMethod as u8)?;
+            write_bytes(writer, value.as_bytes())?;
+        }
+        if let Some(value) = self.auth_data.as_ref() {
+            write_u8(writer, PropertyType::AuthenticationData as u8)?;
+            write_bytes(writer, value.as_ref())?;
+        }
+        for UserProperty { name, value } in &self.user_properties {
+            write_u8(writer, PropertyType::UserProperty as u8)?;
+            write_bytes(writer, name.as_bytes())?;
+            write_bytes(writer, value.as_bytes())?;
+        }
+        Ok(())
+    }
+
+    fn encode_len(&self) -> usize {
+        let mut len = 0;
+        let mut property_len = self.user_properties.len();
+        if self.session_expiry_interval.is_some() {
+            property_len += 1;
+            len += 4;
+        }
+        if self.receive_max.is_some() {
+            property_len += 1;
+            len += 2;
+        }
+        if self.max_packet_size.is_some() {
+            property_len += 1;
+            len += 4;
+        }
+        if self.topic_alias_max.is_some() {
+            property_len += 1;
+            len += 2;
+        }
+        if self.request_response_info.is_some() {
+            property_len += 1;
+            len += 1;
+        }
+        if self.request_problem_info.is_some() {
+            property_len += 1;
+            len += 1;
+        }
+        if let Some(value) = self.auth_method.as_ref() {
+            property_len += 1;
+            len += 2 + value.len();
+        }
+        if let Some(value) = self.auth_data.as_ref() {
+            property_len += 1;
+            len += 2 + value.len();
+        }
+        len += var_int_len(property_len).expect("huge user properties");
+        len += property_len;
+        len += self
+            .user_properties
+            .iter()
+            .map(|property| 4 + property.name.len() + property.value.len())
+            .sum::<usize>();
+        len
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LastWill {
     pub qos: QoS,
@@ -245,6 +418,23 @@ impl LastWill {
             topic_name,
             payload,
         })
+    }
+}
+
+impl Encodable for LastWill {
+    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        self.properties.encode(writer)?;
+        write_bytes(writer, self.topic_name.as_bytes())?;
+        write_bytes(writer, self.payload.as_ref())?;
+        Ok(())
+    }
+
+    fn encode_len(&self) -> usize {
+        let mut len = self.properties.encode_len();
+        len += 4;
+        len += self.topic_name.len();
+        len += self.payload.len();
+        len
     }
 }
 
@@ -333,6 +523,99 @@ impl WillProperties {
             property_len -= 1;
         }
         Ok(properties)
+    }
+}
+
+impl Encodable for WillProperties {
+    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        let mut property_len = self.user_properties.len();
+        if self.delay_interval.is_some() {
+            property_len += 1;
+        }
+        if self.payload_is_utf8.is_some() {
+            property_len += 1;
+        }
+        if self.message_expiry_interval.is_some() {
+            property_len += 1;
+        }
+        if self.content_type.is_some() {
+            property_len += 1;
+        }
+        if self.response_topic.is_some() {
+            property_len += 1;
+        }
+        if self.correlation_data.is_some() {
+            property_len += 1;
+        }
+
+        write_var_int(writer, property_len)?;
+        if let Some(value) = self.delay_interval {
+            write_u8(writer, PropertyType::WillDelayInterval as u8)?;
+            write_u32(writer, value)?;
+        }
+        if let Some(value) = self.payload_is_utf8 {
+            write_u8(writer, PropertyType::PayloadFormatIndicator as u8)?;
+            write_u8(writer, if value { 1u8 } else { 0u8 })?;
+        }
+        if let Some(value) = self.message_expiry_interval {
+            write_u8(writer, PropertyType::MessageExpiryInterval as u8)?;
+            write_u32(writer, value)?;
+        }
+        if let Some(value) = self.content_type.as_ref() {
+            write_u8(writer, PropertyType::ContentType as u8)?;
+            write_bytes(writer, value.as_bytes())?;
+        }
+        if let Some(value) = self.response_topic.as_ref() {
+            write_u8(writer, PropertyType::ResponseTopic as u8)?;
+            write_bytes(writer, value.as_bytes())?;
+        }
+        if let Some(value) = self.correlation_data.as_ref() {
+            write_u8(writer, PropertyType::CorrelationData as u8)?;
+            write_bytes(writer, value.as_ref())?;
+        }
+        for UserProperty { name, value } in &self.user_properties {
+            write_u8(writer, PropertyType::UserProperty as u8)?;
+            write_bytes(writer, name.as_bytes())?;
+            write_bytes(writer, value.as_bytes())?;
+        }
+        Ok(())
+    }
+
+    fn encode_len(&self) -> usize {
+        let mut len = 0;
+        let mut property_len = self.user_properties.len();
+        if self.delay_interval.is_some() {
+            property_len += 1;
+            len += 4;
+        }
+        if self.payload_is_utf8.is_some() {
+            property_len += 1;
+            len += 1;
+        }
+        if self.message_expiry_interval.is_some() {
+            property_len += 1;
+            len += 4;
+        }
+        if let Some(value) = self.content_type.as_ref() {
+            property_len += 1;
+            len += 2 + value.len();
+        }
+        if let Some(value) = self.response_topic.as_ref() {
+            property_len += 1;
+            len += 2 + value.len();
+        }
+        if let Some(value) = self.correlation_data.as_ref() {
+            property_len += 1;
+            len += 2 + value.len();
+        }
+        len += var_int_len(property_len).expect("huge user properties");
+        len += property_len;
+        len += self
+            .user_properties
+            .iter()
+            .map(|property| 4 + property.name.len() + property.value.len())
+            .sum::<usize>();
+        len
     }
 }
 

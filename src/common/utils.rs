@@ -62,6 +62,22 @@ pub(crate) fn write_u8<W: io::Write>(writer: &mut W, value: u8) -> io::Result<()
     writer.write_all(slice::from_ref(&value))
 }
 
+#[inline]
+pub(crate) fn write_var_int<W: io::Write>(writer: &mut W, mut len: usize) -> io::Result<()> {
+    loop {
+        let mut byte = (len % 128) as u8;
+        len /= 128;
+        if len > 0 {
+            byte |= 128;
+        }
+        write_u8(writer, byte)?;
+        if len == 0 {
+            break;
+        }
+    }
+    Ok(())
+}
+
 macro_rules! packet_from {
     ($($t:ident),+) => {
         $(
@@ -104,6 +120,22 @@ pub async fn decode_var_int<T: AsyncRead + Unpin>(reader: &mut T) -> Result<(usi
     Ok((var_int, i + 1))
 }
 
+#[inline]
+pub fn var_int_len(value: usize) -> Result<usize, Error> {
+    let len = if value < 128 {
+        1
+    } else if value < 16384 {
+        2
+    } else if value < 2097152 {
+        3
+    } else if value < 268435456 {
+        4
+    } else {
+        return Err(Error::InvalidVarByteInt);
+    };
+    Ok(len)
+}
+
 /// Return the packet total encoded length by a given remaining length.
 #[inline]
 pub fn total_len(remaining_len: usize) -> Result<usize, Error> {
@@ -116,7 +148,7 @@ pub fn total_len(remaining_len: usize) -> Result<usize, Error> {
     } else if remaining_len < 268435456 {
         5
     } else {
-        return Err(Error::InvalidRemainingLength);
+        return Err(Error::InvalidVarByteInt);
     };
     Ok(header_len + remaining_len)
 }

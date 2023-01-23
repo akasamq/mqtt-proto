@@ -7,7 +7,8 @@ use futures_lite::{
 
 use super::{Connack, Connect, Publish, Suback, Subscribe, Unsubscribe};
 use crate::{
-    decode_raw_header, packet_from, read_u16, total_len, Encodable, Error, Pid, QoS, QosPid,
+    decode_raw_header, packet_from, read_u16, total_len, write_var_int, Encodable, Error, Pid, QoS,
+    QosPid,
 };
 
 /// MQTT v3.x packet types.
@@ -332,17 +333,7 @@ fn encode_with_pid(control_byte: u8, pid: Pid) -> [u8; 4] {
 #[inline]
 fn encode_header(buf: &mut Vec<u8>, control_byte: u8, mut remaining_len: usize) {
     buf.push(control_byte);
-    loop {
-        let mut byte = (remaining_len % 128) as u8;
-        remaining_len /= 128;
-        if remaining_len > 0 {
-            byte |= 128;
-        }
-        buf.push(byte);
-        if remaining_len == 0 {
-            break;
-        }
-    }
+    write_var_int(buf, remaining_len);
 }
 
 #[inline]

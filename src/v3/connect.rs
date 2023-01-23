@@ -76,7 +76,6 @@ impl Connect {
 
 impl Encodable for Connect {
     fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        self.protocol.encode(writer)?;
         let mut connect_flags: u8 = 0b00000000;
         if self.clean_session {
             connect_flags |= 0b10;
@@ -95,6 +94,7 @@ impl Encodable for Connect {
             }
         }
 
+        self.protocol.encode(writer)?;
         write_u8(writer, connect_flags)?;
         write_u16(writer, self.keep_alive)?;
         write_bytes(writer, self.client_id.as_bytes())?;
@@ -157,10 +157,10 @@ impl Connack {
 /// [MQTT 3.1.3.3]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718031
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LastWill {
-    pub topic_name: TopicName,
-    pub message: Bytes,
     pub qos: QoS,
     pub retain: bool,
+    pub topic_name: TopicName,
+    pub message: Bytes,
 }
 
 /// Return code of a [Connack] packet.
