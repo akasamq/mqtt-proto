@@ -75,27 +75,22 @@ impl Packet {
     /// Asynchronously decode a packet from an async reader.
     pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, ErrorV5> {
         let header = Header::decode_async(reader).await?;
-        let remaining_len = header.remaining_len;
         Ok(match header.typ {
             PacketType::Pingreq => Packet::Pingreq,
             PacketType::Pingresp => Packet::Pingresp,
             PacketType::Connect => Connect::decode_async(reader, header).await?.into(),
-            PacketType::Connack => Connack::decode_async(reader, remaining_len).await?.into(),
+            PacketType::Connack => Connack::decode_async(reader, header).await?.into(),
             PacketType::Publish => Publish::decode_async(reader, header).await?.into(),
-            PacketType::Puback => Puback::decode_async(reader, remaining_len).await?.into(),
-            PacketType::Pubrec => Pubrec::decode_async(reader, remaining_len).await?.into(),
-            PacketType::Pubrel => Pubrel::decode_async(reader, remaining_len).await?.into(),
-            PacketType::Pubcomp => Pubcomp::decode_async(reader, remaining_len).await?.into(),
-            PacketType::Subscribe => Subscribe::decode_async(reader, remaining_len).await?.into(),
-            PacketType::Suback => Suback::decode_async(reader, remaining_len).await?.into(),
-            PacketType::Unsubscribe => Unsubscribe::decode_async(reader, remaining_len)
-                .await?
-                .into(),
-            PacketType::Unsuback => Unsuback::decode_async(reader, remaining_len).await?.into(),
-            PacketType::Disconnect => Disconnect::decode_async(reader, remaining_len)
-                .await?
-                .into(),
-            PacketType::Auth => Auth::decode_async(reader, remaining_len).await?.into(),
+            PacketType::Puback => Puback::decode_async(reader, header).await?.into(),
+            PacketType::Pubrec => Pubrec::decode_async(reader, header).await?.into(),
+            PacketType::Pubrel => Pubrel::decode_async(reader, header).await?.into(),
+            PacketType::Pubcomp => Pubcomp::decode_async(reader, header).await?.into(),
+            PacketType::Subscribe => Subscribe::decode_async(reader, header).await?.into(),
+            PacketType::Suback => Suback::decode_async(reader, header).await?.into(),
+            PacketType::Unsubscribe => Unsubscribe::decode_async(reader, header).await?.into(),
+            PacketType::Unsuback => Unsuback::decode_async(reader, header).await?.into(),
+            PacketType::Disconnect => Disconnect::decode_async(reader, header).await?.into(),
+            PacketType::Auth => Auth::decode_async(reader, header).await?.into(),
         })
     }
 }

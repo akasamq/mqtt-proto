@@ -7,11 +7,11 @@ use futures_lite::io::{AsyncRead, AsyncReadExt};
 
 use super::{
     decode_properties, encode_properties, encode_properties_len, ErrorV5, Header, PacketType,
-    PropertyType, PropertyValue, UserProperty,
+    UserProperty,
 };
 use crate::{
-    decode_var_int, read_bytes, read_string, read_u16, read_u32, read_u8, var_int_len, write_bytes,
-    write_u16, write_u32, write_u8, write_var_int, Encodable, Error, Protocol, QoS, TopicName,
+    read_bytes, read_string, read_u16, read_u8, var_int_len, write_bytes, write_u16, write_u8,
+    Encodable, Error, Protocol, QoS, TopicName,
 };
 
 /// [Connect] packet payload type.
@@ -216,7 +216,6 @@ impl ConnectProperties {
             TopicAliasMaximum,
             RequestResponseInformation,
             RequestProblemInformation,
-            UserProperty,
             AuthenticationMethod,
             AuthenticationData,
         );
@@ -341,7 +340,6 @@ impl WillProperties {
             ContentType,
             ResponseTopic,
             CorrelationData,
-            UserProperty,
         );
         Ok(properties)
     }
@@ -378,30 +376,241 @@ impl Encodable for WillProperties {
     }
 }
 
+/// Connack packet payload type
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Connack {
     pub session_present: bool,
-    pub code: ConnectReturnCode,
+    pub reason_code: ConnectReasonCode,
+    pub properties: ConnackProperties,
 }
 
 impl Connack {
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
-        remaining_len: usize,
+        header: Header,
     ) -> Result<Self, ErrorV5> {
-        todo!()
+        let mut payload = [0u8; 2];
+        reader
+            .read_exact(&mut payload)
+            .await
+            .map_err(|err| Error::IoError(err.kind(), err.to_string()))?;
+        let session_present = match payload[0] {
+            0 => false,
+            1 => true,
+            _ => return Err(Error::InvalidConnackFlags(payload[0]).into()),
+        };
+        let reason_code = ConnectReasonCode::from_u8(payload[1])?;
+        let properties = ConnackProperties::decode_async(reader, header.typ).await?;
+        Ok(Connack {
+            session_present,
+            reason_code,
+            properties,
+        })
     }
 }
 
+impl Encodable for Connack {
+    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        write_u8(writer, u8::from(self.session_present))?;
+        write_u8(writer, self.reason_code as u8)?;
+        self.properties.encode(writer)?;
+        Ok(())
+    }
+
+    fn encode_len(&self) -> usize {
+        2 + self.properties.encode_len()
+    }
+}
+
+/// The connect reason code
+///
+/// | Dec  |  Hex | Reason Code name              | Description                                                                                              |
+/// |-----|------|-------------------------------|----------------------------------------------------------------------------------------------------------|
+/// |   0 | 0x00 | Success                       | The Connection is accepted.                                                                              |
+/// | 128 | 0x80 | Unspecified error             | The Server does not wish to reveal the reason for the failure, or none of the other Reason Codes apply.  |
+/// | 129 | 0x81 | Malformed Packet              | Data within the CONNECT packet could not be correctly parsed.                                            |
+/// | 130 | 0x82 | Protocol Error                | Data in the CONNECT packet does not conform to this specification.                                       |
+/// | 131 | 0x83 | Implementation specific error | The CONNECT is valid but is not accepted by this Server.                                                 |
+/// | 132 | 0x84 | Unsupported Protocol Version  | The Server does not support the version of the MQTT protocol requested by the Client.                    |
+/// | 133 | 0x85 | Client Identifier not valid   | The Client Identifier is a valid string but is not allowed by the Server.                                |
+/// | 134 | 0x86 | Bad User Name or Password     | The Server does not accept the User Name or Password specified by the Client                             |
+/// | 135 | 0x87 | Not authorized                | The Client is not authorized to connect.                                                                 |
+/// | 136 | 0x88 | Server unavailable            | The MQTT Server is not available.                                                                        |
+/// | 137 | 0x89 | Server busy                   | The Server is busy. Try again later.                                                                     |
+/// | 138 | 0x8A | Banned                        | This Client has been banned by administrative action. Contact the server administrator.                  |
+/// | 140 | 0x8C | Bad authentication method     | The authentication method is not supported or does not match the authentication method currently in use. |
+/// | 144 | 0x90 | Topic Name invalid            | The Will Topic Name is not malformed, but is not accepted by this Server.                                |
+/// | 149 | 0x95 | Packet too large              | The CONNECT packet exceeded the maximum permissible size.                                                |
+/// | 151 | 0x97 | Quota exceeded                | An implementation or administrative imposed limit has been exceeded.                                     |
+/// | 153 | 0x99 | Payload format invalid        | The Will Payload does not match the specified Payload Format Indicator.                                  |
+/// | 154 | 0x9A | Retain not supported          | The Server does not support retained messages, and Will Retain was set to 1.                             |
+/// | 155 | 0x9B | QoS not supported             | The Server does not support the QoS set in Will QoS.                                                     |
+/// | 156 | 0x9C | Use another server            | The Client should temporarily use another server.                                                        |
+/// | 157 | 0x9D | Server moved                  | The Client should permanently use another server.                                                        |
+/// | 159 | 0x9F | Connection rate exceeded      | The connection rate limit has been exceeded.                                                             |
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ConnectReturnCode {
-    Accepted = 0,
-    UnacceptableProtocolVersion = 1,
-    IdentifierRejected = 2,
-    ServerUnavailable = 3,
-    BadUsernamePassword = 4,
-    NotAuthorized = 5,
+pub enum ConnectReasonCode {
+    Success = 0x00,
+    UnspecifiedError = 0x80,
+    MalformedPacket = 0x81,
+    ProtocolError = 0x82,
+    ImplementationSpecificError = 0x83,
+    UnsupportedProtocolVersion = 0x84,
+    ClientIdentifierNotValid = 0x85,
+    BadUserNameOrPassword = 0x86,
+    NotAuthorized = 0x87,
+    ServerUnavailable = 0x88,
+    ServerBusy = 0x89,
+    Banned = 0x8A,
+    BadAuthMethod = 0x8C,
+    TopicNameInvalid = 0x90,
+    PacketTooLarge = 0x95,
+    QuotaExceeded = 0x97,
+    PayloadFormatInvalid = 0x99,
+    RetainNotSupported = 0x9A,
+    QoSNotSupported = 0x9B,
+    UseAnotherServer = 0x9C,
+    ServerMoved = 0x9D,
+    ConnectionRateExceeded = 0x9F,
+}
+
+impl ConnectReasonCode {
+    pub fn from_u8(value: u8) -> Result<ConnectReasonCode, ErrorV5> {
+        let code = match value {
+            0x00 => ConnectReasonCode::Success,
+            0x80 => ConnectReasonCode::UnspecifiedError,
+            0x81 => ConnectReasonCode::MalformedPacket,
+            0x82 => ConnectReasonCode::ProtocolError,
+            0x83 => ConnectReasonCode::ImplementationSpecificError,
+            0x84 => ConnectReasonCode::UnsupportedProtocolVersion,
+            0x85 => ConnectReasonCode::ClientIdentifierNotValid,
+            0x86 => ConnectReasonCode::BadUserNameOrPassword,
+            0x87 => ConnectReasonCode::NotAuthorized,
+            0x88 => ConnectReasonCode::ServerUnavailable,
+            0x89 => ConnectReasonCode::ServerBusy,
+            0x8A => ConnectReasonCode::Banned,
+            0x8C => ConnectReasonCode::BadAuthMethod,
+            0x90 => ConnectReasonCode::TopicNameInvalid,
+            0x95 => ConnectReasonCode::PacketTooLarge,
+            0x97 => ConnectReasonCode::QuotaExceeded,
+            0x99 => ConnectReasonCode::PayloadFormatInvalid,
+            0x9A => ConnectReasonCode::RetainNotSupported,
+            0x9B => ConnectReasonCode::QoSNotSupported,
+            0x9C => ConnectReasonCode::UseAnotherServer,
+            0x9D => ConnectReasonCode::ServerMoved,
+            0x9F => ConnectReasonCode::ConnectionRateExceeded,
+            _ => return Err(ErrorV5::InvalidConnectReasonCode(value)),
+        };
+        Ok(code)
+    }
+}
+
+/// Property list for connack packet.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ConnackProperties {
+    pub session_expiry_interval: Option<u32>,
+    pub receive_max: Option<u16>,
+    pub max_qos: Option<QoS>,
+    pub retain_available: Option<bool>,
+    pub max_packet_size: Option<u32>,
+    pub assigned_client_id: Option<Arc<String>>,
+    pub topic_alias_max: Option<u16>,
+    pub reason_string: Option<Arc<String>>,
+    pub user_properties: Vec<UserProperty>,
+    pub wildcard_subscription_available: Option<bool>,
+    pub subscription_id_available: Option<bool>,
+    pub shared_subscription_available: Option<bool>,
+    pub server_keep_alive: Option<u16>,
+    pub response_info: Option<Arc<String>>,
+    pub server_reference: Option<Arc<String>>,
+    pub auth_method: Option<Arc<String>>,
+    pub auth_data: Option<Bytes>,
+}
+
+impl ConnackProperties {
+    pub(crate) async fn decode_async<T: AsyncRead + Unpin>(
+        reader: &mut T,
+        packet_type: PacketType,
+    ) -> Result<Self, ErrorV5> {
+        let mut properties = ConnackProperties::default();
+        decode_properties!(
+            packet_type,
+            properties,
+            reader,
+            SessionExpiryInterval,
+            ReceiveMaximum,
+            MaximumQoS,
+            RetainAvailable,
+            MaximumPacketSize,
+            AssignedClientIdentifier,
+            TopicAliasMaximum,
+            ReasonString,
+            WildcardSubscriptionAvailable,
+            SubscriptionIdentifierAvailable,
+            SharedSubscriptionAvailable,
+            ServerKeepAlive,
+            ResponseInformation,
+            ServerReference,
+            AuthenticationMethod,
+            AuthenticationData,
+        );
+        if properties.auth_data.is_some() && properties.auth_method.is_none() {
+            return Err(ErrorV5::AuthMethodMissing);
+        }
+        Ok(properties)
+    }
+}
+
+impl Encodable for ConnackProperties {
+    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        encode_properties!(
+            self,
+            writer,
+            SessionExpiryInterval,
+            ReceiveMaximum,
+            MaximumQoS,
+            RetainAvailable,
+            MaximumPacketSize,
+            AssignedClientIdentifier,
+            TopicAliasMaximum,
+            ReasonString,
+            WildcardSubscriptionAvailable,
+            SubscriptionIdentifierAvailable,
+            SharedSubscriptionAvailable,
+            ServerKeepAlive,
+            ResponseInformation,
+            ServerReference,
+            AuthenticationMethod,
+            AuthenticationData,
+        );
+        Ok(())
+    }
+
+    fn encode_len(&self) -> usize {
+        let mut len = 0;
+        encode_properties_len!(
+            self,
+            len,
+            SessionExpiryInterval,
+            ReceiveMaximum,
+            MaximumQoS,
+            RetainAvailable,
+            MaximumPacketSize,
+            AssignedClientIdentifier,
+            TopicAliasMaximum,
+            ReasonString,
+            WildcardSubscriptionAvailable,
+            SubscriptionIdentifierAvailable,
+            SharedSubscriptionAvailable,
+            ServerKeepAlive,
+            ResponseInformation,
+            ServerReference,
+            AuthenticationMethod,
+            AuthenticationData,
+        );
+        len
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -410,7 +619,7 @@ pub struct Disconnect;
 impl Disconnect {
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
-        remaining_len: usize,
+        header: Header,
     ) -> Result<Self, ErrorV5> {
         todo!()
     }
@@ -422,7 +631,7 @@ pub struct Auth;
 impl Auth {
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
-        remaining_len: usize,
+        header: Header,
     ) -> Result<Self, ErrorV5> {
         todo!()
     }

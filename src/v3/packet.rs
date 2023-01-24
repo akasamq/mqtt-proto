@@ -331,7 +331,7 @@ fn encode_with_pid(control_byte: u8, pid: Pid) -> [u8; 4] {
 }
 
 #[inline]
-fn encode_header(buf: &mut Vec<u8>, control_byte: u8, mut remaining_len: usize) {
+fn encode_header(buf: &mut Vec<u8>, control_byte: u8, remaining_len: usize) {
     buf.push(control_byte);
     write_var_int(buf, remaining_len).expect("encode header write var int");
 }

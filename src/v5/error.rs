@@ -12,6 +12,9 @@ pub enum ErrorV5 {
     #[error("unexpected protocol version: `{0}`, expected `v5.0`")]
     UnexpectedProtocol(Protocol),
 
+    #[error("invalid connect reason code: `{0}`")]
+    InvalidConnectReasonCode(u8),
+
     #[error("invalid property type: `{0}`")]
     InvalidPropertyType(u8),
 

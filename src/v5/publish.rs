@@ -29,7 +29,7 @@ pub struct Puback;
 impl Puback {
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
-        remaining_len: usize,
+        header: Header,
     ) -> Result<Self, ErrorV5> {
         todo!()
     }
@@ -41,7 +41,7 @@ pub struct Pubrec;
 impl Pubrec {
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
-        remaining_len: usize,
+        header: Header,
     ) -> Result<Self, ErrorV5> {
         todo!()
     }
@@ -53,7 +53,7 @@ pub struct Pubrel;
 impl Pubrel {
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
-        remaining_len: usize,
+        header: Header,
     ) -> Result<Self, ErrorV5> {
         todo!()
     }
@@ -65,7 +65,7 @@ pub struct Pubcomp;
 impl Pubcomp {
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
-        remaining_len: usize,
+        header: Header,
     ) -> Result<Self, ErrorV5> {
         todo!()
     }

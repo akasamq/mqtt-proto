@@ -384,7 +384,7 @@ macro_rules! decode_property {
                 value,
             ));
         } else {
-            $properties.max_qos = Some(crate::QoS::from_u8(value)?);
+            $properties.max_qos = Some(crate::QoS::from_u8(value).expect("0/1 qos"));
         }
     };
     (RetainAvailable, $properties:expr, $reader:expr, $property_type:expr) => {
@@ -404,6 +404,14 @@ macro_rules! decode_property {
             $reader,
             $property_type,
             &mut $properties.max_packet_size,
+        )
+        .await?;
+    };
+    (WildcardSubscriptionAvailable, $properties:expr, $reader:expr, $property_type:expr) => {
+        crate::v5::PropertyValue::decode_bool(
+            $reader,
+            $property_type,
+            &mut $properties.wildcard_subscription_available,
         )
         .await?;
     };
@@ -436,6 +444,9 @@ macro_rules! decode_properties {
                         crate::v5::decode_property!($t, $properties, $reader, property_type);
                     }
                 )+
+                    crate::v5::PropertyType::UserProperty => {
+                        crate::v5::decode_property!(UserProperty, $properties, $reader, property_type);
+                    }
                     _ => return Err(crate::v5::ErrorV5::InvalidWillProperty(property_type)),
             }
             property_len -= 1;
@@ -451,6 +462,9 @@ macro_rules! decode_properties {
                         crate::v5::decode_property!($t, $properties, $reader, property_type);
                     }
                 )+
+                    crate::v5::PropertyType::UserProperty => {
+                        crate::v5::decode_property!(UserProperty, $properties, $reader, property_type);
+                    }
                     _ => return Err(crate::v5::ErrorV5::InvalidProperty(property_type, $packet_type)),
             }
             property_len -= 1;
@@ -531,6 +545,9 @@ macro_rules! property_field {
     (MaximumPacketSize, $properties:expr) => {
         $properties.max_packet_size
     };
+    (WildcardSubscriptionAvailable, $properties: expr) => {
+        $properties.wildcard_subscription_available
+    };
     (SubscriptionIdentifierAvailable, $properties:expr) => {
         $properties.subscription_id_available
     };
@@ -577,7 +594,13 @@ macro_rules! encode_property {
         }
     };
     (SubscriptionIdentifier, $properties:expr, $writer: expr) => {
-        $properties.subscription_id
+        if let Some(value) = $properties.subscription_id {
+            crate::write_u8(
+                $writer,
+                crate::v5::PropertyType::SubscriptionIdentifier as u8,
+            )?;
+            crate::write_var_int($writer, value)?;
+        }
     };
     (SessionExpiryInterval, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.session_expiry_interval {
@@ -589,10 +612,19 @@ macro_rules! encode_property {
         }
     };
     (AssignedClientIdentifier, $properties:expr, $writer: expr) => {
-        $properties.assigned_client_id
+        if let Some(value) = $properties.assigned_client_id.as_ref() {
+            crate::write_u8(
+                $writer,
+                crate::v5::PropertyType::AssignedClientIdentifier as u8,
+            )?;
+            crate::write_bytes($writer, value.as_bytes())?;
+        }
     };
     (ServerKeepAlive, $properties:expr, $writer: expr) => {
-        $properties.server_keep_alive
+        if let Some(value) = $properties.server_keep_alive {
+            crate::write_u8($writer, crate::v5::PropertyType::ServerKeepAlive as u8)?;
+            crate::write_u16($writer, value)?;
+        }
     };
     (AuthenticationMethod, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.auth_method.as_ref() {
@@ -631,13 +663,22 @@ macro_rules! encode_property {
         }
     };
     (ResponseInformation, $properties:expr, $writer: expr) => {
-        $properties.response_info
+        if let Some(value) = $properties.response_info.as_ref() {
+            crate::write_u8($writer, crate::v5::PropertyType::ResponseInformation as u8)?;
+            crate::write_bytes($writer, value.as_bytes())?;
+        }
     };
     (ServerReference, $properties:expr, $writer: expr) => {
-        $properties.server_reference
+        if let Some(value) = $properties.server_reference.as_ref() {
+            crate::write_u8($writer, crate::v5::PropertyType::ServerReference as u8)?;
+            crate::write_bytes($writer, value.as_bytes())?;
+        }
     };
     (ReasonString, $properties:expr, $writer: expr) => {
-        $properties.reason_string
+        if let Some(value) = $properties.reason_string.as_ref() {
+            crate::write_u8($writer, crate::v5::PropertyType::ReasonString as u8)?;
+            crate::write_bytes($writer, value.as_bytes())?;
+        }
     };
     (ReceiveMaximum, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.receive_max {
@@ -652,13 +693,22 @@ macro_rules! encode_property {
         }
     };
     (TopicAlias, $properties:expr, $writer: expr) => {
-        $properties.topic_alias
+        if let Some(value) = $properties.topic_alias {
+            crate::write_u8($writer, crate::v5::PropertyType::TopicAlias as u8)?;
+            crate::write_u16($writer, value)?;
+        }
     };
     (MaximumQoS, $properties:expr, $writer: expr) => {
-        $properties.max_qos
+        if let Some(value) = $properties.max_qos {
+            crate::write_u8($writer, crate::v5::PropertyType::MaximumQoS as u8)?;
+            crate::write_u8($writer, value as u8)?;
+        }
     };
     (RetainAvailable, $properties:expr, $writer: expr) => {
-        $properties.retain_available
+        if let Some(value) = $properties.retain_available {
+            crate::write_u8($writer, crate::v5::PropertyType::RetainAvailable as u8)?;
+            crate::write_u8($writer, u8::from(value))?;
+        }
     };
     (MaximumPacketSize, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.max_packet_size {
@@ -666,11 +716,32 @@ macro_rules! encode_property {
             crate::write_u32($writer, value)?;
         }
     };
+    (WildcardSubscriptionAvailable, $properties:expr, $writer: expr) => {
+        if let Some(value) = $properties.wildcard_subscription_available {
+            crate::write_u8(
+                $writer,
+                crate::v5::PropertyType::WildcardSubscriptionAvailable as u8,
+            )?;
+            crate::write_u8($writer, u8::from(value))?;
+        }
+    };
     (SubscriptionIdentifierAvailable, $properties:expr, $writer: expr) => {
-        $properties.subscription_id_available
+        if let Some(value) = $properties.subscription_id_available {
+            crate::write_u8(
+                $writer,
+                crate::v5::PropertyType::SubscriptionIdentifierAvailable as u8,
+            )?;
+            crate::write_u8($writer, u8::from(value))?;
+        }
     };
     (SharedSubscriptionAvailable, $properties:expr, $writer: expr) => {
-        $properties.shared_subscription_available
+        if let Some(value) = $properties.shared_subscription_available {
+            crate::write_u8(
+                $writer,
+                crate::v5::PropertyType::SharedSubscriptionAvailable as u8,
+            )?;
+            crate::write_u8($writer, u8::from(value))?;
+        }
     };
 }
 
@@ -733,7 +804,10 @@ macro_rules! encode_property_len {
         }
     };
     (SubscriptionIdentifier, $properties:expr, $len:expr, $property_len:expr) => {
-        $properties.subscription_id
+        if let Some(value) = $properties.subscription_id {
+            $property_len += 1;
+            $len += crate::var_int_len(value).expect("subscription id too large");
+        }
     };
     (SessionExpiryInterval, $properties:expr, $len:expr, $property_len:expr) => {
         if $properties.session_expiry_interval.is_some() {
@@ -742,10 +816,16 @@ macro_rules! encode_property_len {
         }
     };
     (AssignedClientIdentifier, $properties:expr, $len:expr, $property_len:expr) => {
-        $properties.assigned_client_id
+        if let Some(value) = $properties.assigned_client_id.as_ref() {
+            $property_len += 1;
+            $len += 2 + value.len();
+        }
     };
     (ServerKeepAlive, $properties:expr, $len:expr, $property_len:expr) => {
-        $properties.server_keep_alive
+        if $properties.server_keep_alive.is_some() {
+            $property_len += 1;
+            $len += 2;
+        }
     };
     (AuthenticationMethod, $properties:expr, $len:expr, $property_len:expr) => {
         if let Some(value) = $properties.auth_method.as_ref() {
@@ -778,13 +858,22 @@ macro_rules! encode_property_len {
         }
     };
     (ResponseInformation, $properties:expr, $len:expr, $property_len:expr) => {
-        $properties.response_info
+        if let Some(value) = $properties.response_info.as_ref() {
+            $property_len += 1;
+            $len += 2 + value.len();
+        }
     };
     (ServerReference, $properties:expr, $len:expr, $property_len:expr) => {
-        $properties.server_reference
+        if let Some(value) = $properties.server_reference.as_ref() {
+            $property_len += 1;
+            $len += 2 + value.len();
+        }
     };
     (ReasonString, $properties:expr, $len:expr, $property_len:expr) => {
-        $properties.reason_string
+        if let Some(value) = $properties.reason_string.as_ref() {
+            $property_len += 1;
+            $len += 2 + value.len();
+        }
     };
     (ReceiveMaximum, $properties:expr, $len:expr, $property_len:expr) => {
         if $properties.receive_max.is_some() {
@@ -799,13 +888,22 @@ macro_rules! encode_property_len {
         }
     };
     (TopicAlias, $properties:expr, $len:expr, $property_len:expr) => {
-        $properties.topic_alias
+        if $properties.topic_alias.is_some() {
+            $property_len += 1;
+            $len += 2;
+        }
     };
     (MaximumQoS, $properties:expr, $len:expr, $property_len:expr) => {
-        $properties.max_qos
+        if $properties.max_qos.is_some() {
+            $property_len += 1;
+            $len += 1;
+        }
     };
     (RetainAvailable, $properties:expr, $len:expr, $property_len:expr) => {
-        $properties.retain_available
+        if $properties.retain_available.is_some() {
+            $property_len += 1;
+            $len += 1;
+        }
     };
     (MaximumPacketSize, $properties:expr, $len:expr, $property_len:expr) => {
         if $properties.max_packet_size.is_some() {
@@ -813,11 +911,23 @@ macro_rules! encode_property_len {
             $len += 4;
         }
     };
+    (WildcardSubscriptionAvailable, $properties:expr, $len:expr, $property_len:expr) => {
+        if $properties.wildcard_subscription_available.is_some() {
+            $property_len += 1;
+            $len += 1;
+        }
+    };
     (SubscriptionIdentifierAvailable, $properties:expr, $len:expr, $property_len:expr) => {
-        $properties.subscription_id_available
+        if $properties.subscription_id_available.is_some() {
+            $property_len += 1;
+            $len += 1;
+        }
     };
     (SharedSubscriptionAvailable, $properties:expr, $len:expr, $property_len:expr) => {
-        $properties.shared_subscription_available
+        if $properties.shared_subscription_available.is_some() {
+            $property_len += 1;
+            $len += 1;
+        }
     };
 }
 

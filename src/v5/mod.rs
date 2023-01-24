@@ -1,7 +1,5 @@
 //! Codec for MQTT v5.0
 
-use std::sync::Arc;
-
 mod connect;
 mod error;
 mod packet;
@@ -15,7 +13,8 @@ pub(crate) use types::{
 };
 
 pub use connect::{
-    Auth, Connack, Connect, ConnectProperties, Disconnect, LastWill, WillProperties,
+    Auth, Connack, ConnackProperties, Connect, ConnectProperties, ConnectReasonCode, Disconnect,
+    LastWill, WillProperties,
 };
 pub use error::ErrorV5;
 pub use packet::{Header, Packet, PacketType};
