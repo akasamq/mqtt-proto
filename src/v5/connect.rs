@@ -261,7 +261,7 @@ impl Encodable for ConnectProperties {
     }
 }
 
-/// The will message.
+/// The will message for CONNECT packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LastWill {
     pub qos: QoS,

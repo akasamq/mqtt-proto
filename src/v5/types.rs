@@ -805,7 +805,7 @@ macro_rules! encode_property_len {
     (SubscriptionIdentifier, $properties:expr, $len:expr, $property_len:expr) => {
         if let Some(value) = $properties.subscription_id {
             $property_len += 1;
-            $len += crate::var_int_len(value).expect("subscription id too large");
+            $len += crate::var_int_len(value).expect("subscription id exceed 268,435,455");
         }
     };
     (SessionExpiryInterval, $properties:expr, $len:expr, $property_len:expr) => {
@@ -938,7 +938,7 @@ macro_rules! encode_properties_len {
             crate::v5::encode_property_len!($t, $properties, $len, property_len);
         )+
 
-            $len += var_int_len(property_len).expect("huge user properties");
+            $len += var_int_len(property_len).expect("user properties length exceed 268,435,455");
         $len += property_len;
         $len += $properties
             .user_properties
