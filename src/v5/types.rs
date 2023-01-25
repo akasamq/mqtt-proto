@@ -755,10 +755,9 @@ macro_rules! encode_properties {
         )+
 
             crate::write_var_int($writer, property_len)?;
-
         $(
             crate::v5::encode_property!($t, $properties, $writer);
-        ) +
+        )+
 
             for UserProperty { name, value } in $properties.user_properties.iter() {
                 crate::write_u8($writer, crate::v5::PropertyType::UserProperty as u8)?;
@@ -933,6 +932,7 @@ macro_rules! encode_property_len {
 
 macro_rules! encode_properties_len {
     ($properties:expr, $len:expr, $($t:ident,)+) => {
+        // Every properties have user property
         let mut property_len = $properties.user_properties.len();
         $(
             crate::v5::encode_property_len!($t, $properties, $len, property_len);

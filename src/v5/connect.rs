@@ -14,9 +14,9 @@ use crate::{
     Encodable, Error, Protocol, QoS, TopicName,
 };
 
-/// [Connect] packet payload type.
+/// Payload type of [CONNECT] packet.
 ///
-/// [Connect]: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901033
+/// [CONNECT]: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901033
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Connect {
     /// The [protocol version](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901036).
@@ -177,7 +177,7 @@ impl Encodable for Connect {
     }
 }
 
-/// Property list for connect packet.
+/// Property list for CONNECT packet.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ConnectProperties {
     /// [Session Expiry Interval](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901048)
@@ -261,6 +261,7 @@ impl Encodable for ConnectProperties {
     }
 }
 
+/// The will message.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LastWill {
     pub qos: QoS,
@@ -306,7 +307,7 @@ impl Encodable for LastWill {
     }
 }
 
-/// Property list for will message in connect packet.
+/// Property list for will message in CONNECT packet.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct WillProperties {
     ///
@@ -376,7 +377,7 @@ impl Encodable for WillProperties {
     }
 }
 
-/// Connack packet payload type
+/// Payload type of CONNACK packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Connack {
     pub session_present: bool,
@@ -422,7 +423,7 @@ impl Encodable for Connack {
     }
 }
 
-/// The connect reason code
+/// Reason code for CONNECT packet.
 ///
 /// | Dec  |  Hex | Reason Code name              | Description                                                                                              |
 /// |-----|------|-------------------------------|----------------------------------------------------------------------------------------------------------|
@@ -506,7 +507,7 @@ impl ConnectReasonCode {
     }
 }
 
-/// Property list for connack packet.
+/// Property list for CONNACK packet.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ConnackProperties {
     pub session_expiry_interval: Option<u32>,
@@ -613,26 +614,350 @@ impl Encodable for ConnackProperties {
     }
 }
 
+/// Payload type for DISCONNECT packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Disconnect;
+pub struct Disconnect {
+    pub reason_code: DisconnectReasonCode,
+    pub properties: DisconnectProperties,
+}
 
 impl Disconnect {
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,
     ) -> Result<Self, ErrorV5> {
-        todo!()
+        let payload = if header.remaining_len == 0 {
+            Disconnect {
+                reason_code: DisconnectReasonCode::NormalDisconnect,
+                properties: DisconnectProperties::default(),
+            }
+        } else {
+            let reason_code = DisconnectReasonCode::from_u8(read_u8(reader).await?)?;
+            let properties = DisconnectProperties::decode_async(reader, header.typ).await?;
+            Disconnect {
+                reason_code,
+                properties,
+            }
+        };
+        Ok(payload)
     }
 }
 
+impl Encodable for Disconnect {
+    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        if self.properties == DisconnectProperties::default() {
+            if self.reason_code != DisconnectReasonCode::NormalDisconnect {
+                write_u8(writer, self.reason_code as u8)?;
+            }
+        } else {
+            write_u8(writer, self.reason_code as u8)?;
+            self.properties.encode(writer)?;
+        }
+        Ok(())
+    }
+
+    fn encode_len(&self) -> usize {
+        if self.properties == DisconnectProperties::default() {
+            if self.reason_code == DisconnectReasonCode::NormalDisconnect {
+                0
+            } else {
+                1
+            }
+        } else {
+            1 + self.properties.encode_len()
+        }
+    }
+}
+
+/// Reason code for DISCONNECT packet.
+///
+/// | Dec |  Hex | Reason Code name                       | Sent by       | Description                                                                                    |
+/// |-----|------|----------------------------------------|---------------|------------------------------------------------------------------------------------------------|
+/// |   0 | 0x00 | Normal disconnection                   | Client/Server | Close the connection normally. Do not send the Will Message.                                   |
+/// |   4 | 0x04 | Disconnect with Will Message           | Client        | The Client wishes to disconnect but requires that the Server also publishes its Will Message.  |
+/// | 128 | 0x80 | Unspecified error                      | Client/Server | The Connection is closed but the sender either does not wish to reveal the reason, \           |
+/// |     |      |                                        |               | or none of the other Reason Codes apply.                                                       |
+/// | 129 | 0x81 | Malformed Packet                       | Client/Server | The received packet does not conform to this specification.                                    |
+/// | 130 | 0x82 | Protocol Error                         | Client/Server | An unexpected or out of order packet was received.                                             |
+/// | 131 | 0x83 | Implementation specific error          | Client/Server | The packet received is valid but cannot be processed by this implementation.                   |
+/// | 135 | 0x87 | Not authorized                         | Server        | The request is not authorized.                                                                 |
+/// | 137 | 0x89 | Server busy                            | Server        | The Server is busy and cannot continue processing requests from this Client.                   |
+/// | 139 | 0x8B | Server shutting down                   | Server        | The Server is shutting down.                                                                   |
+/// | 141 | 0x8D | Keep Alive timeout                     | Server        | The Connection is closed because no packet has been received for 1.5 times the Keepalive time. |
+/// | 142 | 0x8E | Session taken over                     | Server        | Another Connection using the same ClientID has connected causing this Connection to be closed. |
+/// | 143 | 0x8F | Topic Filter invalid                   | Server        | The Topic Filter is correctly formed, but is not accepted by this Sever.                       |
+/// | 144 | 0x90 | Topic Name invalid                     | Client/Server | The Topic Name is correctly formed, but is not accepted by this Client/Server.                 |
+/// | 147 | 0x93 | Receive Maximum exceeded               | Client/Server | The Client/Server has received more than Receive Maximum publication for \                     |
+/// |     |      |                                        |               | which it has not sent PUBACK or PUBCOMP.                                                       |
+/// | 148 | 0x94 | Topic Alias invalid                    | Client/Server | The Client/Server has received a PUBLISH packet containing a Topic Alias \                     |
+/// |     |      |                                        |               | which is greater than the Maximum Topic Alias it sent in the CONNECT or CONNACK packet.        |
+/// | 149 | 0x95 | Packet too large                       | Client/Server | The packet size is greater than Maximum Packet Size for this Client/Server.                    |
+/// | 150 | 0x96 | Message rate too high                  | Client/Server | The received data rate is too high.                                                            |
+/// | 151 | 0x97 | Quota exceeded                         | Client/Server | An implementation or administrative imposed limit has been exceeded.                           |
+/// | 152 | 0x98 | Administrative action                  | Client/Server | The Connection is closed due to an administrative action.                                      |
+/// | 153 | 0x99 | Payload format invalid                 | Client/Server | The payload format does not match the one specified by the Payload Format Indicator.           |
+/// | 154 | 0x9A | Retain not supported                   | Server        | The Server has does not support retained messages.                                             |
+/// | 155 | 0x9B | QoS not supported                      | Server        | The Client specified a QoS greater than the QoS specified in a Maximum QoS in the CONNACK.     |
+/// | 156 | 0x9C | Use another server                     | Server        | The Client should temporarily change its Server.                                               |
+/// | 157 | 0x9D | Server moved                           | Server        | The Server is moved and the Client should permanently change its server location.              |
+/// | 158 | 0x9E | Shared Subscriptions not supported     | Server        | The Server does not support Shared Subscriptions.                                              |
+/// | 159 | 0x9F | Connection rate exceeded               | Server        | This connection is closed because the connection rate is too high.                             |
+/// | 160 | 0xA0 | Maximum connect time                   | Server        | The maximum connection time authorized for this connection has been exceeded.                  |
+/// | 161 | 0xA1 | Subscription Identifiers not supported | Server        | The Server does not support Subscription Identifiers; the subscription is not accepted.        |
+/// | 162 | 0xA2 | Wildcard Subscriptions not supported   | Server        | The Server does not support Wildcard Subscriptions; the subscription is not accepted.          |
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum DisconnectReasonCode {
+    NormalDisconnect = 0x00,
+    DisconnectWithWillMessage = 0x04,
+    UnspecifiedError = 0x80,
+    MalformedPacket = 0x81,
+    ProtocolError = 0x82,
+    ImplementationSpecificError = 0x83,
+    NotAuthorized = 0x87,
+    ServerBusy = 0x89,
+    ServerShuttingDown = 0x8B,
+    KeepAliveTimeout = 0x8D,
+    SessionTakenOver = 0x8E,
+    TopicFilterInvalid = 0x8F,
+    TopicNameInvalid = 0x90,
+    ReceiveMaximumExceeded = 0x93,
+    TopicAliasInvalid = 0x94,
+    PacketTooLarge = 0x95,
+    MessageRateTooHigh = 0x96,
+    QuotaExceeded = 0x97,
+    AdministrativeAction = 0x98,
+    PayloadFormatInvalid = 0x99,
+    RetainNotSupported = 0x9A,
+    QoSNotSupported = 0x9B,
+    UserAnotherServer = 0x9C,
+    ServerMoved = 0x9D,
+    SharedSubscriptionNotSupported = 0x9E,
+    ConnectionRateExceeded = 0x9F,
+    MaximumConnectTime = 0xA0,
+    SubscriptionIdentifiersNotSupported = 0xA1,
+    WildcardSubscriptionsNotSupported = 0xA2,
+}
+
+impl DisconnectReasonCode {
+    pub fn from_u8(value: u8) -> Result<Self, ErrorV5> {
+        let code = match value {
+            0x00 => Self::NormalDisconnect,
+            0x04 => Self::DisconnectWithWillMessage,
+            0x80 => Self::UnspecifiedError,
+            0x81 => Self::MalformedPacket,
+            0x82 => Self::ImplementationSpecificError,
+            0x83 => Self::ProtocolError,
+            0x87 => Self::NotAuthorized,
+            0x89 => Self::ServerBusy,
+            0x8B => Self::ServerShuttingDown,
+            0x8D => Self::KeepAliveTimeout,
+            0x8E => Self::SessionTakenOver,
+            0x8F => Self::TopicFilterInvalid,
+            0x90 => Self::TopicNameInvalid,
+            0x93 => Self::ReceiveMaximumExceeded,
+            0x94 => Self::TopicAliasInvalid,
+            0x95 => Self::PacketTooLarge,
+            0x96 => Self::MessageRateTooHigh,
+            0x97 => Self::QuotaExceeded,
+            0x98 => Self::AdministrativeAction,
+            0x99 => Self::PayloadFormatInvalid,
+            0x9A => Self::RetainNotSupported,
+            0x9B => Self::QoSNotSupported,
+            0x9C => Self::UserAnotherServer,
+            0x9D => Self::ServerMoved,
+            0x9E => Self::SharedSubscriptionNotSupported,
+            0x9F => Self::ConnectionRateExceeded,
+            0xA0 => Self::MaximumConnectTime,
+            0xA1 => Self::SubscriptionIdentifiersNotSupported,
+            0xA2 => Self::WildcardSubscriptionsNotSupported,
+            _ => return Err(ErrorV5::InvalidDisconnectReasonCode(value)),
+        };
+        Ok(code)
+    }
+}
+
+/// Property list for DISCONNECT packet.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct DisconnectProperties {
+    pub session_expiry_interval: Option<u32>,
+    pub reason_string: Option<Arc<String>>,
+    pub user_properties: Vec<UserProperty>,
+    pub server_reference: Option<Arc<String>>,
+}
+
+impl DisconnectProperties {
+    pub(crate) async fn decode_async<T: AsyncRead + Unpin>(
+        reader: &mut T,
+        packet_type: PacketType,
+    ) -> Result<Self, ErrorV5> {
+        let mut properties = DisconnectProperties::default();
+        decode_properties!(
+            packet_type,
+            properties,
+            reader,
+            SessionExpiryInterval,
+            ReasonString,
+            ServerReference,
+        );
+        Ok(properties)
+    }
+}
+
+impl Encodable for DisconnectProperties {
+    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        encode_properties!(
+            self,
+            writer,
+            SessionExpiryInterval,
+            ReasonString,
+            ServerReference,
+        );
+        Ok(())
+    }
+
+    fn encode_len(&self) -> usize {
+        let mut len = 0;
+        encode_properties_len!(
+            self,
+            len,
+            SessionExpiryInterval,
+            ReasonString,
+            ServerReference,
+        );
+        len
+    }
+}
+
+/// Payload type of AUTH packet .
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Auth;
+pub struct Auth {
+    pub reason_code: AuthReasonCode,
+    pub properties: AuthProperties,
+}
 
 impl Auth {
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,
     ) -> Result<Self, ErrorV5> {
-        todo!()
+        let auth = if header.remaining_len == 0 {
+            Auth {
+                reason_code: AuthReasonCode::Success,
+                properties: AuthProperties::default(),
+            }
+        } else {
+            let reason_code = AuthReasonCode::from_u8(read_u8(reader).await?)?;
+            let properties = AuthProperties::decode_async(reader, header.typ).await?;
+            Auth {
+                reason_code,
+                properties,
+            }
+        };
+        Ok(auth)
+    }
+}
+
+impl Encodable for Auth {
+    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        if self.reason_code != AuthReasonCode::Success
+            || self.properties != AuthProperties::default()
+        {
+            write_u8(writer, self.reason_code as u8)?;
+            self.properties.encode(writer)?;
+        }
+        Ok(())
+    }
+
+    fn encode_len(&self) -> usize {
+        if self.reason_code == AuthReasonCode::Success
+            && self.properties == AuthProperties::default()
+        {
+            0
+        } else {
+            1 + self.properties.encode_len()
+        }
+    }
+}
+
+/// Reason code for AUTH packet.
+///
+/// | Dec |  Hex | Reason Code name        | Sent by       | Description                                   |
+/// |-----|------|-------------------------|---------------|-----------------------------------------------|
+/// |   0 | 0x00 | Success                 | Server        | Authentication is successful                  |
+/// |  24 | 0x18 | Continue authentication | Client/Server | Continue the authentication with another step |
+/// |  25 | 0x19 | Re-authenticate         | Client        | Initiate a re-authentication                  |
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AuthReasonCode {
+    Success = 0x00,
+    ContinueAuthentication = 0x18,
+    ReAuthentication = 0x19,
+}
+
+impl AuthReasonCode {
+    pub fn from_u8(value: u8) -> Result<Self, ErrorV5> {
+        let code = match value {
+            0x00 => Self::Success,
+            0x18 => Self::ContinueAuthentication,
+            0x19 => Self::ReAuthentication,
+            _ => return Err(ErrorV5::InvalidAuthReasonCode(value)),
+        };
+        Ok(code)
+    }
+}
+
+/// Property list for AUTH packet.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct AuthProperties {
+    pub auth_method: Option<Arc<String>>,
+    pub auth_data: Option<Bytes>,
+    pub reason_string: Option<Arc<String>>,
+    pub user_properties: Vec<UserProperty>,
+}
+
+impl AuthProperties {
+    pub(crate) async fn decode_async<T: AsyncRead + Unpin>(
+        reader: &mut T,
+        packet_type: PacketType,
+    ) -> Result<Self, ErrorV5> {
+        let mut properties = AuthProperties::default();
+        decode_properties!(
+            packet_type,
+            properties,
+            reader,
+            AuthenticationMethod,
+            AuthenticationData,
+            ReasonString,
+        );
+        if properties.auth_data.is_some() && properties.auth_method.is_none() {
+            return Err(ErrorV5::AuthMethodMissing);
+        }
+        Ok(properties)
+    }
+}
+
+impl Encodable for AuthProperties {
+    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        encode_properties!(
+            self,
+            writer,
+            AuthenticationMethod,
+            AuthenticationData,
+            ReasonString,
+        );
+        Ok(())
+    }
+
+    fn encode_len(&self) -> usize {
+        let mut len = 0;
+        encode_properties_len!(
+            self,
+            len,
+            AuthenticationMethod,
+            AuthenticationData,
+            ReasonString,
+        );
+        len
     }
 }

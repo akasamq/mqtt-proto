@@ -13,8 +13,9 @@ pub(crate) use types::{
 };
 
 pub use connect::{
-    Auth, Connack, ConnackProperties, Connect, ConnectProperties, ConnectReasonCode, Disconnect,
-    LastWill, WillProperties,
+    Auth, AuthProperties, AuthReasonCode, Connack, ConnackProperties, Connect, ConnectProperties,
+    ConnectReasonCode, Disconnect, DisconnectProperties, DisconnectReasonCode, LastWill,
+    WillProperties,
 };
 pub use error::ErrorV5;
 pub use packet::{Header, Packet, PacketType};

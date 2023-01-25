@@ -15,6 +15,12 @@ pub enum ErrorV5 {
     #[error("invalid connect reason code: `{0}`")]
     InvalidConnectReasonCode(u8),
 
+    #[error("invalid disconnect reason code: `0`")]
+    InvalidDisconnectReasonCode(u8),
+
+    #[error("invalid auth reason code: `0`")]
+    InvalidAuthReasonCode(u8),
+
     #[error("invalid property type: `{0}`")]
     InvalidPropertyType(u8),
 
