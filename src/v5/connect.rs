@@ -10,8 +10,8 @@ use super::{
     UserProperty,
 };
 use crate::{
-    read_bytes, read_string, read_u16, read_u8, var_int_len, write_bytes, write_u16, write_u8,
-    Encodable, Error, Protocol, QoS, TopicName,
+    read_bytes, read_string, read_u16, read_u8, write_bytes, write_u16, write_u8, Encodable, Error,
+    Protocol, QoS, TopicName,
 };
 
 /// Payload type of [CONNECT] packet.
@@ -307,7 +307,7 @@ impl Encodable for LastWill {
     }
 }
 
-/// Property list for will message in CONNECT packet.
+/// Property list for will message.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct WillProperties {
     ///

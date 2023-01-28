@@ -938,7 +938,7 @@ macro_rules! encode_properties_len {
             crate::v5::encode_property_len!($t, $properties, $len, property_len);
         )+
 
-            $len += var_int_len(property_len).expect("user properties length exceed 268,435,455");
+            $len += crate::var_int_len(property_len).expect("user properties length exceed 268,435,455");
         $len += property_len;
         $len += $properties
             .user_properties
