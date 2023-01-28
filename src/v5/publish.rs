@@ -17,12 +17,12 @@ use crate::{
 /// Payload type of PUBLISH packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Publish {
-    dup: bool,
-    qos_pid: QosPid,
-    retain: bool,
-    topic_name: TopicName,
-    properties: PublishProperties,
-    payload: Bytes,
+    pub dup: bool,
+    pub qos_pid: QosPid,
+    pub retain: bool,
+    pub topic_name: TopicName,
+    pub properties: PublishProperties,
+    pub payload: Bytes,
 }
 
 impl Publish {
@@ -173,9 +173,9 @@ impl Encodable for PublishProperties {
 /// Payload type for PUBACK packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Puback {
-    pid: Pid,
-    reason_code: PubackReasonCode,
-    properties: PubackProperties,
+    pub pid: Pid,
+    pub reason_code: PubackReasonCode,
+    pub properties: PubackProperties,
 }
 
 impl Puback {
@@ -227,8 +227,8 @@ impl Encodable for Puback {
 /// Property list for PUBACK packet.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PubackProperties {
-    reason_string: Option<Arc<String>>,
-    user_properties: Vec<UserProperty>,
+    pub reason_string: Option<Arc<String>>,
+    pub user_properties: Vec<UserProperty>,
 }
 
 impl PubackProperties {
@@ -305,9 +305,9 @@ impl PubackReasonCode {
 /// Payload type for PUBREC packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Pubrec {
-    pid: Pid,
-    reason_code: PubrecReasonCode,
-    properties: PubrecProperties,
+    pub pid: Pid,
+    pub reason_code: PubrecReasonCode,
+    pub properties: PubrecProperties,
 }
 
 impl Pubrec {
@@ -359,8 +359,8 @@ impl Encodable for Pubrec {
 /// Property list for PUBREC packet.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PubrecProperties {
-    reason_string: Option<Arc<String>>,
-    user_properties: Vec<UserProperty>,
+    pub reason_string: Option<Arc<String>>,
+    pub user_properties: Vec<UserProperty>,
 }
 
 impl PubrecProperties {
@@ -437,9 +437,9 @@ impl PubrecReasonCode {
 /// Payload type for PUBREL packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Pubrel {
-    pid: Pid,
-    reason_code: PubrelReasonCode,
-    properties: PubrelProperties,
+    pub pid: Pid,
+    pub reason_code: PubrelReasonCode,
+    pub properties: PubrelProperties,
 }
 
 impl Pubrel {
@@ -491,8 +491,8 @@ impl Encodable for Pubrel {
 /// Property list for PUBREC packet.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PubrelProperties {
-    reason_string: Option<Arc<String>>,
-    user_properties: Vec<UserProperty>,
+    pub reason_string: Option<Arc<String>>,
+    pub user_properties: Vec<UserProperty>,
 }
 
 impl PubrelProperties {
@@ -546,9 +546,9 @@ impl PubrelReasonCode {
 /// Payload type for PUBCOMP packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Pubcomp {
-    pid: Pid,
-    reason_code: PubcompReasonCode,
-    properties: PubcompProperties,
+    pub pid: Pid,
+    pub reason_code: PubcompReasonCode,
+    pub properties: PubcompProperties,
 }
 
 impl Pubcomp {
@@ -600,8 +600,8 @@ impl Encodable for Pubcomp {
 /// Property list for PUBCOMP packet.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PubcompProperties {
-    reason_string: Option<Arc<String>>,
-    user_properties: Vec<UserProperty>,
+    pub reason_string: Option<Arc<String>>,
+    pub user_properties: Vec<UserProperty>,
 }
 
 impl PubcompProperties {
