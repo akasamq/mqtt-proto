@@ -37,7 +37,7 @@ impl Subscribe {
         reader: &mut T,
         mut remaining_len: usize,
     ) -> Result<Self, Error> {
-        let pid = Pid::new(read_u16(reader).await?);
+        let pid = Pid::try_from(read_u16(reader).await?)?;
         remaining_len = remaining_len
             .checked_sub(2)
             .ok_or(Error::InvalidRemainingLength)?;
@@ -88,7 +88,7 @@ impl Suback {
         reader: &mut T,
         mut remaining_len: usize,
     ) -> Result<Self, Error> {
-        let pid = Pid::new(read_u16(reader).await?);
+        let pid = Pid::try_from(read_u16(reader).await?)?;
         remaining_len = remaining_len
             .checked_sub(2)
             .ok_or(Error::InvalidRemainingLength)?;
@@ -125,7 +125,7 @@ impl Unsubscribe {
         reader: &mut T,
         mut remaining_len: usize,
     ) -> Result<Self, Error> {
-        let pid = Pid::new(read_u16(reader).await?);
+        let pid = Pid::try_from(read_u16(reader).await?)?;
         remaining_len = remaining_len
             .checked_sub(2)
             .ok_or(Error::InvalidRemainingLength)?;

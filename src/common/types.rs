@@ -99,25 +99,26 @@ impl Encodable for Protocol {
 pub struct Pid(u16);
 
 impl Pid {
-    /// WARNING: the value 0 of packet identifier is not allowed by MQTT protocol.
-    pub fn new(value: u16) -> Self {
-        Pid(value)
-    }
-
     /// Get the `Pid` as a raw `u16`.
     pub fn value(self) -> u16 {
         self.0
-    }
-
-    /// Pid should be non-zero value
-    pub fn is_valid(self) -> bool {
-        self.0 != 0
     }
 }
 
 impl Default for Pid {
     fn default() -> Pid {
         Pid(1)
+    }
+}
+
+impl TryFrom<u16> for Pid {
+    type Error = Error;
+    fn try_from(value: u16) -> Result<Self, Error> {
+        if value == 0 {
+            Err(Error::InvalidPid)
+        } else {
+            Ok(Pid(value))
+        }
     }
 }
 

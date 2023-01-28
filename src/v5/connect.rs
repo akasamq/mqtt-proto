@@ -675,7 +675,7 @@ impl Encodable for Disconnect {
 /// |-----|------|----------------------------------------|---------------|------------------------------------------------------------------------------------------------|
 /// |   0 | 0x00 | Normal disconnection                   | Client/Server | Close the connection normally. Do not send the Will Message.                                   |
 /// |   4 | 0x04 | Disconnect with Will Message           | Client        | The Client wishes to disconnect but requires that the Server also publishes its Will Message.  |
-/// | 128 | 0x80 | Unspecified error                      | Client/Server | The Connection is closed but the sender either does not wish to reveal the reason, \           |
+/// | 128 | 0x80 | Unspecified error                      | Client/Server | The Connection is closed but the sender either does not wish to reveal the reason,             |
 /// |     |      |                                        |               | or none of the other Reason Codes apply.                                                       |
 /// | 129 | 0x81 | Malformed Packet                       | Client/Server | The received packet does not conform to this specification.                                    |
 /// | 130 | 0x82 | Protocol Error                         | Client/Server | An unexpected or out of order packet was received.                                             |
@@ -687,9 +687,9 @@ impl Encodable for Disconnect {
 /// | 142 | 0x8E | Session taken over                     | Server        | Another Connection using the same ClientID has connected causing this Connection to be closed. |
 /// | 143 | 0x8F | Topic Filter invalid                   | Server        | The Topic Filter is correctly formed, but is not accepted by this Sever.                       |
 /// | 144 | 0x90 | Topic Name invalid                     | Client/Server | The Topic Name is correctly formed, but is not accepted by this Client/Server.                 |
-/// | 147 | 0x93 | Receive Maximum exceeded               | Client/Server | The Client/Server has received more than Receive Maximum publication for \                     |
+/// | 147 | 0x93 | Receive Maximum exceeded               | Client/Server | The Client/Server has received more than Receive Maximum publication for                       |
 /// |     |      |                                        |               | which it has not sent PUBACK or PUBCOMP.                                                       |
-/// | 148 | 0x94 | Topic Alias invalid                    | Client/Server | The Client/Server has received a PUBLISH packet containing a Topic Alias \                     |
+/// | 148 | 0x94 | Topic Alias invalid                    | Client/Server | The Client/Server has received a PUBLISH packet containing a Topic Alias                       |
 /// |     |      |                                        |               | which is greater than the Maximum Topic Alias it sent in the CONNECT or CONNACK packet.        |
 /// | 149 | 0x95 | Packet too large                       | Client/Server | The packet size is greater than Maximum Packet Size for this Client/Server.                    |
 /// | 150 | 0x96 | Message rate too high                  | Client/Server | The received data rate is too high.                                                            |

@@ -19,6 +19,10 @@ pub use connect::{
 };
 pub use error::ErrorV5;
 pub use packet::{Header, Packet, PacketType};
-pub use publish::{Puback, Pubcomp, Publish, PublishProperties, Pubrec, Pubrel};
+pub use publish::{
+    Puback, PubackProperties, PubackReasonCode, Pubcomp, PubcompProperties, PubcompReasonCode,
+    Publish, PublishProperties, Pubrec, PubrecProperties, PubrecReasonCode, Pubrel,
+    PubrelProperties, PubrelReasonCode,
+};
 pub use subscribe::{Suback, Subscribe, Unsuback, Unsubscribe};
 pub use types::{PropertyType, UserProperty};

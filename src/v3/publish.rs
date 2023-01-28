@@ -34,13 +34,13 @@ impl Publish {
                 remaining_len = remaining_len
                     .checked_sub(2)
                     .ok_or(Error::InvalidRemainingLength)?;
-                QosPid::Level1(Pid::new(read_u16(reader).await?))
+                QosPid::Level1(Pid::try_from(read_u16(reader).await?)?)
             }
             QoS::Level2 => {
                 remaining_len = remaining_len
                     .checked_sub(2)
                     .ok_or(Error::InvalidRemainingLength)?;
-                QosPid::Level2(Pid::new(read_u16(reader).await?))
+                QosPid::Level2(Pid::try_from(read_u16(reader).await?)?)
             }
         };
         let payload = if remaining_len > 0 {

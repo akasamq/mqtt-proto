@@ -13,9 +13,10 @@ pub enum Error {
     #[error("empty subscription")]
     EmptySubscription,
 
-    // /// Tried to encode ProcessIdentifier==0.
-    // #[error("invalid pid to encode")]
-    // InvalidPid,
+    /// Tried to decode ProcessIdentifier == 0.
+    #[error("invalid pid to decode")]
+    InvalidPid,
+
     /// Tried to decode a QoS > 2.
     #[error("invalid qos: `{0}`")]
     InvalidQos(u8),

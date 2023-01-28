@@ -98,10 +98,10 @@ impl Packet {
             PacketType::Connect => Connect::decode_async(reader).await?.into(),
             PacketType::Connack => Connack::decode_async(reader).await?.into(),
             PacketType::Publish => Publish::decode_async(reader, header).await?.into(),
-            PacketType::Puback => Packet::Puback(Pid::new(read_u16(reader).await?)),
-            PacketType::Pubrec => Packet::Pubrec(Pid::new(read_u16(reader).await?)),
-            PacketType::Pubrel => Packet::Pubrel(Pid::new(read_u16(reader).await?)),
-            PacketType::Pubcomp => Packet::Pubcomp(Pid::new(read_u16(reader).await?)),
+            PacketType::Puback => Packet::Puback(Pid::try_from(read_u16(reader).await?)?),
+            PacketType::Pubrec => Packet::Pubrec(Pid::try_from(read_u16(reader).await?)?),
+            PacketType::Pubrel => Packet::Pubrel(Pid::try_from(read_u16(reader).await?)?),
+            PacketType::Pubcomp => Packet::Pubcomp(Pid::try_from(read_u16(reader).await?)?),
             PacketType::Subscribe => Subscribe::decode_async(reader, header.remaining_len)
                 .await?
                 .into(),
@@ -111,7 +111,7 @@ impl Packet {
             PacketType::Unsubscribe => Unsubscribe::decode_async(reader, header.remaining_len)
                 .await?
                 .into(),
-            PacketType::Unsuback => Packet::Unsuback(Pid::new(read_u16(reader).await?)),
+            PacketType::Unsuback => Packet::Unsuback(Pid::try_from(read_u16(reader).await?)?),
         })
     }
 
