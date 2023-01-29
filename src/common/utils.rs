@@ -3,7 +3,7 @@ use std::slice;
 
 use futures_lite::io::{AsyncRead, AsyncReadExt};
 
-use crate::Error;
+use crate::{Encodable, Error};
 
 #[inline]
 pub(crate) async fn read_string<T: AsyncRead + Unpin>(reader: &mut T) -> Result<String, Error> {
@@ -120,6 +120,7 @@ pub async fn decode_var_int<T: AsyncRead + Unpin>(reader: &mut T) -> Result<(usi
     Ok((var_int, i + 1))
 }
 
+/// Return the encoded size of the variable byte integer.
 #[inline]
 pub fn var_int_len(value: usize) -> Result<usize, Error> {
     let len = if value < 128 {
@@ -151,4 +152,20 @@ pub fn total_len(remaining_len: usize) -> Result<usize, Error> {
         return Err(Error::InvalidVarByteInt);
     };
     Ok(header_len + remaining_len)
+}
+
+/// Encode packet use control byte and payload type
+#[inline]
+pub fn encode_packet<E: Encodable>(control_byte: u8, payload: &E) -> Result<Vec<u8>, Error> {
+    let remaining_len = payload.encode_len();
+    let total = total_len(remaining_len)?;
+    let mut buf = Vec::with_capacity(total);
+
+    // encode header
+    buf.push(control_byte);
+    write_var_int(&mut buf, remaining_len).expect("encode header write var int");
+
+    payload.encode(&mut buf)?;
+    debug_assert_eq!(buf.len(), total);
+    Ok(buf)
 }

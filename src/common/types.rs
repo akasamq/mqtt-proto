@@ -13,8 +13,11 @@ use crate::Error;
 pub const MQISDP: &[u8] = b"MQIsdp";
 pub const MQTT: &[u8] = b"MQTT";
 
+/// The ability of encoding type into `io::Write`, and calculating encoded size.
 pub trait Encodable {
+    /// Encode type into `io::Write`
     fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()>;
+    /// Calculate the encoded size.
     fn encode_len(&self) -> usize;
 }
 

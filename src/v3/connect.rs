@@ -22,13 +22,6 @@ pub struct Connect {
     pub password: Option<Bytes>,
 }
 
-/// Connack packet payload type.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Connack {
-    pub session_present: bool,
-    pub code: ConnectReturnCode,
-}
-
 impl Connect {
     pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
         let protocol = Protocol::decode_async(reader).await?;
@@ -130,6 +123,13 @@ impl Encodable for Connect {
         }
         length
     }
+}
+
+/// Connack packet payload type.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Connack {
+    pub session_present: bool,
+    pub code: ConnectReturnCode,
 }
 
 impl Connack {

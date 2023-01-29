@@ -7,7 +7,7 @@ use futures_lite::{
 
 use super::{Connack, Connect, Publish, Suback, Subscribe, Unsubscribe};
 use crate::{
-    decode_raw_header, packet_from, read_u16, total_len, write_var_int, Encodable, Error, Pid, QoS,
+    decode_raw_header, encode_packet, packet_from, read_u16, total_len, Encodable, Error, Pid, QoS,
     QosPid,
 };
 
@@ -44,25 +44,6 @@ pub enum Packet {
     Disconnect,
 }
 
-/// MQTT v3.x packet type variant, without the associated data.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum PacketType {
-    Connect,
-    Connack,
-    Publish,
-    Puback,
-    Pubrec,
-    Pubrel,
-    Pubcomp,
-    Subscribe,
-    Suback,
-    Unsubscribe,
-    Unsuback,
-    Pingreq,
-    Pingresp,
-    Disconnect,
-}
-
 impl Packet {
     /// Return the packet type variant.
     ///
@@ -70,6 +51,8 @@ impl Packet {
     /// will match directly on `Packet` instead.
     pub fn get_type(&self) -> PacketType {
         match self {
+            Packet::Pingreq => PacketType::Pingreq,
+            Packet::Pingresp => PacketType::Pingresp,
             Packet::Connect(_) => PacketType::Connect,
             Packet::Connack(_) => PacketType::Connack,
             Packet::Publish(_) => PacketType::Publish,
@@ -81,8 +64,6 @@ impl Packet {
             Packet::Suback(_) => PacketType::Suback,
             Packet::Unsubscribe(_) => PacketType::Unsubscribe,
             Packet::Unsuback(_) => PacketType::Unsuback,
-            Packet::Pingreq => PacketType::Pingreq,
-            Packet::Pingresp => PacketType::Pingresp,
             Packet::Disconnect => PacketType::Disconnect,
         }
     }
@@ -142,9 +123,17 @@ impl Packet {
     pub fn encode(&self) -> Result<VarBytes, Error> {
         const VOID_PACKET_REMAINING_LEN: u8 = 0;
         let data = match self {
+            Packet::Pingreq => {
+                const CONTROL_BYTE: u8 = 0b11000000;
+                VarBytes::Fixed2([CONTROL_BYTE, VOID_PACKET_REMAINING_LEN])
+            }
+            Packet::Pingresp => {
+                const CONTROL_BYTE: u8 = 0b11010000;
+                VarBytes::Fixed2([CONTROL_BYTE, VOID_PACKET_REMAINING_LEN])
+            }
             Packet::Connect(connect) => {
                 const CONTROL_BYTE: u8 = 0b00010000;
-                VarBytes::Dynamic(encode_inner(connect, CONTROL_BYTE)?)
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, connect)?)
             }
             Packet::Connack(connack) => {
                 const CONTROL_BYTE: u8 = 0b00100000;
@@ -165,7 +154,7 @@ impl Packet {
                 if publish.retain {
                     control_byte |= 0b00000001;
                 }
-                VarBytes::Dynamic(encode_inner(publish, control_byte)?)
+                VarBytes::Dynamic(encode_packet(control_byte, publish)?)
             }
             Packet::Puback(pid) => {
                 const CONTROL_BYTE: u8 = 0b01000000;
@@ -185,27 +174,19 @@ impl Packet {
             }
             Packet::Subscribe(subscribe) => {
                 const CONTROL_BYTE: u8 = 0b10000010;
-                VarBytes::Dynamic(encode_inner(subscribe, CONTROL_BYTE)?)
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, subscribe)?)
             }
             Packet::Suback(suback) => {
                 const CONTROL_BYTE: u8 = 0b10010000;
-                VarBytes::Dynamic(encode_inner(suback, CONTROL_BYTE)?)
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, suback)?)
             }
             Packet::Unsubscribe(unsubscribe) => {
                 const CONTROL_BYTE: u8 = 0b10100010;
-                VarBytes::Dynamic(encode_inner(unsubscribe, CONTROL_BYTE)?)
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, unsubscribe)?)
             }
             Packet::Unsuback(pid) => {
                 const CONTROL_BYTE: u8 = 0b10110000;
                 VarBytes::Fixed4(encode_with_pid(CONTROL_BYTE, *pid))
-            }
-            Packet::Pingreq => {
-                const CONTROL_BYTE: u8 = 0b11000000;
-                VarBytes::Fixed2([CONTROL_BYTE, VOID_PACKET_REMAINING_LEN])
-            }
-            Packet::Pingresp => {
-                const CONTROL_BYTE: u8 = 0b11010000;
-                VarBytes::Fixed2([CONTROL_BYTE, VOID_PACKET_REMAINING_LEN])
             }
             Packet::Disconnect => {
                 const CONTROL_BYTE: u8 = 0b11100000;
@@ -218,23 +199,42 @@ impl Packet {
     /// Return the total length of bytes the packet encoded into.
     pub fn encode_len(&self) -> Result<usize, Error> {
         let remaining_len = match self {
+            Packet::Pingreq => return Ok(2),
+            Packet::Pingresp => return Ok(2),
+            Packet::Disconnect => return Ok(2),
+            Packet::Connack(_) => return Ok(4),
+            Packet::Puback(_) => return Ok(4),
+            Packet::Pubrec(_) => return Ok(4),
+            Packet::Pubrel(_) => return Ok(4),
+            Packet::Pubcomp(_) => return Ok(4),
+            Packet::Unsuback(_) => return Ok(4),
             Packet::Connect(inner) => inner.encode_len(),
-            Packet::Connack(_) => 2,
             Packet::Publish(inner) => inner.encode_len(),
-            Packet::Puback(_) => 2,
-            Packet::Pubrec(_) => 2,
-            Packet::Pubrel(_) => 2,
-            Packet::Pubcomp(_) => 2,
             Packet::Subscribe(inner) => inner.encode_len(),
             Packet::Suback(inner) => inner.encode_len(),
             Packet::Unsubscribe(inner) => inner.encode_len(),
-            Packet::Unsuback(_) => 2,
-            Packet::Pingreq => 0,
-            Packet::Pingresp => 0,
-            Packet::Disconnect => 0,
         };
         total_len(remaining_len)
     }
+}
+
+/// MQTT v3.x packet type variant, without the associated data.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum PacketType {
+    Connect,
+    Connack,
+    Publish,
+    Puback,
+    Pubrec,
+    Pubrel,
+    Pubcomp,
+    Subscribe,
+    Suback,
+    Unsubscribe,
+    Unsuback,
+    Pingreq,
+    Pingresp,
+    Disconnect,
 }
 
 /// A bytes data structure represent a dynamic vector or fixed array.
@@ -328,23 +328,6 @@ fn encode_with_pid(control_byte: u8, pid: Pid) -> [u8; 4] {
         (val >> 8) as u8,
         (val & 0xFF) as u8,
     ]
-}
-
-#[inline]
-fn encode_header(buf: &mut Vec<u8>, control_byte: u8, remaining_len: usize) {
-    buf.push(control_byte);
-    write_var_int(buf, remaining_len).expect("encode header write var int");
-}
-
-#[inline]
-fn encode_inner<E: Encodable>(inner: &E, control_byte: u8) -> Result<Vec<u8>, Error> {
-    let remaining_len = inner.encode_len();
-    let total = total_len(remaining_len)?;
-    let mut buf = Vec::with_capacity(total);
-    encode_header(&mut buf, control_byte, remaining_len);
-    inner.encode(&mut buf)?;
-    debug_assert_eq!(buf.len(), total);
-    Ok(buf)
 }
 
 packet_from!(Connect, Publish, Suback, Connack, Subscribe, Unsubscribe);

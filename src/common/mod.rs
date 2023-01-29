@@ -9,4 +9,4 @@ pub(crate) use utils::{
 
 pub use error::Error;
 pub use types::{Encodable, Pid, Protocol, QoS, QosPid, TopicFilter, TopicName};
-pub use utils::{decode_raw_header, decode_var_int, total_len, var_int_len};
+pub use utils::{decode_raw_header, decode_var_int, encode_packet, total_len, var_int_len};

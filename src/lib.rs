@@ -8,6 +8,6 @@ pub(crate) use common::{
 };
 
 pub use common::{
-    decode_raw_header, decode_var_int, total_len, var_int_len, Encodable, Error, Pid, Protocol,
-    QoS, QosPid, TopicFilter, TopicName,
+    decode_raw_header, decode_var_int, encode_packet, total_len, var_int_len, Encodable, Error,
+    Pid, Protocol, QoS, QosPid, TopicFilter, TopicName,
 };

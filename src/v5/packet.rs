@@ -10,7 +10,9 @@ use super::{
     Auth, Connack, Connect, Disconnect, ErrorV5, Puback, Pubcomp, Publish, Pubrec, Pubrel, Suback,
     Subscribe, Unsuback, Unsubscribe,
 };
-use crate::{decode_raw_header, packet_from, read_u16, Encodable, Error, Pid, QoS, QosPid};
+use crate::{
+    decode_raw_header, encode_packet, packet_from, total_len, Encodable, Error, QoS, QosPid,
+};
 
 /// MQTT v5.0 packet types.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -93,6 +95,132 @@ impl Packet {
             PacketType::Auth => Auth::decode_async(reader, header).await?.into(),
         })
     }
+
+    /// Asynchronously encode the packet to an async writer.
+    pub async fn encode_async<T: AsyncWrite + Unpin>(&self, writer: &mut T) -> Result<(), ErrorV5> {
+        let data = self.encode()?;
+        writer
+            .write_all(data.as_slice())
+            .await
+            .map_err(|err| Error::IoError(err.kind(), err.to_string()))?;
+        Ok(())
+    }
+
+    /// Decode a packet from some bytes. If not enough bytes to decode a packet,
+    /// it will return `Ok(None)`.
+    pub fn decode(mut bytes: &[u8]) -> Result<Option<Self>, ErrorV5> {
+        match block_on(Self::decode_async(&mut bytes)) {
+            Ok(pkt) => Ok(Some(pkt)),
+            Err(ErrorV5::Common(Error::IoError(kind, info))) => {
+                if kind == io::ErrorKind::UnexpectedEof {
+                    Ok(None)
+                } else {
+                    Err(Error::IoError(kind, info).into())
+                }
+            }
+            Err(err) => Err(err),
+        }
+    }
+
+    /// Encode the packet to a dynamic vector or fixed array.
+    pub fn encode(&self) -> Result<VarBytes, Error> {
+        const VOID_PACKET_REMAINING_LEN: u8 = 0;
+        let data = match self {
+            Packet::Pingreq => {
+                const CONTROL_BYTE: u8 = 0b11000000;
+                return Ok(VarBytes::Fixed2([CONTROL_BYTE, VOID_PACKET_REMAINING_LEN]));
+            }
+            Packet::Pingresp => {
+                const CONTROL_BYTE: u8 = 0b11010000;
+                return Ok(VarBytes::Fixed2([CONTROL_BYTE, VOID_PACKET_REMAINING_LEN]));
+            }
+            Packet::Publish(publish) => {
+                let mut control_byte: u8 = match publish.qos_pid {
+                    QosPid::Level0 => 0b00110000,
+                    QosPid::Level1(_) => 0b00110010,
+                    QosPid::Level2(_) => 0b00110100,
+                };
+                if publish.dup {
+                    control_byte |= 0b00001000;
+                }
+                if publish.retain {
+                    control_byte |= 0b00000001;
+                }
+                encode_packet(control_byte, publish)?
+            }
+            Packet::Connect(inner) => {
+                const CONTROL_BYTE: u8 = 0b00010000;
+                encode_packet(CONTROL_BYTE, inner)?
+            }
+            Packet::Connack(inner) => {
+                const CONTROL_BYTE: u8 = 0b00100000;
+                encode_packet(CONTROL_BYTE, inner)?
+            }
+            Packet::Puback(inner) => {
+                const CONTROL_BYTE: u8 = 0b01000000;
+                encode_packet(CONTROL_BYTE, inner)?
+            }
+            Packet::Pubrec(inner) => {
+                const CONTROL_BYTE: u8 = 0b01010000;
+                encode_packet(CONTROL_BYTE, inner)?
+            }
+            Packet::Pubrel(inner) => {
+                const CONTROL_BYTE: u8 = 0b01100010;
+                encode_packet(CONTROL_BYTE, inner)?
+            }
+            Packet::Pubcomp(inner) => {
+                const CONTROL_BYTE: u8 = 0b01110000;
+                encode_packet(CONTROL_BYTE, inner)?
+            }
+            Packet::Subscribe(inner) => {
+                const CONTROL_BYTE: u8 = 0b10000010;
+                encode_packet(CONTROL_BYTE, inner)?
+            }
+            Packet::Suback(inner) => {
+                const CONTROL_BYTE: u8 = 0b10010000;
+                encode_packet(CONTROL_BYTE, inner)?
+            }
+            Packet::Unsubscribe(inner) => {
+                const CONTROL_BYTE: u8 = 0b10100010;
+                encode_packet(CONTROL_BYTE, inner)?
+            }
+            Packet::Unsuback(inner) => {
+                const CONTROL_BYTE: u8 = 0b10110000;
+                encode_packet(CONTROL_BYTE, inner)?
+            }
+            Packet::Disconnect(inner) => {
+                const CONTROL_BYTE: u8 = 0b11100000;
+                encode_packet(CONTROL_BYTE, inner)?
+            }
+            Packet::Auth(inner) => {
+                const CONTROL_BYTE: u8 = 0b11110000;
+                encode_packet(CONTROL_BYTE, inner)?
+            }
+        };
+        Ok(VarBytes::Dynamic(data))
+    }
+
+    /// Return the total length of bytes the packet encoded into.
+    pub fn encode_len(&self) -> Result<usize, ErrorV5> {
+        let remaining_len = match self {
+            Packet::Pingreq => return Ok(2),
+            Packet::Pingresp => return Ok(2),
+            Packet::Connect(inner) => inner.encode_len(),
+            Packet::Connack(inner) => inner.encode_len(),
+            Packet::Publish(inner) => inner.encode_len(),
+            Packet::Puback(inner) => inner.encode_len(),
+            Packet::Pubrec(inner) => inner.encode_len(),
+            Packet::Pubrel(inner) => inner.encode_len(),
+            Packet::Pubcomp(inner) => inner.encode_len(),
+            Packet::Subscribe(inner) => inner.encode_len(),
+            Packet::Suback(inner) => inner.encode_len(),
+            Packet::Unsubscribe(inner) => inner.encode_len(),
+            Packet::Unsuback(inner) => inner.encode_len(),
+            Packet::Disconnect(inner) => inner.encode_len(),
+            Packet::Auth(inner) => inner.encode_len(),
+        };
+        Ok(total_len(remaining_len)?)
+    }
 }
 
 /// MQTT v5.0 packet type variant, without the associated data.
@@ -118,6 +246,23 @@ pub enum PacketType {
 impl fmt::Display for PacketType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self)
+    }
+}
+
+/// A bytes data structure represent a dynamic vector or fixed array.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum VarBytes {
+    Dynamic(Vec<u8>),
+    Fixed2([u8; 2]),
+}
+
+impl VarBytes {
+    /// Return the slice of the internal bytes.
+    pub fn as_slice(&self) -> &[u8] {
+        match self {
+            VarBytes::Dynamic(vec) => vec,
+            VarBytes::Fixed2(arr) => &arr[..],
+        }
     }
 }
 
