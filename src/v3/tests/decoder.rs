@@ -79,7 +79,7 @@ fn header_len() {
         ),
         (
             vec![1 << 4, 0x80, 0x80, 0x80, 0x80],
-            Err(Error::InvalidHeader),
+            Err(Error::InvalidVarByteInt),
         ),
     ] {
         let slice_buf = bytes.as_slice();
@@ -282,7 +282,7 @@ fn test_decode_publish() {
         Packet::Publish(p) => {
             assert_eq!(p.dup, true);
             assert_eq!(p.retain, true);
-            assert_eq!(p.qos_pid, QosPid::Level2(Pid::new(10)));
+            assert_eq!(p.qos_pid, QosPid::Level2(Pid::try_from(10).unwrap()));
             assert_eq!(p.topic_name.deref(), "a/b");
             assert_eq!(core::str::from_utf8(p.payload.as_ref()).unwrap(), "hello");
         }
@@ -295,7 +295,7 @@ fn test_decode_pub_ack() {
     let data: &[u8] = &[0b01000000, 0b00000010, 0, 10];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        Packet::Puback(Pid::new(10))
+        Packet::Puback(Pid::try_from(10).unwrap())
     );
 }
 
@@ -304,7 +304,7 @@ fn test_decode_pub_rec() {
     let data: &[u8] = &[0b01010000, 0b00000010, 0, 10];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        Packet::Pubrec(Pid::new(10))
+        Packet::Pubrec(Pid::try_from(10).unwrap())
     );
 }
 
@@ -313,7 +313,7 @@ fn test_decode_pub_rel() {
     let data: &[u8] = &[0b01100010, 0b00000010, 0, 10];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        Packet::Pubrel(Pid::new(10))
+        Packet::Pubrel(Pid::try_from(10).unwrap())
     );
 }
 
@@ -322,7 +322,7 @@ fn test_decode_pub_comp() {
     let data: &[u8] = &[0b01110000, 0b00000010, 0, 10];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        Packet::Pubcomp(Pid::new(10))
+        Packet::Pubcomp(Pid::try_from(10).unwrap())
     );
 }
 
@@ -334,8 +334,8 @@ fn test_decode_subscribe() {
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
         Packet::Subscribe(crate::v3::Subscribe {
-            pid: Pid::new(10),
-            subscribes: vec![(
+            pid: Pid::try_from(10).unwrap(),
+            topics: vec![(
                 TopicFilter::try_from("a/b".to_owned()).unwrap(),
                 QoS::Level0
             )],
@@ -349,8 +349,8 @@ fn test_decode_suback() {
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
         Packet::Suback(crate::v3::Suback {
-            pid: Pid::new(10),
-            subscribes: vec![SubscribeReturnCode::MaxLevel2],
+            pid: Pid::try_from(10).unwrap(),
+            topics: vec![SubscribeReturnCode::MaxLevel2],
         })
     );
 }
@@ -361,8 +361,8 @@ fn test_decode_unsubscribe() {
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
         Packet::Unsubscribe(crate::v3::Unsubscribe {
-            pid: Pid::new(10),
-            subscribes: vec![TopicFilter::try_from("a".to_owned()).unwrap(),],
+            pid: Pid::try_from(10).unwrap(),
+            topics: vec![TopicFilter::try_from("a".to_owned()).unwrap(),],
         })
     );
 }
@@ -372,6 +372,6 @@ fn test_decode_unsub_ack() {
     let data: &[u8] = &[0b10110000, 2, 0, 10];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        Packet::Unsuback(Pid::new(10))
+        Packet::Unsuback(Pid::try_from(10).unwrap())
     );
 }

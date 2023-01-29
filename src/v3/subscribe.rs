@@ -11,26 +11,26 @@ use crate::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Subscribe {
     pub pid: Pid,
-    pub subscribes: Vec<(TopicFilter, QoS)>,
+    pub topics: Vec<(TopicFilter, QoS)>,
 }
 
 /// Suback packet payload type.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Suback {
     pub pid: Pid,
-    pub subscribes: Vec<SubscribeReturnCode>,
+    pub topics: Vec<SubscribeReturnCode>,
 }
 
 /// Unsubscribe packet payload type.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Unsubscribe {
     pub pid: Pid,
-    pub subscribes: Vec<TopicFilter>,
+    pub topics: Vec<TopicFilter>,
 }
 
 impl Subscribe {
-    pub fn new(pid: Pid, subscribes: Vec<(TopicFilter, QoS)>) -> Self {
-        Self { pid, subscribes }
+    pub fn new(pid: Pid, topics: Vec<(TopicFilter, QoS)>) -> Self {
+        Self { pid, topics }
     }
 
     pub async fn decode_async<T: AsyncRead + Unpin>(
@@ -44,35 +44,32 @@ impl Subscribe {
         if remaining_len == 0 {
             return Err(Error::EmptySubscription);
         }
-        let mut subscribes = Vec::new();
+        let mut topics = Vec::new();
         while remaining_len > 0 {
             let topic_filter = TopicFilter::try_from(read_string(reader).await?)?;
-            let qos = QoS::from_u8(read_u8(reader).await?)?;
+            let max_qos = QoS::from_u8(read_u8(reader).await?)?;
             remaining_len = remaining_len
                 .checked_sub(3 + topic_filter.len())
                 .ok_or(Error::InvalidRemainingLength)?;
-            subscribes.push((topic_filter, qos));
+            topics.push((topic_filter, max_qos));
         }
-        if remaining_len != 0 {
-            return Err(Error::InvalidRemainingLength);
-        }
-        Ok(Subscribe { pid, subscribes })
+        Ok(Subscribe { pid, topics })
     }
 }
 
 impl Encodable for Subscribe {
     fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
         write_u16(writer, self.pid.value())?;
-        for (topic_filter, qos) in &self.subscribes {
+        for (topic_filter, max_qos) in &self.topics {
             write_bytes(writer, topic_filter.as_bytes())?;
-            write_u8(writer, *qos as u8)?;
+            write_u8(writer, *max_qos as u8)?;
         }
         Ok(())
     }
 
     fn encode_len(&self) -> usize {
         2 + self
-            .subscribes
+            .topics
             .iter()
             .map(|(filter, _)| 3 + filter.len())
             .sum::<usize>()
@@ -80,8 +77,8 @@ impl Encodable for Subscribe {
 }
 
 impl Suback {
-    pub fn new(pid: Pid, subscribes: Vec<SubscribeReturnCode>) -> Self {
-        Self { pid, subscribes }
+    pub fn new(pid: Pid, topics: Vec<SubscribeReturnCode>) -> Self {
+        Self { pid, topics }
     }
 
     pub async fn decode_async<T: AsyncRead + Unpin>(
@@ -92,33 +89,33 @@ impl Suback {
         remaining_len = remaining_len
             .checked_sub(2)
             .ok_or(Error::InvalidRemainingLength)?;
-        let mut subscribes = Vec::new();
+        let mut topics = Vec::new();
         while remaining_len > 0 {
             let value = read_u8(reader).await?;
             let code = SubscribeReturnCode::from_u8(value)?;
-            subscribes.push(code);
+            topics.push(code);
             remaining_len -= 1;
         }
-        Ok(Suback { pid, subscribes })
+        Ok(Suback { pid, topics })
     }
 }
 
 impl Encodable for Suback {
     fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
         write_u16(writer, self.pid.value())?;
-        for code in &self.subscribes {
+        for code in &self.topics {
             write_u8(writer, *code as u8)?;
         }
         Ok(())
     }
     fn encode_len(&self) -> usize {
-        2 + self.subscribes.len()
+        2 + self.topics.len()
     }
 }
 
 impl Unsubscribe {
-    pub fn new(pid: Pid, subscribes: Vec<TopicFilter>) -> Self {
-        Self { pid, subscribes }
+    pub fn new(pid: Pid, topics: Vec<TopicFilter>) -> Self {
+        Self { pid, topics }
     }
 
     pub async fn decode_async<T: AsyncRead + Unpin>(
@@ -132,25 +129,22 @@ impl Unsubscribe {
         if remaining_len == 0 {
             return Err(Error::EmptySubscription);
         }
-        let mut subscribes = Vec::new();
+        let mut topics = Vec::new();
         while remaining_len > 0 {
             let topic_filter = TopicFilter::try_from(read_string(reader).await?)?;
             remaining_len = remaining_len
                 .checked_sub(2 + topic_filter.len())
                 .ok_or(Error::InvalidRemainingLength)?;
-            subscribes.push(topic_filter);
+            topics.push(topic_filter);
         }
-        if remaining_len != 0 {
-            return Err(Error::InvalidRemainingLength);
-        }
-        Ok(Unsubscribe { pid, subscribes })
+        Ok(Unsubscribe { pid, topics })
     }
 }
 
 impl Encodable for Unsubscribe {
     fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
         write_u16(writer, self.pid.value())?;
-        for topic_filter in &self.subscribes {
+        for topic_filter in &self.topics {
             write_bytes(writer, topic_filter.as_bytes())?;
         }
         Ok(())
@@ -158,7 +152,7 @@ impl Encodable for Unsubscribe {
 
     fn encode_len(&self) -> usize {
         2 + self
-            .subscribes
+            .topics
             .iter()
             .map(|filter| 2 + filter.len())
             .sum::<usize>()

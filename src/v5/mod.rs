@@ -1,4 +1,6 @@
-//! Codec for MQTT v5.0
+//! Codec for MQTT [v5.0]
+//!
+//! [v5.0]: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html
 
 mod connect;
 mod error;
@@ -24,5 +26,8 @@ pub use publish::{
     Publish, PublishProperties, Pubrec, PubrecProperties, PubrecReasonCode, Pubrel,
     PubrelProperties, PubrelReasonCode,
 };
-pub use subscribe::{Suback, Subscribe, Unsuback, Unsubscribe};
+pub use subscribe::{
+    RetainHandling, Suback, SubackProperties, Subscribe, SubscribeProperties, SubscribeReasonCode,
+    SubscriptionOptions, Unsuback, UnsubackProperties, Unsubscribe, UnsubscribeReasonCode,
+};
 pub use types::{PropertyType, UserProperty};

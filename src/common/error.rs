@@ -14,7 +14,7 @@ pub enum Error {
     EmptySubscription,
 
     /// Tried to decode ProcessIdentifier == 0.
-    #[error("invalid pid to decode")]
+    #[error("invalid packet identifier to decode")]
     InvalidPid,
 
     /// Tried to decode a QoS > 2.

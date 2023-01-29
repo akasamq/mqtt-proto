@@ -276,8 +276,7 @@ mod tests {
             (core::u16::MAX, 0, core::u16::MAX, core::u16::MAX),
         ];
         for (cur, d, prev, next) in t {
-            let cur = Pid::new(cur);
-            assert!(cur.is_valid());
+            let cur = Pid::try_from(cur).unwrap();
             let sub = cur - d;
             let add = cur + d;
             assert_eq!(prev, sub.value(), "{:?} - {} should be {}", cur, d, prev);

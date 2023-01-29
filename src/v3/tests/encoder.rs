@@ -56,7 +56,7 @@ fn test_encode_connack() {
 fn test_encode_publish() {
     let packet = Publish {
         dup: false,
-        qos_pid: QosPid::Level2(Pid::new(10)),
+        qos_pid: QosPid::Level2(Pid::try_from(10).unwrap()),
         retain: true,
         topic_name: TopicName::try_from("asdf".to_owned()).unwrap(),
         payload: Bytes::from(b"hello".to_vec()),
@@ -66,32 +66,32 @@ fn test_encode_publish() {
 
 #[test]
 fn test_encode_puback() {
-    let packet = Packet::Puback(Pid::new(19));
+    let packet = Packet::Puback(Pid::try_from(19).unwrap());
     assert_decode(packet, 4);
 }
 
 #[test]
 fn test_encode_pubrec() {
-    let packet = Packet::Pubrec(Pid::new(19));
+    let packet = Packet::Pubrec(Pid::try_from(19).unwrap());
     assert_decode(packet, 4);
 }
 
 #[test]
 fn test_encode_pubrel() {
-    let packet = Packet::Pubrel(Pid::new(19));
+    let packet = Packet::Pubrel(Pid::try_from(19).unwrap());
     assert_decode(packet, 4);
 }
 
 #[test]
 fn test_encode_pubcomp() {
-    let packet = Packet::Pubcomp(Pid::new(19));
+    let packet = Packet::Pubcomp(Pid::try_from(19).unwrap());
     assert_decode(packet, 4);
 }
 
 #[test]
 fn test_encode_subscribe() {
     let packet = Subscribe::new(
-        Pid::new(345),
+        Pid::try_from(345).unwrap(),
         vec![(
             TopicFilter::try_from("a/b".to_owned()).unwrap(),
             QoS::Level2,
@@ -102,14 +102,17 @@ fn test_encode_subscribe() {
 
 #[test]
 fn test_encode_suback() {
-    let packet = Suback::new(Pid::new(12321), vec![SubscribeReturnCode::MaxLevel2]);
+    let packet = Suback::new(
+        Pid::try_from(12321).unwrap(),
+        vec![SubscribeReturnCode::MaxLevel2],
+    );
     assert_decode(packet.into(), 5);
 }
 
 #[test]
 fn test_encode_unsubscribe() {
     let packet = Unsubscribe::new(
-        Pid::new(12321),
+        Pid::try_from(12321).unwrap(),
         vec![(TopicFilter::try_from("a/b".to_owned()).unwrap())],
     );
     assert_decode(packet.into(), 9);
@@ -117,7 +120,7 @@ fn test_encode_unsubscribe() {
 
 #[test]
 fn test_encode_unsuback() {
-    let packet = Packet::Unsuback(Pid::new(19));
+    let packet = Packet::Unsuback(Pid::try_from(19).unwrap());
     assert_decode(packet, 4);
 }
 

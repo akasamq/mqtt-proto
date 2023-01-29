@@ -14,9 +14,7 @@ use crate::{
     Protocol, QoS, TopicName,
 };
 
-/// Payload type of [CONNECT] packet.
-///
-/// [CONNECT]: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901033
+/// Payload type of CONNECT packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Connect {
     /// The [protocol version](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901036).
@@ -180,23 +178,23 @@ impl Encodable for Connect {
 /// Property list for CONNECT packet.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ConnectProperties {
-    /// [Session Expiry Interval](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901048)
+    /// Session Expiry Interval
     pub session_expiry_interval: Option<u32>,
-    /// [Receive Maximum](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901049)
+    /// Receive Maximum
     pub receive_max: Option<u16>,
-    /// [Maximum Packet Size](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901050)
+    /// Maximum Packet Size
     pub max_packet_size: Option<u32>,
-    /// [Topic Alias Maximum](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901051)
+    /// Topic Alias Maximum
     pub topic_alias_max: Option<u16>,
-    /// [Request Response Information](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901052). If absent the default value should be false.
+    /// Request Response Information. If absent the default value should be false.
     pub request_response_info: Option<bool>,
-    /// [Request Problem Information](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901053). If absent the default value should be true.
+    /// Request Problem Information. If absent the default value should be true.
     pub request_problem_info: Option<bool>,
-    /// [User Property](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901054)
+    /// User Property
     pub user_properties: Vec<UserProperty>,
-    /// [Authentication Method](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901055)
+    /// Authentication Method
     pub auth_method: Option<Arc<String>>,
-    /// [Authentication Data](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901056)
+    /// Authentication Data
     pub auth_data: Option<Bytes>,
 }
 
@@ -310,19 +308,12 @@ impl Encodable for LastWill {
 /// Property list for will message.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct WillProperties {
-    ///
     pub delay_interval: Option<u32>,
-    /// Payload Format Indicator. This value specifies whether the payload format is UTF-8.
     pub payload_is_utf8: Option<bool>,
-    ///
     pub message_expiry_interval: Option<u32>,
-    ///
     pub content_type: Option<Arc<String>>,
-    ///
     pub response_topic: Option<TopicName>,
-    ///
     pub correlation_data: Option<Bytes>,
-    /// User Property
     pub user_properties: Vec<UserProperty>,
 }
 
@@ -501,7 +492,7 @@ impl ConnectReasonCode {
             0x9C => ConnectReasonCode::UseAnotherServer,
             0x9D => ConnectReasonCode::ServerMoved,
             0x9F => ConnectReasonCode::ConnectionRateExceeded,
-            _ => return Err(ErrorV5::InvalidConnectReasonCode(value)),
+            _ => return Err(ErrorV5::InvalidReasonCode(value)),
         };
         Ok(code)
     }
@@ -771,7 +762,7 @@ impl DisconnectReasonCode {
             0xA0 => Self::MaximumConnectTime,
             0xA1 => Self::SubscriptionIdentifiersNotSupported,
             0xA2 => Self::WildcardSubscriptionsNotSupported,
-            _ => return Err(ErrorV5::InvalidDisconnectReasonCode(value)),
+            _ => return Err(ErrorV5::InvalidReasonCode(value)),
         };
         Ok(code)
     }
@@ -901,7 +892,7 @@ impl AuthReasonCode {
             0x00 => Self::Success,
             0x18 => Self::ContinueAuthentication,
             0x19 => Self::ReAuthentication,
-            _ => return Err(ErrorV5::InvalidAuthReasonCode(value)),
+            _ => return Err(ErrorV5::InvalidReasonCode(value)),
         };
         Ok(code)
     }

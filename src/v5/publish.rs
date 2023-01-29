@@ -296,7 +296,7 @@ impl PubackReasonCode {
             0x91 => Self::PacketIdentifierInUse,
             0x97 => Self::QuotaExceeded,
             0x99 => Self::PayloadFormatInvalid,
-            _ => return Err(ErrorV5::InvalidPubackReasonCode(value)),
+            _ => return Err(ErrorV5::InvalidReasonCode(value)),
         };
         Ok(code)
     }
@@ -428,7 +428,7 @@ impl PubrecReasonCode {
             0x91 => Self::PacketIdentifierInUse,
             0x97 => Self::QuotaExceeded,
             0x99 => Self::PayloadFormatInvalid,
-            _ => return Err(ErrorV5::InvalidPubrecReasonCode(value)),
+            _ => return Err(ErrorV5::InvalidReasonCode(value)),
         };
         Ok(code)
     }
@@ -537,7 +537,7 @@ impl PubrelReasonCode {
         let code = match value {
             0x00 => Self::Success,
             0x92 => Self::PacketIdentifierNotFound,
-            _ => return Err(ErrorV5::InvalidPubrelReasonCode(value)),
+            _ => return Err(ErrorV5::InvalidReasonCode(value)),
         };
         Ok(code)
     }
@@ -646,7 +646,7 @@ impl PubcompReasonCode {
         let code = match value {
             0x00 => Self::Success,
             0x92 => Self::PacketIdentifierNotFound,
-            _ => return Err(ErrorV5::InvalidPubcompReasonCode(value)),
+            _ => return Err(ErrorV5::InvalidReasonCode(value)),
         };
         Ok(code)
     }
