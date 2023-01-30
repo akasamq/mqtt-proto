@@ -617,20 +617,20 @@ impl Disconnect {
         reader: &mut T,
         header: Header,
     ) -> Result<Self, ErrorV5> {
-        let payload = if header.remaining_len == 0 {
-            Disconnect {
-                reason_code: DisconnectReasonCode::NormalDisconnect,
-                properties: DisconnectProperties::default(),
-            }
+        let (reason_code, properties) = if header.remaining_len == 0 {
+            (DisconnectReasonCode::NormalDisconnect, Default::default())
+        } else if header.remaining_len == 1 {
+            let reason_code = DisconnectReasonCode::from_u8(read_u8(reader).await?)?;
+            (reason_code, Default::default())
         } else {
             let reason_code = DisconnectReasonCode::from_u8(read_u8(reader).await?)?;
             let properties = DisconnectProperties::decode_async(reader, header.typ).await?;
-            Disconnect {
-                reason_code,
-                properties,
-            }
+            (reason_code, properties)
         };
-        Ok(payload)
+        Ok(Disconnect {
+            reason_code,
+            properties,
+        })
     }
 }
 

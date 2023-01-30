@@ -9,6 +9,9 @@ mod publish;
 mod subscribe;
 mod types;
 
+#[cfg(test)]
+mod tests;
+
 pub(crate) use types::{
     decode_properties, decode_property, encode_properties, encode_properties_len, encode_property,
     encode_property_len, property_field, PropertyValue,

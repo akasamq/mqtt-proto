@@ -318,9 +318,9 @@ impl Unsubscribe {
             let property_type = PropertyType::from_u8(read_u8(reader).await?)?;
             match property_type {
                 PropertyType::UserProperty => {
-                    let user_property = PropertyValue::decode_user_property(reader).await?;
-                    properties_bytes += 4 + user_property.name.len() + user_property.value.len();
-                    properties.push(user_property);
+                    let property = PropertyValue::decode_user_property(reader).await?;
+                    properties_bytes += 1 + 4 + property.name.len() + property.value.len();
+                    properties.push(property);
                 }
                 _ => return Err(ErrorV5::InvalidProperty(property_type, header.typ)),
             }
@@ -336,7 +336,7 @@ impl Unsubscribe {
         while remaining_len > 0 {
             let topic_filter = TopicFilter::try_from(read_string(reader).await?)?;
             remaining_len = remaining_len
-                .checked_sub(3 + topic_filter.len())
+                .checked_sub(2 + topic_filter.len())
                 .ok_or(Error::InvalidRemainingLength)?;
             topics.push(topic_filter);
         }

@@ -6,7 +6,7 @@ use futures_lite::future::block_on;
 use crate::v3::*;
 use crate::*;
 
-fn assert_decode(pkt: Packet, len: usize) {
+fn assert_encode(pkt: Packet, len: usize) {
     let mut data_async = Vec::new();
     block_on(pkt.encode_async(&mut data_async)).unwrap();
     let var_bytes = pkt.encode().unwrap();
@@ -29,7 +29,7 @@ fn test_encode_connect() {
         username: None,
         password: None,
     };
-    assert_decode(packet.into(), 20);
+    assert_encode(packet.into(), 20);
 
     let packet = Connect {
         protocol: Protocol::MqttV31,
@@ -40,7 +40,7 @@ fn test_encode_connect() {
         username: None,
         password: None,
     };
-    assert_decode(packet.into(), 22);
+    assert_encode(packet.into(), 22);
 }
 
 #[test]
@@ -49,7 +49,7 @@ fn test_encode_connack() {
         session_present: true,
         code: ConnectReturnCode::Accepted,
     };
-    assert_decode(packet.into(), 4);
+    assert_encode(packet.into(), 4);
 }
 
 #[test]
@@ -61,31 +61,31 @@ fn test_encode_publish() {
         topic_name: TopicName::try_from("asdf".to_owned()).unwrap(),
         payload: Bytes::from(b"hello".to_vec()),
     };
-    assert_decode(packet.into(), 15);
+    assert_encode(packet.into(), 15);
 }
 
 #[test]
 fn test_encode_puback() {
     let packet = Packet::Puback(Pid::try_from(19).unwrap());
-    assert_decode(packet, 4);
+    assert_encode(packet, 4);
 }
 
 #[test]
 fn test_encode_pubrec() {
     let packet = Packet::Pubrec(Pid::try_from(19).unwrap());
-    assert_decode(packet, 4);
+    assert_encode(packet, 4);
 }
 
 #[test]
 fn test_encode_pubrel() {
     let packet = Packet::Pubrel(Pid::try_from(19).unwrap());
-    assert_decode(packet, 4);
+    assert_encode(packet, 4);
 }
 
 #[test]
 fn test_encode_pubcomp() {
     let packet = Packet::Pubcomp(Pid::try_from(19).unwrap());
-    assert_decode(packet, 4);
+    assert_encode(packet, 4);
 }
 
 #[test]
@@ -97,7 +97,7 @@ fn test_encode_subscribe() {
             QoS::Level2,
         )],
     );
-    assert_decode(packet.into(), 10);
+    assert_encode(packet.into(), 10);
 }
 
 #[test]
@@ -106,7 +106,7 @@ fn test_encode_suback() {
         Pid::try_from(12321).unwrap(),
         vec![SubscribeReturnCode::MaxLevel2],
     );
-    assert_decode(packet.into(), 5);
+    assert_encode(packet.into(), 5);
 }
 
 #[test]
@@ -115,26 +115,26 @@ fn test_encode_unsubscribe() {
         Pid::try_from(12321).unwrap(),
         vec![(TopicFilter::try_from("a/b".to_owned()).unwrap())],
     );
-    assert_decode(packet.into(), 9);
+    assert_encode(packet.into(), 9);
 }
 
 #[test]
 fn test_encode_unsuback() {
     let packet = Packet::Unsuback(Pid::try_from(19).unwrap());
-    assert_decode(packet, 4);
+    assert_encode(packet, 4);
 }
 
 #[test]
 fn test_encode_ping_req() {
-    assert_decode(Packet::Pingreq, 2);
+    assert_encode(Packet::Pingreq, 2);
 }
 
 #[test]
 fn test_encode_ping_resp() {
-    assert_decode(Packet::Pingresp, 2);
+    assert_encode(Packet::Pingresp, 2);
 }
 
 #[test]
 fn test_encode_disconnect() {
-    assert_decode(Packet::Disconnect, 2);
+    assert_encode(Packet::Disconnect, 2);
 }
