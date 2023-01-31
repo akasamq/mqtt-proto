@@ -22,9 +22,35 @@ pub struct Connect {
     pub password: Option<Bytes>,
 }
 
+#[cfg(feature = "arbitrary")]
+impl<'a> arbitrary::Arbitrary<'a> for Connect {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Connect {
+            protocol: u.arbitrary()?,
+            clean_session: u.arbitrary()?,
+            keep_alive: u.arbitrary()?,
+            client_id: u.arbitrary()?,
+            last_will: u.arbitrary()?,
+            username: u.arbitrary()?,
+            password: Option::<Vec<u8>>::arbitrary(u)?.map(Bytes::from),
+        })
+    }
+}
+
 impl Connect {
     pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
         let protocol = Protocol::decode_async(reader).await?;
+        Self::decode_with_protocol(reader, protocol).await
+    }
+
+    #[inline]
+    pub async fn decode_with_protocol<T: AsyncRead + Unpin>(
+        reader: &mut T,
+        protocol: Protocol,
+    ) -> Result<Self, Error> {
+        if protocol as u8 > 4 {
+            return Err(Error::UnexpectedProtocol(protocol));
+        }
         let connect_flags: u8 = read_u8(reader).await?;
         let keep_alive = read_u16(reader).await?;
         let client_id = Arc::new(read_string(reader).await?);
@@ -127,6 +153,7 @@ impl Encodable for Connect {
 
 /// Connack packet payload type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Connack {
     pub session_present: bool,
     pub code: ConnectReturnCode,
@@ -163,6 +190,18 @@ pub struct LastWill {
     pub message: Bytes,
 }
 
+#[cfg(feature = "arbitrary")]
+impl<'a> arbitrary::Arbitrary<'a> for LastWill {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(LastWill {
+            qos: u.arbitrary()?,
+            retain: u.arbitrary()?,
+            topic_name: u.arbitrary()?,
+            message: Bytes::from(Vec::<u8>::arbitrary(u)?),
+        })
+    }
+}
+
 /// Return code of a [Connack] packet.
 ///
 /// See [MQTT 3.2.2.3] for interpretations.
@@ -171,6 +210,7 @@ pub struct LastWill {
 /// [MQTT 3.2.2.3]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718035
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum ConnectReturnCode {
     Accepted = 0,
     UnacceptableProtocolVersion = 1,

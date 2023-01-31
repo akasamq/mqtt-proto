@@ -2,6 +2,8 @@ use std::io;
 
 use thiserror::Error;
 
+use crate::Protocol;
+
 /// Errors returned by encoding and decoding process.
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum Error {
@@ -37,11 +39,15 @@ pub enum Error {
     #[error("invalid protocol: {0}, {1}")]
     InvalidProtocol(String, u8),
 
+    /// Unexpected protocol
+    #[error("unexpected protocol version: `{0}`")]
+    UnexpectedProtocol(Protocol),
+
     /// Invalid fixed header (packet type, flags, or remaining_length).
     #[error("invalid header")]
     InvalidHeader,
 
-    /// Invalid variable byte integer
+    /// Invalid variable byte integer, the value MUST smaller than `268,435,456`.
     #[error("invalid variable byte integer")]
     InvalidVarByteInt,
 

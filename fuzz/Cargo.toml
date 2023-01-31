@@ -1,0 +1,47 @@
+[package]
+name = "mqtt-proto-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+futures-lite = "1.12.0"
+
+[dependencies.mqtt-proto]
+path = ".."
+features = ["arbitrary"] 
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "mqtt_v3_raw"
+path = "fuzz_targets/mqtt_v3_raw.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "mqtt_v5_raw"
+path = "fuzz_targets/mqtt_v5_raw.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "mqtt_v3_arbitrary"
+path = "fuzz_targets/mqtt_v3_arbitrary.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "mqtt_v5_arbitrary"
+path = "fuzz_targets/mqtt_v5_arbitrary.rs"
+test = false
+doc = false

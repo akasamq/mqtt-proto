@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::fmt;
 use std::sync::Arc;
 
@@ -5,7 +6,7 @@ use bytes::Bytes;
 use futures_lite::io::AsyncRead;
 
 use super::ErrorV5;
-use crate::{read_bytes, read_string, read_u16, read_u32, read_u8, TopicName};
+use crate::{read_bytes, read_string, read_u16, read_u32, read_u8, Error, TopicName};
 
 /// [Property identifier](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901027)
 ///
@@ -218,11 +219,40 @@ impl PropertyValue {
 
 /// User Property is a UTF-8 String Pair.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct UserProperty {
     /// The name of the user property.
     pub name: Arc<String>,
     /// The value of the user property.
     pub value: Arc<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub struct VarByteInt(u32);
+
+#[cfg(feature = "arbitrary")]
+impl<'a> arbitrary::Arbitrary<'a> for VarByteInt {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        let value: u32 = u.arbitrary()?;
+        Ok(VarByteInt(value % 268435456))
+    }
+}
+
+impl VarByteInt {
+    pub fn value(self) -> u32 {
+        self.0
+    }
+}
+
+impl TryFrom<u32> for VarByteInt {
+    type Error = ErrorV5;
+    fn try_from(value: u32) -> Result<Self, ErrorV5> {
+        if value < 268435456 {
+            Ok(VarByteInt(value))
+        } else {
+            Err(Error::InvalidVarByteInt.into())
+        }
+    }
 }
 
 macro_rules! decode_property {
@@ -271,7 +301,7 @@ macro_rules! decode_property {
             return Err(crate::v5::ErrorV5::DuplicatedProperty($property_id));
         }
         let (value, _bytes) = crate::decode_var_int($reader).await?;
-        $properties.subscription_id = Some(value);
+        $properties.subscription_id = Some(crate::v5::VarByteInt::try_from(value)?);
     };
     (SessionExpiryInterval, $properties:expr, $reader:expr, $property_id:expr) => {
         crate::v5::PropertyValue::decode_u32(
@@ -587,7 +617,7 @@ macro_rules! encode_property {
     (SubscriptionIdentifier, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.subscription_id {
             crate::write_u8($writer, crate::v5::PropertyId::SubscriptionIdentifier as u8)?;
-            crate::write_var_int($writer, value)?;
+            crate::write_var_int($writer, value.value() as usize)?;
         }
     };
     (SessionExpiryInterval, $properties:expr, $writer: expr) => {
@@ -790,7 +820,8 @@ macro_rules! encode_property_len {
     (SubscriptionIdentifier, $properties:expr, $len:expr, $property_len:expr) => {
         if let Some(value) = $properties.subscription_id {
             $property_len += 1;
-            $len += crate::var_int_len(value).expect("subscription id exceed 268,435,455");
+            $len += crate::var_int_len(value.value() as usize)
+                .expect("subscription id exceed 268,435,455");
         }
     };
     (SessionExpiryInterval, $properties:expr, $len:expr, $property_len:expr) => {
@@ -923,7 +954,7 @@ macro_rules! encode_properties_len {
             crate::v5::encode_property_len!($t, $properties, $len, property_len);
         )+
 
-            $len += crate::var_int_len(property_len).expect("user properties length exceed 268,435,455");
+            $len += crate::var_int_len(property_len).expect("total properties length exceed 268,435,455");
         $len += property_len;
         $len += $properties
             .user_properties

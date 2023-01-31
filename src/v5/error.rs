@@ -1,7 +1,6 @@
 use thiserror::Error;
 
 use super::{PacketType, PropertyId};
-use crate::Protocol;
 
 /// MQTT v5.0 errors returned by encoding and decoding process.
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
@@ -9,10 +8,6 @@ pub enum ErrorV5 {
     /// Common error of MQTT v3 and v5.
     #[error("common error of v3/v5: {0}")]
     Common(#[from] crate::Error),
-
-    /// Unexpected protocol
-    #[error("unexpected protocol version: `{0}`, expected `v5.0`")]
-    UnexpectedProtocol(Protocol),
 
     /// Invalid reason code.
     #[error("invalid reason code `{1}` for packet `{0}`")]

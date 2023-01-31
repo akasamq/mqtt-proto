@@ -16,6 +16,7 @@ use crate::{
 
 /// MQTT v5.0 packet types.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum Packet {
     /// [MQTT 3.1](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901033)
     Connect(Connect),
@@ -273,11 +274,11 @@ pub struct Header {
     pub dup: bool,
     pub qos: QoS,
     pub retain: bool,
-    pub remaining_len: usize,
+    pub remaining_len: u32,
 }
 
 impl Header {
-    pub fn new(typ: PacketType, dup: bool, qos: QoS, retain: bool, remaining_len: usize) -> Self {
+    pub fn new(typ: PacketType, dup: bool, qos: QoS, retain: bool, remaining_len: u32) -> Self {
         Self {
             typ,
             dup,
@@ -287,7 +288,7 @@ impl Header {
         }
     }
 
-    pub fn new_with(hd: u8, remaining_len: usize) -> Result<Header, ErrorV5> {
+    pub fn new_with(hd: u8, remaining_len: u32) -> Result<Header, ErrorV5> {
         const FLAGS_MASK: u8 = 0b1111;
         let (typ, flags_ok) = match hd >> 4 {
             1 => (PacketType::Connect, hd & FLAGS_MASK == 0),

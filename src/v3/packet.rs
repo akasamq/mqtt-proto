@@ -13,6 +13,7 @@ use crate::{
 
 /// MQTT v3.x packet types.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum Packet {
     /// [MQTT 3.1](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718028)
     Connect(Connect),
@@ -83,15 +84,17 @@ impl Packet {
             PacketType::Pubrec => Packet::Pubrec(Pid::try_from(read_u16(reader).await?)?),
             PacketType::Pubrel => Packet::Pubrel(Pid::try_from(read_u16(reader).await?)?),
             PacketType::Pubcomp => Packet::Pubcomp(Pid::try_from(read_u16(reader).await?)?),
-            PacketType::Subscribe => Subscribe::decode_async(reader, header.remaining_len)
+            PacketType::Subscribe => Subscribe::decode_async(reader, header.remaining_len as usize)
                 .await?
                 .into(),
-            PacketType::Suback => Suback::decode_async(reader, header.remaining_len)
+            PacketType::Suback => Suback::decode_async(reader, header.remaining_len as usize)
                 .await?
                 .into(),
-            PacketType::Unsubscribe => Unsubscribe::decode_async(reader, header.remaining_len)
-                .await?
-                .into(),
+            PacketType::Unsubscribe => {
+                Unsubscribe::decode_async(reader, header.remaining_len as usize)
+                    .await?
+                    .into()
+            }
             PacketType::Unsuback => Packet::Unsuback(Pid::try_from(read_u16(reader).await?)?),
         })
     }
@@ -263,11 +266,11 @@ pub struct Header {
     pub dup: bool,
     pub qos: QoS,
     pub retain: bool,
-    pub remaining_len: usize,
+    pub remaining_len: u32,
 }
 
 impl Header {
-    pub fn new(typ: PacketType, dup: bool, qos: QoS, retain: bool, remaining_len: usize) -> Self {
+    pub fn new(typ: PacketType, dup: bool, qos: QoS, retain: bool, remaining_len: u32) -> Self {
         Self {
             typ,
             dup,
@@ -277,7 +280,7 @@ impl Header {
         }
     }
 
-    pub fn new_with(hd: u8, remaining_len: usize) -> Result<Header, Error> {
+    pub fn new_with(hd: u8, remaining_len: u32) -> Result<Header, Error> {
         const FLAGS_MASK: u8 = 0b1111;
         let (typ, flags_ok) = match hd >> 4 {
             1 => (PacketType::Connect, hd & FLAGS_MASK == 0),

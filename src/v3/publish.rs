@@ -18,12 +18,25 @@ pub struct Publish {
     pub payload: Bytes,
 }
 
+#[cfg(feature = "arbitrary")]
+impl<'a> arbitrary::Arbitrary<'a> for Publish {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Publish {
+            dup: u.arbitrary()?,
+            qos_pid: u.arbitrary()?,
+            retain: u.arbitrary()?,
+            topic_name: u.arbitrary()?,
+            payload: Bytes::from(Vec::<u8>::arbitrary(u)?),
+        })
+    }
+}
+
 impl Publish {
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,
     ) -> Result<Self, Error> {
-        let mut remaining_len = header.remaining_len;
+        let mut remaining_len = header.remaining_len as usize;
         let topic_name = read_string(reader).await?;
         remaining_len = remaining_len
             .checked_sub(2 + topic_name.len())

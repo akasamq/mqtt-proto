@@ -9,6 +9,7 @@ use crate::{
 
 /// Subscribe packet payload type.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Subscribe {
     pub pid: Pid,
     pub topics: Vec<(TopicFilter, QoS)>,
@@ -16,6 +17,7 @@ pub struct Subscribe {
 
 /// Suback packet payload type.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Suback {
     pub pid: Pid,
     pub topics: Vec<SubscribeReturnCode>,
@@ -23,6 +25,7 @@ pub struct Suback {
 
 /// Unsubscribe packet payload type.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Unsubscribe {
     pub pid: Pid,
     pub topics: Vec<TopicFilter>,
@@ -161,6 +164,7 @@ impl Encodable for Unsubscribe {
 
 /// Subscribe return code type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum SubscribeReturnCode {
     MaxLevel0,
     MaxLevel1,

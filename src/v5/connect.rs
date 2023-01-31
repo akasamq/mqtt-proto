@@ -52,6 +52,21 @@ pub struct Connect {
     /// The [password](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901072).
     pub password: Option<Bytes>,
 }
+#[cfg(feature = "arbitrary")]
+impl<'a> arbitrary::Arbitrary<'a> for Connect {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Connect {
+            protocol: u.arbitrary()?,
+            clean_start: u.arbitrary()?,
+            keep_alive: u.arbitrary()?,
+            properties: u.arbitrary()?,
+            client_id: u.arbitrary()?,
+            last_will: u.arbitrary()?,
+            username: u.arbitrary()?,
+            password: Option::<Vec<u8>>::arbitrary(u)?.map(Bytes::from),
+        })
+    }
+}
 
 impl Connect {
     pub async fn decode_async<T: AsyncRead + Unpin>(
@@ -59,8 +74,17 @@ impl Connect {
         header: Header,
     ) -> Result<Self, ErrorV5> {
         let protocol = Protocol::decode_async(reader).await?;
+        Self::decode_with_protocol(reader, header, protocol).await
+    }
+
+    #[inline]
+    pub async fn decode_with_protocol<T: AsyncRead + Unpin>(
+        reader: &mut T,
+        header: Header,
+        protocol: Protocol,
+    ) -> Result<Self, ErrorV5> {
         if protocol != Protocol::MqttV50 {
-            return Err(ErrorV5::UnexpectedProtocol(protocol));
+            return Err(Error::UnexpectedProtocol(protocol).into());
         }
         let connect_flags: u8 = read_u8(reader).await?;
         let keep_alive = read_u16(reader).await?;
@@ -184,6 +208,23 @@ pub struct ConnectProperties {
     pub auth_data: Option<Bytes>,
 }
 
+#[cfg(feature = "arbitrary")]
+impl<'a> arbitrary::Arbitrary<'a> for ConnectProperties {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(ConnectProperties {
+            session_expiry_interval: u.arbitrary()?,
+            receive_max: u.arbitrary()?,
+            max_packet_size: u.arbitrary()?,
+            topic_alias_max: u.arbitrary()?,
+            request_response_info: u.arbitrary()?,
+            request_problem_info: u.arbitrary()?,
+            user_properties: u.arbitrary()?,
+            auth_method: u.arbitrary()?,
+            auth_data: Option::<Vec<u8>>::arbitrary(u)?.map(Bytes::from),
+        })
+    }
+}
+
 impl ConnectProperties {
     pub(crate) async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
@@ -255,6 +296,19 @@ pub struct LastWill {
     pub payload: Bytes,
 }
 
+#[cfg(feature = "arbitrary")]
+impl<'a> arbitrary::Arbitrary<'a> for LastWill {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(LastWill {
+            qos: u.arbitrary()?,
+            retain: u.arbitrary()?,
+            properties: u.arbitrary()?,
+            topic_name: u.arbitrary()?,
+            payload: Bytes::from(Vec::<u8>::arbitrary(u)?),
+        })
+    }
+}
+
 impl LastWill {
     pub(crate) async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
@@ -301,6 +355,20 @@ pub struct WillProperties {
     pub response_topic: Option<TopicName>,
     pub correlation_data: Option<Bytes>,
     pub user_properties: Vec<UserProperty>,
+}
+#[cfg(feature = "arbitrary")]
+impl<'a> arbitrary::Arbitrary<'a> for WillProperties {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(WillProperties {
+            delay_interval: u.arbitrary()?,
+            payload_is_utf8: u.arbitrary()?,
+            message_expiry_interval: u.arbitrary()?,
+            content_type: u.arbitrary()?,
+            response_topic: u.arbitrary()?,
+            correlation_data: Option::<Vec<u8>>::arbitrary(u)?.map(Bytes::from),
+            user_properties: u.arbitrary()?,
+        })
+    }
 }
 
 impl WillProperties {
@@ -356,6 +424,7 @@ impl Encodable for WillProperties {
 
 /// Payload type of CONNACK packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Connack {
     pub session_present: bool,
     pub reason_code: ConnectReasonCode,
@@ -429,6 +498,7 @@ impl Encodable for Connack {
 /// | 159 | 0x9F | Connection rate exceeded      | The connection rate limit has been exceeded.                                                             |
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum ConnectReasonCode {
     Success = 0x00,
     UnspecifiedError = 0x80,
@@ -505,6 +575,31 @@ pub struct ConnackProperties {
     pub server_reference: Option<Arc<String>>,
     pub auth_method: Option<Arc<String>>,
     pub auth_data: Option<Bytes>,
+}
+
+#[cfg(feature = "arbitrary")]
+impl<'a> arbitrary::Arbitrary<'a> for ConnackProperties {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(ConnackProperties {
+            session_expiry_interval: u.arbitrary()?,
+            receive_max: u.arbitrary()?,
+            max_qos: u.arbitrary()?,
+            retain_available: u.arbitrary()?,
+            max_packet_size: u.arbitrary()?,
+            assigned_client_id: u.arbitrary()?,
+            topic_alias_max: u.arbitrary()?,
+            reason_string: u.arbitrary()?,
+            user_properties: u.arbitrary()?,
+            wildcard_subscription_available: u.arbitrary()?,
+            subscription_id_available: u.arbitrary()?,
+            shared_subscription_available: u.arbitrary()?,
+            server_keep_alive: u.arbitrary()?,
+            response_info: u.arbitrary()?,
+            server_reference: u.arbitrary()?,
+            auth_method: u.arbitrary()?,
+            auth_data: Option::<Vec<u8>>::arbitrary(u)?.map(Bytes::from),
+        })
+    }
 }
 
 impl ConnackProperties {
@@ -594,6 +689,7 @@ impl Encodable for ConnackProperties {
 
 /// Payload type for DISCONNECT packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Disconnect {
     pub reason_code: DisconnectReasonCode,
     pub properties: DisconnectProperties,
@@ -689,6 +785,7 @@ impl Encodable for Disconnect {
 /// | 162 | 0xA2 | Wildcard Subscriptions not supported   | Server        | The Server does not support Wildcard Subscriptions; the subscription is not accepted.          |
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum DisconnectReasonCode {
     NormalDisconnect = 0x00,
     DisconnectWithWillMessage = 0x04,
@@ -728,8 +825,8 @@ impl DisconnectReasonCode {
             0x04 => Self::DisconnectWithWillMessage,
             0x80 => Self::UnspecifiedError,
             0x81 => Self::MalformedPacket,
-            0x82 => Self::ImplementationSpecificError,
-            0x83 => Self::ProtocolError,
+            0x82 => Self::ProtocolError,
+            0x83 => Self::ImplementationSpecificError,
             0x87 => Self::NotAuthorized,
             0x89 => Self::ServerBusy,
             0x8B => Self::ServerShuttingDown,
@@ -761,6 +858,7 @@ impl DisconnectReasonCode {
 
 /// Property list for DISCONNECT packet.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct DisconnectProperties {
     pub session_expiry_interval: Option<u32>,
     pub reason_string: Option<Arc<String>>,
@@ -813,6 +911,7 @@ impl Encodable for DisconnectProperties {
 
 /// Payload type of AUTH packet .
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Auth {
     pub reason_code: AuthReasonCode,
     pub properties: AuthProperties,
@@ -873,6 +972,7 @@ impl Encodable for Auth {
 /// |  25 | 0x19 | Re-authenticate         | Client        | Initiate a re-authentication                  |
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum AuthReasonCode {
     Success = 0x00,
     ContinueAuthentication = 0x18,
@@ -898,6 +998,18 @@ pub struct AuthProperties {
     pub auth_data: Option<Bytes>,
     pub reason_string: Option<Arc<String>>,
     pub user_properties: Vec<UserProperty>,
+}
+
+#[cfg(feature = "arbitrary")]
+impl<'a> arbitrary::Arbitrary<'a> for AuthProperties {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(AuthProperties {
+            auth_method: u.arbitrary()?,
+            auth_data: Option::<Vec<u8>>::arbitrary(u)?.map(Bytes::from),
+            reason_string: u.arbitrary()?,
+            user_properties: u.arbitrary()?,
+        })
+    }
 }
 
 impl AuthProperties {

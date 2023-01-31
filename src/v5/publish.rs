@@ -7,7 +7,7 @@ use futures_lite::io::{AsyncRead, AsyncReadExt};
 
 use super::{
     decode_properties, encode_properties, encode_properties_len, ErrorV5, Header, PacketType,
-    UserProperty,
+    UserProperty, VarByteInt,
 };
 use crate::{
     read_string, read_u16, read_u8, write_bytes, write_u16, write_u8, Encodable, Error, Pid, QoS,
@@ -25,12 +25,26 @@ pub struct Publish {
     pub payload: Bytes,
 }
 
+#[cfg(feature = "arbitrary")]
+impl<'a> arbitrary::Arbitrary<'a> for Publish {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Publish {
+            dup: u.arbitrary()?,
+            qos_pid: u.arbitrary()?,
+            retain: u.arbitrary()?,
+            topic_name: u.arbitrary()?,
+            properties: u.arbitrary()?,
+            payload: Bytes::from(Vec::<u8>::arbitrary(u)?),
+        })
+    }
+}
+
 impl Publish {
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,
     ) -> Result<Self, ErrorV5> {
-        let mut remaining_len = header.remaining_len;
+        let mut remaining_len = header.remaining_len as usize;
         let topic_name = read_string(reader).await?;
         remaining_len = remaining_len
             .checked_sub(2 + topic_name.len())
@@ -112,8 +126,24 @@ pub struct PublishProperties {
     pub response_topic: Option<TopicName>,
     pub correlation_data: Option<Bytes>,
     pub user_properties: Vec<UserProperty>,
-    pub subscription_id: Option<usize>,
+    pub subscription_id: Option<VarByteInt>,
     pub content_type: Option<Arc<String>>,
+}
+
+#[cfg(feature = "arbitrary")]
+impl<'a> arbitrary::Arbitrary<'a> for PublishProperties {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(PublishProperties {
+            payload_is_utf8: u.arbitrary()?,
+            message_expiry_interval: u.arbitrary()?,
+            topic_alias: u.arbitrary()?,
+            response_topic: u.arbitrary()?,
+            correlation_data: Option::<Vec<u8>>::arbitrary(u)?.map(Bytes::from),
+            user_properties: u.arbitrary()?,
+            subscription_id: u.arbitrary()?,
+            content_type: u.arbitrary()?,
+        })
+    }
 }
 
 impl PublishProperties {
@@ -172,6 +202,7 @@ impl Encodable for PublishProperties {
 
 /// Payload type for PUBACK packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Puback {
     pub pid: Pid,
     pub reason_code: PubackReasonCode,
@@ -228,6 +259,7 @@ impl Encodable for Puback {
 
 /// Property list for PUBACK packet.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct PubackProperties {
     pub reason_string: Option<Arc<String>>,
     pub user_properties: Vec<UserProperty>,
@@ -274,6 +306,7 @@ impl Encodable for PubackProperties {
 /// | 153 | 0x99 | Payload format invalid        | The payload format does not match the specified Payload Format Indicator.                                          |
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum PubackReasonCode {
     Success = 0x00,
     NoMatchingSubscribers = 0x10,
@@ -306,6 +339,7 @@ impl PubackReasonCode {
 
 /// Payload type for PUBREC packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Pubrec {
     pub pid: Pid,
     pub reason_code: PubrecReasonCode,
@@ -362,6 +396,7 @@ impl Encodable for Pubrec {
 
 /// Property list for PUBREC packet.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct PubrecProperties {
     pub reason_string: Option<Arc<String>>,
     pub user_properties: Vec<UserProperty>,
@@ -408,6 +443,7 @@ impl Encodable for PubrecProperties {
 /// | 153 | 0x99 | Payload format invalid        | The payload format does not match the specified Payload Format Indicator.                                          |
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum PubrecReasonCode {
     Success = 0x00,
     NoMatchingSubscribers = 0x10,
@@ -440,6 +476,7 @@ impl PubrecReasonCode {
 
 /// Payload type for PUBREL packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Pubrel {
     pub pid: Pid,
     pub reason_code: PubrelReasonCode,
@@ -496,6 +533,7 @@ impl Encodable for Pubrel {
 
 /// Property list for PUBREL packet.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct PubrelProperties {
     pub reason_string: Option<Arc<String>>,
     pub user_properties: Vec<UserProperty>,
@@ -533,6 +571,7 @@ impl Encodable for PubrelProperties {
 /// |     |      |                             | but at other times indicates a mismatch between the Session State on the Client and Server. |
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum PubrelReasonCode {
     Success = 0x00,
     PacketIdentifierNotFound = 0x92,
@@ -551,6 +590,7 @@ impl PubrelReasonCode {
 
 /// Payload type for PUBCOMP packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Pubcomp {
     pub pid: Pid,
     pub reason_code: PubcompReasonCode,
@@ -607,6 +647,7 @@ impl Encodable for Pubcomp {
 
 /// Property list for PUBCOMP packet.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct PubcompProperties {
     pub reason_string: Option<Arc<String>>,
     pub user_properties: Vec<UserProperty>,
@@ -644,6 +685,7 @@ impl Encodable for PubcompProperties {
 /// |     |      |                             | but at other times indicates a mismatch between the Session State on the Client and Server. |
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum PubcompReasonCode {
     Success = 0x00,
     PacketIdentifierNotFound = 0x92,

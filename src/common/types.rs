@@ -23,6 +23,7 @@ pub trait Encodable {
 
 /// Protocol version.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum Protocol {
     /// [MQTT 3.1]
     ///
@@ -99,6 +100,7 @@ impl Encodable for Protocol {
 
 /// Packet identifier
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Pid(u16);
 
 impl Pid {
@@ -157,6 +159,7 @@ impl core::ops::Sub<u16> for Pid {
 /// [Quality of Service]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718099
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum QoS {
     /// `QoS 0`. At most once. No ack needed.
     Level0 = 0,
@@ -185,6 +188,7 @@ impl QoS {
 /// [`QoS`]: enum.QoS.html
 /// [`Pid`]: struct.Pid.html
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum QosPid {
     Level0,
     Level1(Pid),
@@ -221,6 +225,7 @@ impl QosPid {
 ///
 /// [MQTT 4.7]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718106
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct TopicName(Arc<String>);
 
 impl TryFrom<String> for TopicName {
@@ -243,6 +248,7 @@ impl Deref for TopicName {
 ///
 /// [MQTT 4.7]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718106
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct TopicFilter(Arc<String>);
 
 impl TryFrom<String> for TopicFilter {

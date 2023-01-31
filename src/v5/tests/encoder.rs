@@ -165,6 +165,23 @@ fn test_v5_encode_disconnect() {
         properties: Default::default(),
     };
     assert_encode(packet2.into(), 2);
+
+    // SUMMARY: libFuzzer: deadly signal
+    //     MS: 1 CrossOver-; base unit: 19e986892fb058b7e2fdf069390b2ef591738747
+    //     0xc0,0xdc,0xa4,0xe2,0xd5,0xfc,0xff,0x26,
+    // \300\334\244\342\325\374\377&
+    //     artifact_prefix='../fuzz/artifacts/mqtt_v5_arbitrary/'; Test unit written to ../fuzz/artifacts/mqtt_v5_arbitrary/crash-4f2714598b45a6081720cbe109372e984f1c28ff
+    //     Base64: wNyk4tX8/yY=
+    let packet3 = Disconnect {
+        reason_code: DisconnectReasonCode::ProtocolError,
+        properties: DisconnectProperties {
+            session_expiry_interval: None,
+            reason_string: None,
+            user_properties: Vec::new(),
+            server_reference: None,
+        },
+    };
+    assert_encode(packet3.into(), 3);
 }
 
 #[test]
@@ -517,7 +534,7 @@ fn test_v5_encode_subscribe() {
         // 1 + 3 = 4
         properties: SubscribeProperties {
             // 1 + 2 = 3
-            subscription_id: Some(3344),
+            subscription_id: Some(VarByteInt::try_from(3344).unwrap()),
             user_properties: Vec::new(),
         },
         // 5 + 1 = 6

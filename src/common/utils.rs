@@ -94,7 +94,7 @@ pub(crate) use packet_from;
 
 /// Read first byte(packet type and flags) and decode remaining length
 #[inline]
-pub async fn decode_raw_header<T: AsyncRead + Unpin>(reader: &mut T) -> Result<(u8, usize), Error> {
+pub async fn decode_raw_header<T: AsyncRead + Unpin>(reader: &mut T) -> Result<(u8, u32), Error> {
     let typ = read_u8(reader).await?;
     let (remaining_len, _bytes) = decode_var_int(reader).await?;
     Ok((typ, remaining_len))
@@ -102,13 +102,13 @@ pub async fn decode_raw_header<T: AsyncRead + Unpin>(reader: &mut T) -> Result<(
 
 /// Decode a variable byte integer (4 bytes max)
 #[inline]
-pub async fn decode_var_int<T: AsyncRead + Unpin>(reader: &mut T) -> Result<(usize, usize), Error> {
+pub async fn decode_var_int<T: AsyncRead + Unpin>(reader: &mut T) -> Result<(u32, usize), Error> {
     let mut byte = 0u8;
-    let mut var_int: usize = 0;
+    let mut var_int: u32 = 0;
     let mut i = 0;
     loop {
         reader.read_exact(slice::from_mut(&mut byte)).await?;
-        var_int |= (usize::from(byte) & 0x7F) << (7 * i);
+        var_int |= (u32::from(byte) & 0x7F) << (7 * i);
         if byte & 0x80 == 0 {
             break;
         } else if i < 3 {

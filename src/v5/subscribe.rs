@@ -6,7 +6,7 @@ use futures_lite::io::AsyncRead;
 
 use super::{
     decode_properties, encode_properties, encode_properties_len, ErrorV5, Header, PacketType,
-    PropertyId, PropertyValue, UserProperty,
+    PropertyId, PropertyValue, UserProperty, VarByteInt,
 };
 use crate::{
     decode_var_int, read_string, read_u16, read_u8, var_int_len, write_bytes, write_u16, write_u8,
@@ -15,6 +15,7 @@ use crate::{
 
 /// Payload type for SUBSCRIBE packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Subscribe {
     pub pid: Pid,
     pub properties: SubscribeProperties,
@@ -26,7 +27,7 @@ impl Subscribe {
         reader: &mut T,
         header: Header,
     ) -> Result<Self, ErrorV5> {
-        let mut remaining_len = header.remaining_len;
+        let mut remaining_len = header.remaining_len as usize;
         let pid = Pid::try_from(read_u16(reader).await?)?;
         let properties = SubscribeProperties::decode_async(reader, header.typ).await?;
         remaining_len = remaining_len
@@ -92,8 +93,9 @@ impl Encodable for Subscribe {
 
 /// Property list for SUBSCRIBE packet.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct SubscribeProperties {
-    pub subscription_id: Option<usize>,
+    pub subscription_id: Option<VarByteInt>,
     pub user_properties: Vec<UserProperty>,
 }
 
@@ -122,6 +124,7 @@ impl Encodable for SubscribeProperties {
 
 /// Subscription options.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct SubscriptionOptions {
     pub max_qos: QoS,
     pub no_local: bool,
@@ -146,6 +149,7 @@ impl SubscriptionOptions {
 /// Retain handling type.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum RetainHandling {
     SendAtSubscribe = 0,
     SendAtSubscribeIfNotExist = 1,
@@ -166,6 +170,7 @@ impl RetainHandling {
 
 /// Payload type for SUBACK packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Suback {
     pub pid: Pid,
     pub properties: SubackProperties,
@@ -177,7 +182,7 @@ impl Suback {
         reader: &mut T,
         header: Header,
     ) -> Result<Self, ErrorV5> {
-        let mut remaining_len = header.remaining_len;
+        let mut remaining_len = header.remaining_len as usize;
         let pid = Pid::try_from(read_u16(reader).await?)?;
         let properties = SubackProperties::decode_async(reader, header.typ).await?;
         remaining_len = remaining_len
@@ -216,6 +221,7 @@ impl Encodable for Suback {
 
 /// Property list for SUBACK packet.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct SubackProperties {
     pub reason_string: Option<Arc<String>>,
     pub user_properties: Vec<UserProperty>,
@@ -263,6 +269,7 @@ impl Encodable for SubackProperties {
 /// | 162 | 0xA2 | Wildcard Subscriptions not supported   | The Server does not support Wildcard Subscriptions; the subscription is not accepted.                              |
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum SubscribeReasonCode {
     GrantedQoS0 = 0x00,
     GrantedQoS1 = 0x01,
@@ -301,6 +308,7 @@ impl SubscribeReasonCode {
 
 /// Payload type for UNSUBSCRIBE packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Unsubscribe {
     pub pid: Pid,
     pub properties: Vec<UserProperty>,
@@ -312,7 +320,7 @@ impl Unsubscribe {
         reader: &mut T,
         header: Header,
     ) -> Result<Self, ErrorV5> {
-        let mut remaining_len = header.remaining_len;
+        let mut remaining_len = header.remaining_len as usize;
         let pid = Pid::try_from(read_u16(reader).await?)?;
         let (mut property_len, mut properties_bytes) = decode_var_int(reader).await?;
         let mut properties = Vec::new();
@@ -387,6 +395,7 @@ impl Encodable for Unsubscribe {
 
 /// Payload type for UNSUBACK packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Unsuback {
     pub pid: Pid,
     pub properties: UnsubackProperties,
@@ -398,7 +407,7 @@ impl Unsuback {
         reader: &mut T,
         header: Header,
     ) -> Result<Self, ErrorV5> {
-        let mut remaining_len = header.remaining_len;
+        let mut remaining_len = header.remaining_len as usize;
         let pid = Pid::try_from(read_u16(reader).await?)?;
         let properties = UnsubackProperties::decode_async(reader, header.typ).await?;
         remaining_len = remaining_len
@@ -437,6 +446,7 @@ impl Encodable for Unsuback {
 
 /// Property list for UNSUBACK packet.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct UnsubackProperties {
     pub reason_string: Option<Arc<String>>,
     pub user_properties: Vec<UserProperty>,
@@ -479,6 +489,7 @@ impl Encodable for UnsubackProperties {
 /// | 145 | 0x91 | Packet Identifier in use      | The specified Packet Identifier is already in use.                                            |
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum UnsubscribeReasonCode {
     Success = 0x00,
     NoSubscriptionExisted = 0x11,

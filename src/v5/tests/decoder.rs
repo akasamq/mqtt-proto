@@ -162,7 +162,7 @@ fn test_v5_decode_connect() {
     ];
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        ErrorV5::UnexpectedProtocol(Protocol::MqttV311),
+        ErrorV5::Common(Error::UnexpectedProtocol(Protocol::MqttV311)),
     );
 
     let data: &[u8] = &[
@@ -747,7 +747,7 @@ fn test_v5_decode_subscribe() {
         Packet::Subscribe(Subscribe {
             pid: Pid::try_from(0x1122).unwrap(),
             properties: SubscribeProperties {
-                subscription_id: Some(16383),
+                subscription_id: Some(VarByteInt::try_from(16383).unwrap()),
                 user_properties: Vec::new(),
             },
             topics: vec![(

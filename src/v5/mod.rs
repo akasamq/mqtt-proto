@@ -33,4 +33,4 @@ pub use subscribe::{
     RetainHandling, Suback, SubackProperties, Subscribe, SubscribeProperties, SubscribeReasonCode,
     SubscriptionOptions, Unsuback, UnsubackProperties, Unsubscribe, UnsubscribeReasonCode,
 };
-pub use types::{PropertyId, UserProperty};
+pub use types::{PropertyId, UserProperty, VarByteInt};
