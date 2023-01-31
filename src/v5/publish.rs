@@ -189,7 +189,9 @@ impl Puback {
             let properties = PubackProperties::default();
             (reason_code, properties)
         } else {
-            let reason_code = PubackReasonCode::from_u8(read_u8(reader).await?)?;
+            let reason_byte = read_u8(reader).await?;
+            let reason_code = PubackReasonCode::from_u8(reason_byte)
+                .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
             let properties = PubackProperties::decode_async(reader, header.typ).await?;
             (reason_code, properties)
         };
@@ -285,7 +287,7 @@ pub enum PubackReasonCode {
 }
 
 impl PubackReasonCode {
-    pub fn from_u8(value: u8) -> Result<Self, ErrorV5> {
+    pub fn from_u8(value: u8) -> Option<Self> {
         let code = match value {
             0x00 => Self::Success,
             0x10 => Self::NoMatchingSubscribers,
@@ -296,9 +298,9 @@ impl PubackReasonCode {
             0x91 => Self::PacketIdentifierInUse,
             0x97 => Self::QuotaExceeded,
             0x99 => Self::PayloadFormatInvalid,
-            _ => return Err(ErrorV5::InvalidReasonCode(value)),
+            _ => return None,
         };
-        Ok(code)
+        Some(code)
     }
 }
 
@@ -321,7 +323,9 @@ impl Pubrec {
             let properties = PubrecProperties::default();
             (reason_code, properties)
         } else {
-            let reason_code = PubrecReasonCode::from_u8(read_u8(reader).await?)?;
+            let reason_byte = read_u8(reader).await?;
+            let reason_code = PubrecReasonCode::from_u8(reason_byte)
+                .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
             let properties = PubrecProperties::decode_async(reader, header.typ).await?;
             (reason_code, properties)
         };
@@ -417,7 +421,7 @@ pub enum PubrecReasonCode {
 }
 
 impl PubrecReasonCode {
-    pub fn from_u8(value: u8) -> Result<Self, ErrorV5> {
+    pub fn from_u8(value: u8) -> Option<Self> {
         let code = match value {
             0x00 => Self::Success,
             0x10 => Self::NoMatchingSubscribers,
@@ -428,9 +432,9 @@ impl PubrecReasonCode {
             0x91 => Self::PacketIdentifierInUse,
             0x97 => Self::QuotaExceeded,
             0x99 => Self::PayloadFormatInvalid,
-            _ => return Err(ErrorV5::InvalidReasonCode(value)),
+            _ => return None,
         };
-        Ok(code)
+        Some(code)
     }
 }
 
@@ -453,7 +457,9 @@ impl Pubrel {
             let properties = PubrelProperties::default();
             (reason_code, properties)
         } else {
-            let reason_code = PubrelReasonCode::from_u8(read_u8(reader).await?)?;
+            let reason_byte = read_u8(reader).await?;
+            let reason_code = PubrelReasonCode::from_u8(reason_byte)
+                .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
             let properties = PubrelProperties::decode_async(reader, header.typ).await?;
             (reason_code, properties)
         };
@@ -488,7 +494,7 @@ impl Encodable for Pubrel {
     }
 }
 
-/// Property list for PUBREC packet.
+/// Property list for PUBREL packet.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PubrelProperties {
     pub reason_string: Option<Arc<String>>,
@@ -533,13 +539,13 @@ pub enum PubrelReasonCode {
 }
 
 impl PubrelReasonCode {
-    pub fn from_u8(value: u8) -> Result<Self, ErrorV5> {
+    pub fn from_u8(value: u8) -> Option<Self> {
         let code = match value {
             0x00 => Self::Success,
             0x92 => Self::PacketIdentifierNotFound,
-            _ => return Err(ErrorV5::InvalidReasonCode(value)),
+            _ => return None,
         };
-        Ok(code)
+        Some(code)
     }
 }
 
@@ -562,7 +568,9 @@ impl Pubcomp {
             let properties = PubcompProperties::default();
             (reason_code, properties)
         } else {
-            let reason_code = PubcompReasonCode::from_u8(read_u8(reader).await?)?;
+            let reason_byte = read_u8(reader).await?;
+            let reason_code = PubcompReasonCode::from_u8(reason_byte)
+                .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
             let properties = PubcompProperties::decode_async(reader, header.typ).await?;
             (reason_code, properties)
         };
@@ -642,12 +650,12 @@ pub enum PubcompReasonCode {
 }
 
 impl PubcompReasonCode {
-    pub fn from_u8(value: u8) -> Result<Self, ErrorV5> {
+    pub fn from_u8(value: u8) -> Option<Self> {
         let code = match value {
             0x00 => Self::Success,
             0x92 => Self::PacketIdentifierNotFound,
-            _ => return Err(ErrorV5::InvalidReasonCode(value)),
+            _ => return None,
         };
-        Ok(code)
+        Some(code)
     }
 }

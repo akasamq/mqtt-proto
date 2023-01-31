@@ -6,7 +6,7 @@ use futures_lite::io::AsyncRead;
 
 use super::{
     decode_properties, encode_properties, encode_properties_len, ErrorV5, Header, PacketType,
-    PropertyType, PropertyValue, UserProperty,
+    PropertyId, PropertyValue, UserProperty,
 };
 use crate::{
     decode_var_int, read_string, read_u16, read_u8, var_int_len, write_bytes, write_u16, write_u8,
@@ -41,13 +41,14 @@ impl Subscribe {
             let options = {
                 let opt_byte = read_u8(reader).await?;
                 if opt_byte & 0b11000000 > 0 {
-                    return Err(ErrorV5::InvalidSubscriptionOption);
+                    return Err(ErrorV5::InvalidSubscriptionOption(opt_byte));
                 }
                 let max_qos = QoS::from_u8(opt_byte & 0b11)
-                    .map_err(|_| ErrorV5::InvalidSubscriptionOption)?;
+                    .map_err(|_| ErrorV5::InvalidSubscriptionOption(opt_byte))?;
                 let no_local = opt_byte & 0b100 == 0b100;
                 let retain_as_published = opt_byte & 0b1000 == 0b1000;
-                let retain_handling = RetainHandling::from_u8((opt_byte & 0b110000) >> 4)?;
+                let retain_handling = RetainHandling::from_u8((opt_byte & 0b110000) >> 4)
+                    .ok_or(ErrorV5::InvalidSubscriptionOption(opt_byte))?;
                 SubscriptionOptions {
                     max_qos,
                     no_local,
@@ -152,14 +153,14 @@ pub enum RetainHandling {
 }
 
 impl RetainHandling {
-    pub fn from_u8(value: u8) -> Result<Self, ErrorV5> {
+    pub fn from_u8(value: u8) -> Option<Self> {
         let opt = match value {
             0 => Self::SendAtSubscribe,
             1 => Self::SendAtSubscribeIfNotExist,
             2 => Self::DoNotSend,
-            _ => return Err(ErrorV5::InvalidSubscriptionOption),
+            _ => return None,
         };
-        Ok(opt)
+        Some(opt)
     }
 }
 
@@ -185,7 +186,8 @@ impl Suback {
         let mut topics = Vec::new();
         while remaining_len > 0 {
             let value = read_u8(reader).await?;
-            let code = SubscribeReasonCode::from_u8(value)?;
+            let code = SubscribeReasonCode::from_u8(value)
+                .ok_or(ErrorV5::InvalidReasonCode(header.typ, value))?;
             topics.push(code);
             remaining_len -= 1;
         }
@@ -277,7 +279,7 @@ pub enum SubscribeReasonCode {
 }
 
 impl SubscribeReasonCode {
-    pub fn from_u8(value: u8) -> Result<Self, ErrorV5> {
+    pub fn from_u8(value: u8) -> Option<Self> {
         let code = match value {
             0x00 => Self::GrantedQoS0,
             0x01 => Self::GrantedQoS1,
@@ -291,9 +293,9 @@ impl SubscribeReasonCode {
             0x9E => Self::SharedSubscriptionNotSupported,
             0xA1 => Self::SubscriptionIdentifiersNotSupported,
             0xA2 => Self::WildcardSubscriptionsNotSupported,
-            _ => return Err(ErrorV5::InvalidReasonCode(value)),
+            _ => return None,
         };
-        Ok(code)
+        Some(code)
     }
 }
 
@@ -315,14 +317,14 @@ impl Unsubscribe {
         let (mut property_len, mut properties_bytes) = decode_var_int(reader).await?;
         let mut properties = Vec::new();
         while property_len > 0 {
-            let property_type = PropertyType::from_u8(read_u8(reader).await?)?;
-            match property_type {
-                PropertyType::UserProperty => {
+            let property_id = PropertyId::from_u8(read_u8(reader).await?)?;
+            match property_id {
+                PropertyId::UserProperty => {
                     let property = PropertyValue::decode_user_property(reader).await?;
                     properties_bytes += 1 + 4 + property.name.len() + property.value.len();
                     properties.push(property);
                 }
-                _ => return Err(ErrorV5::InvalidProperty(property_type, header.typ)),
+                _ => return Err(ErrorV5::InvalidProperty(header.typ, property_id)),
             }
             property_len -= 1;
         }
@@ -354,7 +356,7 @@ impl Encodable for Unsubscribe {
 
         write_var_int(writer, self.properties.len())?;
         for UserProperty { name, value } in &self.properties {
-            crate::write_u8(writer, PropertyType::UserProperty as u8)?;
+            crate::write_u8(writer, PropertyId::UserProperty as u8)?;
             crate::write_bytes(writer, name.as_bytes())?;
             crate::write_bytes(writer, value.as_bytes())?;
         }
@@ -405,7 +407,8 @@ impl Unsuback {
         let mut topics = Vec::new();
         while remaining_len > 0 {
             let value = read_u8(reader).await?;
-            let code = UnsubscribeReasonCode::from_u8(value)?;
+            let code = UnsubscribeReasonCode::from_u8(value)
+                .ok_or(ErrorV5::InvalidReasonCode(header.typ, value))?;
             topics.push(code);
             remaining_len -= 1;
         }
@@ -487,7 +490,7 @@ pub enum UnsubscribeReasonCode {
 }
 
 impl UnsubscribeReasonCode {
-    pub fn from_u8(value: u8) -> Result<Self, ErrorV5> {
+    pub fn from_u8(value: u8) -> Option<Self> {
         let code = match value {
             0x00 => Self::Success,
             0x11 => Self::NoSubscriptionExisted,
@@ -496,8 +499,8 @@ impl UnsubscribeReasonCode {
             0x87 => Self::NotAuthorized,
             0x8F => Self::TopicFilterInvalid,
             0x91 => Self::PacketIdentifierInUse,
-            _ => return Err(ErrorV5::InvalidReasonCode(value)),
+            _ => return None,
         };
-        Ok(code)
+        Some(code)
     }
 }

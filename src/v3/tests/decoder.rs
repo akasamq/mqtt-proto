@@ -5,11 +5,11 @@ use bytes::Bytes;
 
 use crate::v3::*;
 use crate::*;
-use PacketType::*;
 use QoS::*;
 
 #[test]
-fn header_firstbyte() {
+fn test_header_firstbyte() {
+    use PacketType::*;
     let valid = vec![
         (0b0001_0000, Header::new(Connect, false, Level0, false, 0)),
         (0b0010_0000, Header::new(Connack, false, Level0, false, 0)),
@@ -27,13 +27,13 @@ fn header_firstbyte() {
         (0b0011_1101, Header::new(Publish, true, Level2, true, 0)),
         (0b0100_0000, Header::new(Puback, false, Level0, false, 0)),
         (0b0101_0000, Header::new(Pubrec, false, Level0, false, 0)),
-        (0b0110_0010, Header::new(Pubrel, false, Level1, false, 0)),
+        (0b0110_0010, Header::new(Pubrel, false, Level0, false, 0)),
         (0b0111_0000, Header::new(Pubcomp, false, Level0, false, 0)),
-        (0b1000_0010, Header::new(Subscribe, false, Level1, false, 0)),
+        (0b1000_0010, Header::new(Subscribe, false, Level0, false, 0)),
         (0b1001_0000, Header::new(Suback, false, Level0, false, 0)),
         (
             0b1010_0010,
-            Header::new(Unsubscribe, false, Level1, false, 0),
+            Header::new(Unsubscribe, false, Level0, false, 0),
         ),
         (0b1011_0000, Header::new(Unsuback, false, Level0, false, 0)),
         (0b1100_0000, Header::new(Pingreq, false, Level0, false, 0)),
@@ -55,7 +55,8 @@ fn header_firstbyte() {
 }
 
 #[test]
-fn header_len() {
+fn test_header_len() {
+    use PacketType::*;
     for (bytes, res) in vec![
         (
             vec![1 << 4, 0],
@@ -88,7 +89,7 @@ fn header_len() {
 }
 
 #[test]
-fn non_utf8_string() {
+fn test_non_utf8_string() {
     let data: &[u8] = &[
         0b00110000, 10, // type=Publish, remaining_len=10
         0x00, 0x03, 'a' as u8, '/' as u8, 0xc0 as u8, // Topic with Invalid utf8
@@ -101,7 +102,7 @@ fn non_utf8_string() {
 }
 
 #[test]
-fn inner_length_too_long() {
+fn test_inner_length_too_long() {
     let data: &[u8] = &[
         0b00010000, 20, // Connect packet, remaining_len=20
         0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x04, 0b01000000, // +password
@@ -110,15 +111,6 @@ fn inner_length_too_long() {
         0x00, 0x03, 'm' as u8, 'q' as u8, // password with invalid length
     ];
     assert_eq!(Ok(None), Packet::decode(data));
-
-    let slice: &[u8] = &[
-        0b00010000, 20, // Connect packet, remaining_len=20
-        0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x04, 0b01000000, // +password
-        0x00, 0x0a, // keepalive 10 sec
-        0x00, 0x04, 't' as u8, 'e' as u8, 's' as u8, 't' as u8, // client_id
-        0x00, 0x03, 'm' as u8, 'q' as u8, // password with invalid length
-    ];
-    assert_eq!(Ok(None), Packet::decode(slice));
 }
 
 #[test]
@@ -176,7 +168,7 @@ fn test_decode_packet_n() {
         0b11010000, 0b00000000,
     ];
 
-    let pkt1 = crate::v3::Connect {
+    let pkt1 = v3::Connect {
         protocol: Protocol::MqttV311,
         keep_alive: 10,
         client_id: Arc::new("test".to_owned()),
@@ -212,7 +204,7 @@ fn test_decode_connack() {
     let data: &[u8] = &[0b00100000, 2, 0b00000000, 0b00000001];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        Packet::Connack(crate::v3::Connack {
+        Packet::Connack(v3::Connack {
             session_present: false,
             code: ConnectReturnCode::UnacceptableProtocolVersion,
         })
@@ -333,7 +325,7 @@ fn test_decode_subscribe() {
     ];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        Packet::Subscribe(crate::v3::Subscribe {
+        Packet::Subscribe(v3::Subscribe {
             pid: Pid::try_from(10).unwrap(),
             topics: vec![(
                 TopicFilter::try_from("a/b".to_owned()).unwrap(),
@@ -348,7 +340,7 @@ fn test_decode_suback() {
     let data: &[u8] = &[0b10010000, 3, 0, 10, 0b00000010];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        Packet::Suback(crate::v3::Suback {
+        Packet::Suback(v3::Suback {
             pid: Pid::try_from(10).unwrap(),
             topics: vec![SubscribeReturnCode::MaxLevel2],
         })
@@ -360,7 +352,7 @@ fn test_decode_unsubscribe() {
     let data: &[u8] = &[0b10100010, 5, 0, 10, 0, 1, 'a' as u8];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        Packet::Unsubscribe(crate::v3::Unsubscribe {
+        Packet::Unsubscribe(v3::Unsubscribe {
             pid: Pid::try_from(10).unwrap(),
             topics: vec![TopicFilter::try_from("a".to_owned()).unwrap(),],
         })

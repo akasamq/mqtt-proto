@@ -66,20 +66,6 @@ impl Connect {
         let keep_alive = read_u16(reader).await?;
 
         // FIXME: check remaining length
-        // const PROTOCOL_NAME_LEN: usize = 2 + 4;
-        // const PROTOCOL_VER_LEN: usize = 1;
-        // const CONNECT_FLAGS_LEN: usize = 1;
-        // const KEEP_ALIVE_LEN: usize = 2;
-        // header.remaining_len = header
-        //     .remaining_len
-        //     .checked_sub(
-        //         PROTOCOL_NAME_LEN
-        //             + PROTOCOL_VER_LEN
-        //             + CONNECT_FLAGS_LEN
-        //             + KEEP_ALIVE_LEN
-        //             + property_len_bytes,
-        //     )
-        //     .ok_or(Error::InvalidRemainingLength)?;
 
         let properties = ConnectProperties::decode_async(reader, header.typ).await?;
         let client_id = Arc::new(read_string(reader).await?);
@@ -391,7 +377,8 @@ impl Connack {
             1 => true,
             _ => return Err(Error::InvalidConnackFlags(payload[0]).into()),
         };
-        let reason_code = ConnectReasonCode::from_u8(payload[1])?;
+        let reason_code = ConnectReasonCode::from_u8(payload[1])
+            .ok_or(ErrorV5::InvalidReasonCode(header.typ, payload[1]))?;
         let properties = ConnackProperties::decode_async(reader, header.typ).await?;
         Ok(Connack {
             session_present,
@@ -468,7 +455,7 @@ pub enum ConnectReasonCode {
 }
 
 impl ConnectReasonCode {
-    pub fn from_u8(value: u8) -> Result<ConnectReasonCode, ErrorV5> {
+    pub fn from_u8(value: u8) -> Option<ConnectReasonCode> {
         let code = match value {
             0x00 => ConnectReasonCode::Success,
             0x80 => ConnectReasonCode::UnspecifiedError,
@@ -492,9 +479,9 @@ impl ConnectReasonCode {
             0x9C => ConnectReasonCode::UseAnotherServer,
             0x9D => ConnectReasonCode::ServerMoved,
             0x9F => ConnectReasonCode::ConnectionRateExceeded,
-            _ => return Err(ErrorV5::InvalidReasonCode(value)),
+            _ => return None,
         };
-        Ok(code)
+        Some(code)
     }
 }
 
@@ -620,10 +607,14 @@ impl Disconnect {
         let (reason_code, properties) = if header.remaining_len == 0 {
             (DisconnectReasonCode::NormalDisconnect, Default::default())
         } else if header.remaining_len == 1 {
-            let reason_code = DisconnectReasonCode::from_u8(read_u8(reader).await?)?;
+            let reason_byte = read_u8(reader).await?;
+            let reason_code = DisconnectReasonCode::from_u8(reason_byte)
+                .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
             (reason_code, Default::default())
         } else {
-            let reason_code = DisconnectReasonCode::from_u8(read_u8(reader).await?)?;
+            let reason_byte = read_u8(reader).await?;
+            let reason_code = DisconnectReasonCode::from_u8(reason_byte)
+                .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
             let properties = DisconnectProperties::decode_async(reader, header.typ).await?;
             (reason_code, properties)
         };
@@ -731,7 +722,7 @@ pub enum DisconnectReasonCode {
 }
 
 impl DisconnectReasonCode {
-    pub fn from_u8(value: u8) -> Result<Self, ErrorV5> {
+    pub fn from_u8(value: u8) -> Option<Self> {
         let code = match value {
             0x00 => Self::NormalDisconnect,
             0x04 => Self::DisconnectWithWillMessage,
@@ -762,9 +753,9 @@ impl DisconnectReasonCode {
             0xA0 => Self::MaximumConnectTime,
             0xA1 => Self::SubscriptionIdentifiersNotSupported,
             0xA2 => Self::WildcardSubscriptionsNotSupported,
-            _ => return Err(ErrorV5::InvalidReasonCode(value)),
+            _ => return None,
         };
-        Ok(code)
+        Some(code)
     }
 }
 
@@ -838,7 +829,9 @@ impl Auth {
                 properties: AuthProperties::default(),
             }
         } else {
-            let reason_code = AuthReasonCode::from_u8(read_u8(reader).await?)?;
+            let reason_byte = read_u8(reader).await?;
+            let reason_code = AuthReasonCode::from_u8(reason_byte)
+                .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
             let properties = AuthProperties::decode_async(reader, header.typ).await?;
             Auth {
                 reason_code,
@@ -887,14 +880,14 @@ pub enum AuthReasonCode {
 }
 
 impl AuthReasonCode {
-    pub fn from_u8(value: u8) -> Result<Self, ErrorV5> {
+    pub fn from_u8(value: u8) -> Option<Self> {
         let code = match value {
             0x00 => Self::Success,
             0x18 => Self::ContinueAuthentication,
             0x19 => Self::ReAuthentication,
-            _ => return Err(ErrorV5::InvalidReasonCode(value)),
+            _ => return None,
         };
-        Ok(code)
+        Some(code)
     }
 }
 

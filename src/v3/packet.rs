@@ -282,7 +282,15 @@ impl Header {
         let (typ, flags_ok) = match hd >> 4 {
             1 => (PacketType::Connect, hd & FLAGS_MASK == 0),
             2 => (PacketType::Connack, hd & FLAGS_MASK == 0),
-            3 => (PacketType::Publish, true),
+            3 => {
+                return Ok(Header {
+                    typ: PacketType::Publish,
+                    dup: hd & 0b1000 != 0,
+                    qos: QoS::from_u8((hd & 0b110) >> 1)?,
+                    retain: hd & 1 == 1,
+                    remaining_len,
+                });
+            }
             4 => (PacketType::Puback, hd & FLAGS_MASK == 0),
             5 => (PacketType::Pubrec, hd & FLAGS_MASK == 0),
             6 => (PacketType::Pubrel, hd & FLAGS_MASK == 0b0010),
@@ -301,9 +309,9 @@ impl Header {
         }
         Ok(Header {
             typ,
-            dup: hd & 0b1000 != 0,
-            qos: QoS::from_u8((hd & 0b110) >> 1)?,
-            retain: hd & 1 == 1,
+            dup: false,
+            qos: QoS::Level0,
+            retain: false,
             remaining_len,
         })
     }

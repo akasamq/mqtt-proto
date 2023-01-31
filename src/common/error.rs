@@ -5,44 +5,53 @@ use thiserror::Error;
 /// Errors returned by encoding and decoding process.
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum Error {
-    /// Trying to decode with an invalid remaining length.
+    /// Invalid remaining length.
     #[error("invalid remaining length")]
     InvalidRemainingLength,
 
-    /// No subscription in subscribe packet
+    /// No subscription in subscribe packet.
     #[error("empty subscription")]
     EmptySubscription,
 
-    /// Tried to decode ProcessIdentifier == 0.
-    #[error("invalid packet identifier to decode")]
-    InvalidPid,
+    /// Packet identifier is 0.
+    #[error("packet identifier is 0")]
+    ZeroPid,
 
-    /// Tried to decode a QoS > 2.
+    /// Invalid QoS value.
     #[error("invalid qos: `{0}`")]
     InvalidQos(u8),
 
-    /// Tired to decode connect flags, that will flag is 0 but will qos is not 0.
+    /// Invalid connect flags.
     #[error("invalid connect flags: `{0}`")]
     InvalidConnectFlags(u8),
 
-    /// Tired to decode connack flags not 0 or 1.
+    /// Invalid connack flags (not 0 or 1).
     #[error("invalid connack flags: `{0}`")]
     InvalidConnackFlags(u8),
 
-    /// Tried to decode a ConnectReturnCode > 5.
+    /// Invalid connect return code (value > 5).
     #[error("invalid connect return code: `{0}`")]
     InvalidConnectReturnCode(u8),
 
-    /// Tried to decode an unknown protocol.
+    /// Invalid protocol.
     #[error("invalid protocol: {0}, {1}")]
     InvalidProtocol(String, u8),
 
-    /// Tried to decode an invalid fixed header (packet type, flags, or remaining_length).
+    /// Invalid fixed header (packet type, flags, or remaining_length).
     #[error("invalid header")]
     InvalidHeader,
 
+    /// Invalid variable byte integer
     #[error("invalid variable byte integer")]
     InvalidVarByteInt,
+
+    /// Invalid Topic Name
+    #[error("invalid topic name: {0}")]
+    InvalidTopicName(String),
+
+    /// Invalid topic filter
+    #[error("invalid topic filter: {0}")]
+    InvalidTopicFilter(String),
 
     /// Trying to decode a non-utf8 string.
     #[error("invalid string")]

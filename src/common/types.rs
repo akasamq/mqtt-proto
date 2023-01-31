@@ -118,7 +118,7 @@ impl TryFrom<u16> for Pid {
     type Error = Error;
     fn try_from(value: u16) -> Result<Self, Error> {
         if value == 0 {
-            Err(Error::InvalidPid)
+            Err(Error::ZeroPid)
         } else {
             Ok(Pid(value))
         }

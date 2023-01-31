@@ -1,38 +1,48 @@
 use thiserror::Error;
 
-use super::{PacketType, PropertyType};
+use super::{PacketType, PropertyId};
 use crate::Protocol;
 
 /// MQTT v5.0 errors returned by encoding and decoding process.
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum ErrorV5 {
+    /// Common error of MQTT v3 and v5.
     #[error("common error of v3/v5: {0}")]
     Common(#[from] crate::Error),
 
+    /// Unexpected protocol
     #[error("unexpected protocol version: `{0}`, expected `v5.0`")]
     UnexpectedProtocol(Protocol),
 
-    #[error("invalid reason code: `{0}`")]
-    InvalidReasonCode(u8),
+    /// Invalid reason code.
+    #[error("invalid reason code `{1}` for packet `{0}`")]
+    InvalidReasonCode(PacketType, u8),
 
-    #[error("invalid subscription option")]
-    InvalidSubscriptionOption,
+    /// Invalid subscription option.
+    #[error("invalid subscription option: `{0}`")]
+    InvalidSubscriptionOption(u8),
 
-    #[error("invalid property type: `{0}`")]
-    InvalidPropertyType(u8),
+    /// Invalid property identifier.
+    #[error("invalid property identifier: `{0}`")]
+    InvalidPropertyId(u8),
 
-    #[error("invalid byte property value: type=`{0}`, value=`{1}`")]
-    InvalidBytePropertyValue(PropertyType, u8),
+    /// Invalid byte property value.
+    #[error("invalid byte value `{1}` for property `{0}`")]
+    InvalidByteProperty(PropertyId, u8),
 
+    /// Duplicated property.
     #[error("duplicated property: `{0}`")]
-    DuplicatedProperty(PropertyType),
+    DuplicatedProperty(PropertyId),
 
-    #[error("invlaid property `{0}` for packet `{0}`")]
-    InvalidProperty(PropertyType, PacketType),
+    /// Invalid property.
+    #[error("invalid property `{1}` for packet `{0}`")]
+    InvalidProperty(PacketType, PropertyId),
 
+    /// Invalid will property (connect packet).
     #[error("invalid will property: `{0}`")]
-    InvalidWillProperty(PropertyType),
+    InvalidWillProperty(PropertyId),
 
+    /// Authentication Data exists but Authentication Method is mssing.
     #[error("Authentication Data exists but Authentication Method is mssing")]
     AuthMethodMissing,
 }
