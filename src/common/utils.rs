@@ -78,20 +78,6 @@ pub(crate) fn write_var_int<W: io::Write>(writer: &mut W, mut len: usize) -> io:
     Ok(())
 }
 
-macro_rules! packet_from {
-    ($($t:ident),+) => {
-        $(
-            impl From<$t> for Packet {
-                fn from(p: $t) -> Self {
-                    Packet::$t(p)
-                }
-            }
-        )+
-    }
-}
-
-pub(crate) use packet_from;
-
 /// Read first byte(packet type and flags) and decode remaining length
 #[inline]
 pub async fn decode_raw_header<T: AsyncRead + Unpin>(reader: &mut T) -> Result<(u8, u32), Error> {
@@ -102,7 +88,9 @@ pub async fn decode_raw_header<T: AsyncRead + Unpin>(reader: &mut T) -> Result<(
 
 /// Decode a variable byte integer (4 bytes max)
 #[inline]
-pub async fn decode_var_int<T: AsyncRead + Unpin>(reader: &mut T) -> Result<(u32, usize), Error> {
+pub(crate) async fn decode_var_int<T: AsyncRead + Unpin>(
+    reader: &mut T,
+) -> Result<(u32, usize), Error> {
     let mut byte = 0u8;
     let mut var_int: u32 = 0;
     let mut i = 0;
@@ -122,7 +110,7 @@ pub async fn decode_var_int<T: AsyncRead + Unpin>(reader: &mut T) -> Result<(u32
 
 /// Return the encoded size of the variable byte integer.
 #[inline]
-pub fn var_int_len(value: usize) -> Result<usize, Error> {
+pub(crate) fn var_int_len(value: usize) -> Result<usize, Error> {
     let len = if value < 128 {
         1
     } else if value < 16384 {
@@ -139,7 +127,7 @@ pub fn var_int_len(value: usize) -> Result<usize, Error> {
 
 /// Return the packet total encoded length by a given remaining length.
 #[inline]
-pub fn total_len(remaining_len: usize) -> Result<usize, Error> {
+pub(crate) fn total_len(remaining_len: usize) -> Result<usize, Error> {
     let header_len = if remaining_len < 128 {
         2
     } else if remaining_len < 16384 {
@@ -156,7 +144,7 @@ pub fn total_len(remaining_len: usize) -> Result<usize, Error> {
 
 /// Encode packet use control byte and payload type
 #[inline]
-pub fn encode_packet<E: Encodable>(control_byte: u8, payload: &E) -> Result<Vec<u8>, Error> {
+pub(crate) fn encode_packet<E: Encodable>(control_byte: u8, payload: &E) -> Result<Vec<u8>, Error> {
     let remaining_len = payload.encode_len();
     let total = total_len(remaining_len)?;
     let mut buf = Vec::with_capacity(total);
@@ -169,3 +157,17 @@ pub fn encode_packet<E: Encodable>(control_byte: u8, payload: &E) -> Result<Vec<
     debug_assert_eq!(buf.len(), total);
     Ok(buf)
 }
+
+macro_rules! packet_from {
+    ($($t:ident),+) => {
+        $(
+            impl From<$t> for Packet {
+                fn from(p: $t) -> Self {
+                    Packet::$t(p)
+                }
+            }
+        )+
+    }
+}
+
+pub(crate) use packet_from;
