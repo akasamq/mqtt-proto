@@ -227,6 +227,7 @@ pub struct UserProperty {
     pub value: Arc<String>,
 }
 
+/// Variable Byte Integer
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct VarByteInt(u32);
 
