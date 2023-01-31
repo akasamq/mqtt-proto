@@ -23,7 +23,7 @@ pub use connect::{
     WillProperties,
 };
 pub use error::ErrorV5;
-pub use packet::{Header, Packet, PacketType};
+pub use packet::{Header, Packet, PacketType, VarBytes};
 pub use publish::{
     Puback, PubackProperties, PubackReasonCode, Pubcomp, PubcompProperties, PubcompReasonCode,
     Publish, PublishProperties, Pubrec, PubrecProperties, PubrecReasonCode, Pubrel,
