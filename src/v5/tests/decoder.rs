@@ -995,3 +995,21 @@ fn test_v5_decode_unsuback() {
         ErrorV5::InvalidReasonCode(PacketType::Unsuback, 0x43),
     );
 }
+
+#[test]
+fn test_v5_decode_pingreq() {
+    let data = &[12 << 4, 0];
+    assert_eq!(Packet::decode(data).unwrap().unwrap(), Packet::Pingreq);
+
+    let data = &[12 << 4, 0, 0x11, 0x22];
+    assert_eq!(Packet::decode(data).unwrap().unwrap(), Packet::Pingreq);
+}
+
+#[test]
+fn test_v5_decode_pingresp() {
+    let data = &[13 << 4, 0];
+    assert_eq!(Packet::decode(data).unwrap().unwrap(), Packet::Pingresp);
+
+    let data = &[13 << 4, 0, 0x11, 0x22];
+    assert_eq!(Packet::decode(data).unwrap().unwrap(), Packet::Pingresp);
+}
