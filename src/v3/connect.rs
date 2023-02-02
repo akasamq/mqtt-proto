@@ -52,6 +52,9 @@ impl Connect {
             return Err(Error::UnexpectedProtocol(protocol));
         }
         let connect_flags: u8 = read_u8(reader).await?;
+        if connect_flags & 1 != 0 {
+            return Err(Error::InvalidConnectFlags(connect_flags));
+        }
         let keep_alive = read_u16(reader).await?;
         let client_id = Arc::new(read_string(reader).await?);
         let last_will = if connect_flags & 0b100 != 0 {

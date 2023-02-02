@@ -151,6 +151,20 @@ fn test_decode_connect_wrong_version() {
 }
 
 #[test]
+fn test_decode_reserved_connect_flags() {
+    let data: &[u8] = &[
+        0b00010000, 39, 0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x04,
+        0b11001111, // +username, +password, -will retain, will qos=1, +last_will, +clean_session
+        0x00, 0x0a, // 10 sec
+        0x00, 0x04, 't' as u8, 'e' as u8, 's' as u8, 't' as u8, // client_id
+    ];
+    assert_eq!(
+        Packet::decode(data),
+        Err(Error::InvalidConnectFlags(0b11001111)),
+    );
+}
+
+#[test]
 fn test_decode_packet_n() {
     let data: &[u8] = &[
         // connect packet

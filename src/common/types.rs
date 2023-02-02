@@ -267,10 +267,9 @@ impl TopicFilter {
     /// Check if the topic filter is invalid.
     pub fn is_invalid(value: &str) -> bool {
         let mut last_sep: Option<usize> = None;
-        let mut char_idx: usize = 0;
         let mut has_all = false;
         let mut has_one = false;
-        for c in value.chars() {
+        for (char_idx, c) in value.chars().enumerate() {
             if c == '\0' {
                 return true;
             }
@@ -305,7 +304,6 @@ impl TopicFilter {
                     return true;
                 }
             }
-            char_idx += 1;
         }
         false
     }

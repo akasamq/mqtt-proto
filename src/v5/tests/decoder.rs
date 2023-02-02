@@ -166,6 +166,16 @@ fn test_v5_decode_connect() {
     );
 
     let data: &[u8] = &[
+        0b00010000, 39, 0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x05,
+        0b11001111, // +username, +password, -will retain, will qos=1, +last_will, +clean_session
+        0x00, 0x0a, // 10 sec
+    ];
+    assert_eq!(
+        Packet::decode(data),
+        Err(ErrorV5::Common(Error::InvalidConnectFlags(0b11001111))),
+    );
+
+    let data: &[u8] = &[
         0b00010000, 21, // Connect packet, remaining length
         0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x05,       // protocol (size=7)
         0b00000000, // connect flags

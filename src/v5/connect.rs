@@ -87,6 +87,9 @@ impl Connect {
             return Err(Error::UnexpectedProtocol(protocol).into());
         }
         let connect_flags: u8 = read_u8(reader).await?;
+        if connect_flags & 1 != 0 {
+            return Err(Error::InvalidConnectFlags(connect_flags).into());
+        }
         let keep_alive = read_u16(reader).await?;
 
         // FIXME: check remaining length
