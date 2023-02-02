@@ -9,7 +9,7 @@ use futures_lite::io::AsyncRead;
 use simdutf8::basic::from_utf8;
 
 use super::{read_bytes, read_u8};
-use crate::Error;
+use crate::{Error, LEVEL_SEP, MATCH_ALL_CHAR, MATCH_ONE_CHAR};
 
 pub const MQISDP: &[u8] = b"MQIsdp";
 pub const MQTT: &[u8] = b"MQTT";
@@ -229,13 +229,24 @@ impl QosPid {
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct TopicName(Arc<String>);
 
+impl TopicName {
+    /// Check if the topic name is invalid.
+    pub fn is_invalid(value: &str) -> bool {
+        value.contains(|c| c == MATCH_ONE_CHAR || c == MATCH_ALL_CHAR || c == '\0')
+    }
+}
+
 impl TryFrom<String> for TopicName {
     type Error = Error;
     fn try_from(value: String) -> Result<Self, Error> {
-        // FIXME: check topic name
-        Ok(TopicName(Arc::new(value)))
+        if TopicName::is_invalid(value.as_str()) {
+            Err(Error::InvalidTopicName(value))
+        } else {
+            Ok(TopicName(Arc::new(value)))
+        }
     }
 }
+
 impl Deref for TopicName {
     type Target = str;
     fn deref(&self) -> &str {
@@ -252,13 +263,65 @@ impl Deref for TopicName {
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct TopicFilter(Arc<String>);
 
+impl TopicFilter {
+    /// Check if the topic filter is invalid.
+    pub fn is_invalid(value: &str) -> bool {
+        let mut last_sep: Option<usize> = None;
+        let mut char_idx: usize = 0;
+        let mut has_all = false;
+        let mut has_one = false;
+        for c in value.chars() {
+            if c == '\0' {
+                return true;
+            }
+            // "#" must be last char
+            if has_all {
+                return true;
+            }
+            if c == LEVEL_SEP {
+                // "+" must occupy an entire level of the filter
+                if has_one && Some(char_idx) != last_sep.map(|v| v + 2) && char_idx != 1 {
+                    return true;
+                }
+                last_sep = Some(char_idx);
+                has_one = false;
+            } else if c == MATCH_ALL_CHAR {
+                if has_one {
+                    // invalid topic filter: "/+#"
+                    return true;
+                } else if Some(char_idx) == last_sep.map(|v| v + 1) || char_idx == 0 {
+                    has_all = true;
+                } else {
+                    // invalid topic filter: "/ab#"
+                    return true;
+                }
+            } else if c == MATCH_ONE_CHAR {
+                if has_one {
+                    // invalid topic filter: "/++"
+                    return true;
+                } else if Some(char_idx) == last_sep.map(|v| v + 1) || char_idx == 0 {
+                    has_one = true;
+                } else {
+                    return true;
+                }
+            }
+            char_idx += 1;
+        }
+        false
+    }
+}
+
 impl TryFrom<String> for TopicFilter {
     type Error = Error;
     fn try_from(value: String) -> Result<Self, Error> {
-        // FIXME: check topic filter
-        Ok(TopicFilter(Arc::new(value)))
+        if TopicFilter::is_invalid(value.as_str()) {
+            Err(Error::InvalidTopicFilter(value))
+        } else {
+            Ok(TopicFilter(Arc::new(value)))
+        }
     }
 }
+
 impl Deref for TopicFilter {
     type Target = str;
     fn deref(&self) -> &str {
@@ -292,5 +355,71 @@ mod tests {
             assert_eq!(prev, sub.value(), "{:?} - {} should be {}", cur, d, prev);
             assert_eq!(next, add.value(), "{:?} + {} should be {}", cur, d, next);
         }
+    }
+
+    #[test]
+    fn test_valid_topic_name() {
+        // valid topic name
+        assert!(!TopicName::is_invalid("/abc/def"));
+        assert!(!TopicName::is_invalid("abc/def"));
+        assert!(!TopicName::is_invalid("abc"));
+        assert!(!TopicName::is_invalid("/"));
+        assert!(!TopicName::is_invalid("//"));
+
+        // invalid topic name
+        assert!(TopicName::is_invalid("#"));
+        assert!(TopicName::is_invalid("+"));
+        assert!(TopicName::is_invalid("/+"));
+        assert!(TopicName::is_invalid("/#"));
+        assert!(TopicName::is_invalid("abc/\0"));
+        assert!(TopicName::is_invalid("abc\0def"));
+        assert!(TopicName::is_invalid("abc#def"));
+        assert!(TopicName::is_invalid("abc+def"));
+    }
+
+    #[test]
+    fn test_case() {
+        assert!(!TopicFilter::is_invalid("+/+"));
+    }
+
+    #[test]
+    fn test_valid_topic_filter() {
+        // valid topic filter
+        assert!(!TopicFilter::is_invalid("abc/def"));
+        assert!(!TopicFilter::is_invalid("abc/+"));
+        assert!(!TopicFilter::is_invalid("abc/#"));
+        assert!(!TopicFilter::is_invalid("#"));
+        assert!(!TopicFilter::is_invalid("+"));
+        assert!(!TopicFilter::is_invalid("+/"));
+        assert!(!TopicFilter::is_invalid("+/+"));
+        assert!(!TopicFilter::is_invalid("///"));
+        assert!(!TopicFilter::is_invalid("//+/"));
+        assert!(!TopicFilter::is_invalid("//abc/"));
+        assert!(!TopicFilter::is_invalid("//+//#"));
+        assert!(!TopicFilter::is_invalid("/abc/+//#"));
+        assert!(!TopicFilter::is_invalid("+/abc/+"));
+
+        // invalid topic filter
+        assert!(TopicFilter::is_invalid("abc\0def"));
+        assert!(TopicFilter::is_invalid("abc/\0def"));
+        assert!(TopicFilter::is_invalid("++"));
+        assert!(TopicFilter::is_invalid("++/"));
+        assert!(TopicFilter::is_invalid("/++"));
+        assert!(TopicFilter::is_invalid("abc/++"));
+        assert!(TopicFilter::is_invalid("abc/++/"));
+        assert!(TopicFilter::is_invalid("#/abc"));
+        assert!(TopicFilter::is_invalid("/ab#"));
+        assert!(TopicFilter::is_invalid("##"));
+        assert!(TopicFilter::is_invalid("/abc/ab#"));
+        assert!(TopicFilter::is_invalid("/+#"));
+        assert!(TopicFilter::is_invalid("//+#"));
+        assert!(TopicFilter::is_invalid("/abc/+#"));
+        assert!(TopicFilter::is_invalid("xxx/abc/+#"));
+        assert!(TopicFilter::is_invalid("xxx/a+bc/"));
+        assert!(TopicFilter::is_invalid("x+x/abc/"));
+        assert!(TopicFilter::is_invalid("x+/abc/"));
+        assert!(TopicFilter::is_invalid("+x/abc/"));
+        assert!(TopicFilter::is_invalid("+/abc/++"));
+        assert!(TopicFilter::is_invalid("+/a+c/+"));
     }
 }

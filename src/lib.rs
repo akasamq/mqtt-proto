@@ -8,4 +8,7 @@ pub(crate) use common::{
     write_u8, write_var_int,
 };
 
-pub use common::{Encodable, Error, Pid, Protocol, QoS, QosPid, TopicFilter, TopicName};
+pub use common::{
+    Encodable, Error, Pid, Protocol, QoS, QosPid, TopicFilter, TopicName, LEVEL_SEP,
+    MATCH_ALL_CHAR, MATCH_ALL_STR, MATCH_ONE_CHAR, MATCH_ONE_STR,
+};

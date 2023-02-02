@@ -10,3 +10,9 @@ pub(crate) use utils::{
 
 pub use error::Error;
 pub use types::{Encodable, Pid, Protocol, QoS, QosPid, TopicFilter, TopicName};
+
+pub const MATCH_ONE_STR: &str = "+";
+pub const MATCH_ALL_STR: &str = "#";
+pub const MATCH_ONE_CHAR: char = '+';
+pub const MATCH_ALL_CHAR: char = '#';
+pub const LEVEL_SEP: char = '/';
