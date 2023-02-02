@@ -98,7 +98,7 @@ fn test_v5_non_utf8_string() {
     ];
     assert!(matches!(
         Packet::decode(data).unwrap_err(),
-        ErrorV5::Common(Error::InvalidString(_))
+        ErrorV5::Common(Error::InvalidString)
     ));
 }
 

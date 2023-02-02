@@ -6,6 +6,7 @@ use std::slice;
 use std::sync::Arc;
 
 use futures_lite::io::AsyncRead;
+use simdutf8::basic::from_utf8;
 
 use super::{read_bytes, read_u8};
 use crate::Error;
@@ -48,7 +49,7 @@ impl Protocol {
             (MQTT, 4) => Ok(Protocol::MqttV311),
             (MQTT, 5) => Ok(Protocol::MqttV50),
             _ => {
-                let name = core::str::from_utf8(name)?;
+                let name = from_utf8(name).map_err(|_| Error::InvalidString)?;
                 Err(Error::InvalidProtocol(name.into(), level))
             }
         }

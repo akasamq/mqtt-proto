@@ -61,7 +61,7 @@ pub enum Error {
 
     /// Trying to decode a non-utf8 string.
     #[error("invalid string")]
-    InvalidString(#[from] core::str::Utf8Error),
+    InvalidString,
 
     /// Catch-all error when converting from `std::io::Error`.
     #[error("io error: {0}, {1}")]

@@ -97,7 +97,7 @@ fn test_non_utf8_string() {
     ];
     assert!(matches!(
         Packet::decode(data).unwrap_err(),
-        Error::InvalidString(_)
+        Error::InvalidString
     ));
 }
 

@@ -2,13 +2,16 @@ use std::io;
 use std::slice;
 
 use futures_lite::io::{AsyncRead, AsyncReadExt};
+use simdutf8::basic::from_utf8;
 
 use crate::{Encodable, Error};
 
 #[inline]
 pub(crate) async fn read_string<T: AsyncRead + Unpin>(reader: &mut T) -> Result<String, Error> {
     let data_buf = read_bytes(reader).await?;
-    Ok(String::from_utf8(data_buf).map_err(|err| err.utf8_error())?)
+    let _str = from_utf8(&data_buf).map_err(|_| Error::InvalidString)?;
+    Ok(unsafe { String::from_utf8_unchecked(data_buf) })
+    // Ok(String::from_utf8(data_buf).map_err(|err| Error::InvalidString)?)
 }
 
 #[inline]
