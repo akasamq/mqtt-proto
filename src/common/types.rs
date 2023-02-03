@@ -141,6 +141,12 @@ impl core::ops::Add<u16> for Pid {
     }
 }
 
+impl core::ops::AddAssign<u16> for Pid {
+    fn add_assign(&mut self, other: u16) {
+        *self = *self + other;
+    }
+}
+
 impl core::ops::Sub<u16> for Pid {
     type Output = Pid;
 
@@ -152,6 +158,12 @@ impl core::ops::Sub<u16> for Pid {
             (n, true) => n - 1,
         };
         Pid(n)
+    }
+}
+
+impl core::ops::SubAssign<u16> for Pid {
+    fn sub_assign(&mut self, other: u16) {
+        *self = *self - other;
     }
 }
 
