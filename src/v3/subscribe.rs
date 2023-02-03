@@ -183,3 +183,13 @@ impl SubscribeReturnCode {
         }
     }
 }
+
+impl From<QoS> for SubscribeReturnCode {
+    fn from(qos: QoS) -> SubscribeReturnCode {
+        match qos {
+            QoS::Level0 => SubscribeReturnCode::MaxLevel0,
+            QoS::Level1 => SubscribeReturnCode::MaxLevel1,
+            QoS::Level2 => SubscribeReturnCode::MaxLevel2,
+        }
+    }
+}
