@@ -1,5 +1,3 @@
-use std::io;
-
 use futures_lite::{
     future::block_on,
     io::{AsyncRead, AsyncWrite, AsyncWriteExt},
@@ -111,14 +109,13 @@ impl Packet {
     pub fn decode(mut bytes: &[u8]) -> Result<Option<Self>, Error> {
         match block_on(Self::decode_async(&mut bytes)) {
             Ok(pkt) => Ok(Some(pkt)),
-            Err(Error::IoError(kind, info)) => {
-                if kind == io::ErrorKind::UnexpectedEof {
+            Err(err) => {
+                if err.is_eof() {
                     Ok(None)
                 } else {
-                    Err(Error::IoError(kind, info))
+                    Err(err)
                 }
             }
-            Err(err) => Err(err),
         }
     }
 

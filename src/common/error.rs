@@ -68,6 +68,12 @@ pub enum Error {
     IoError(io::ErrorKind, String),
 }
 
+impl Error {
+    pub fn is_eof(&self) -> bool {
+        matches!(self, Error::IoError(kind, _) if *kind == io::ErrorKind::UnexpectedEof)
+    }
+}
+
 impl From<io::Error> for Error {
     fn from(err: io::Error) -> Error {
         Error::IoError(err.kind(), err.to_string())
