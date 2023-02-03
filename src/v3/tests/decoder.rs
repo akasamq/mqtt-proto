@@ -183,7 +183,7 @@ fn test_decode_packet_n() {
     ];
 
     let pkt1 = v3::Connect {
-        protocol: Protocol::MqttV311,
+        protocol: Protocol::V311,
         keep_alive: 10,
         client_id: Arc::new("test".to_owned()),
         clean_session: true,

@@ -115,7 +115,7 @@ fn test_v5_decode_connect() {
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
         Packet::Connect(Connect {
-            protocol: Protocol::MqttV50,
+            protocol: Protocol::V500,
             clean_start: false,
             keep_alive: 10,
             properties: Default::default(),
@@ -162,7 +162,7 @@ fn test_v5_decode_connect() {
     ];
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        ErrorV5::Common(Error::UnexpectedProtocol(Protocol::MqttV311)),
+        ErrorV5::Common(Error::UnexpectedProtocol(Protocol::V311)),
     );
 
     let data: &[u8] = &[

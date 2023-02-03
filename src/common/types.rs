@@ -29,25 +29,25 @@ pub enum Protocol {
     /// [MQTT 3.1]
     ///
     /// [MQTT 3.1]: https://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html
-    MqttV31 = 3,
+    V310 = 3,
 
     /// [MQTT 3.1.1] is the most commonly implemented version.
     ///
     /// [MQTT 3.1.1]: https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html
-    MqttV311 = 4,
+    V311 = 4,
 
     /// [MQTT 5.0] is the latest version
     ///
     /// [MQTT 5.0]: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html
-    MqttV50 = 5,
+    V500 = 5,
 }
 
 impl Protocol {
     pub fn new(name: &[u8], level: u8) -> Result<Protocol, Error> {
         match (name, level) {
-            (MQISDP, 3) => Ok(Protocol::MqttV31),
-            (MQTT, 4) => Ok(Protocol::MqttV311),
-            (MQTT, 5) => Ok(Protocol::MqttV50),
+            (MQISDP, 3) => Ok(Protocol::V310),
+            (MQTT, 4) => Ok(Protocol::V311),
+            (MQTT, 5) => Ok(Protocol::V500),
             _ => {
                 let name = from_utf8(name).map_err(|_| Error::InvalidString)?;
                 Err(Error::InvalidProtocol(name.into(), level))
@@ -57,9 +57,9 @@ impl Protocol {
 
     pub fn to_pair(self) -> (&'static [u8], u8) {
         match self {
-            Self::MqttV31 => (MQISDP, 3),
-            Self::MqttV311 => (MQTT, 4),
-            Self::MqttV50 => (MQTT, 5),
+            Self::V310 => (MQISDP, 3),
+            Self::V311 => (MQTT, 4),
+            Self::V500 => (MQTT, 5),
         }
     }
 
@@ -73,9 +73,9 @@ impl Protocol {
 impl fmt::Display for Protocol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let output = match self {
-            Self::MqttV31 => "v3.1",
-            Self::MqttV311 => "v3.1.1",
-            Self::MqttV50 => "v5.0",
+            Self::V310 => "v3.1",
+            Self::V311 => "v3.1.1",
+            Self::V500 => "v5.0",
         };
         write!(f, "{}", output)
     }
@@ -92,9 +92,9 @@ impl Encodable for Protocol {
 
     fn encode_len(&self) -> usize {
         match self {
-            Self::MqttV31 => 2 + 6 + 1,
-            Self::MqttV311 => 2 + 4 + 1,
-            Self::MqttV50 => 2 + 4 + 1,
+            Self::V310 => 2 + 6 + 1,
+            Self::V311 => 2 + 4 + 1,
+            Self::V500 => 2 + 4 + 1,
         }
     }
 }

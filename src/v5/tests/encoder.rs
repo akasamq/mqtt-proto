@@ -31,7 +31,7 @@ fn test_v5_encode_pingresp() {
 fn test_v5_encode_connect() {
     let packet = Connect {
         // 2 + 4 + 1 = 7
-        protocol: Protocol::MqttV50,
+        protocol: Protocol::V500,
         // 1
         clean_start: true,
         // 2

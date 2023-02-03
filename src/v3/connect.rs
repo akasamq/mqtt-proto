@@ -40,7 +40,7 @@ impl<'a> arbitrary::Arbitrary<'a> for Connect {
 impl Connect {
     pub fn new(client_id: Arc<String>, keep_alive: u16) -> Self {
         Connect {
-            protocol: Protocol::MqttV311,
+            protocol: Protocol::V311,
             clean_session: true,
             keep_alive,
             client_id,

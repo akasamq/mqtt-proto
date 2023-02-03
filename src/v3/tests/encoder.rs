@@ -21,7 +21,7 @@ fn assert_encode(pkt: Packet, len: usize) {
 #[test]
 fn test_encode_connect() {
     let packet = Connect {
-        protocol: Protocol::MqttV311,
+        protocol: Protocol::V311,
         keep_alive: 120,
         client_id: Arc::new("sample".to_owned()),
         clean_session: true,
@@ -32,7 +32,7 @@ fn test_encode_connect() {
     assert_encode(packet.into(), 20);
 
     let packet = Connect {
-        protocol: Protocol::MqttV31,
+        protocol: Protocol::V310,
         keep_alive: 120,
         client_id: Arc::new("sample".to_owned()),
         clean_session: true,

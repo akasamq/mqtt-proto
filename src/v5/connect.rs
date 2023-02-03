@@ -83,7 +83,7 @@ impl Connect {
         header: Header,
         protocol: Protocol,
     ) -> Result<Self, ErrorV5> {
-        if protocol != Protocol::MqttV50 {
+        if protocol != Protocol::V500 {
             return Err(Error::UnexpectedProtocol(protocol).into());
         }
         let connect_flags: u8 = read_u8(reader).await?;
