@@ -32,6 +32,16 @@ impl<'a> arbitrary::Arbitrary<'a> for Publish {
 }
 
 impl Publish {
+    pub fn new(qos_pid: QosPid, topic_name: TopicName, payload: Bytes) -> Self {
+        Publish {
+            dup: false,
+            retain: false,
+            qos_pid,
+            topic_name,
+            payload,
+        }
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,
