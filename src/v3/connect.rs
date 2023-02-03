@@ -163,6 +163,13 @@ pub struct Connack {
 }
 
 impl Connack {
+    pub fn new(session_present: bool, code: ConnectReturnCode) -> Connack {
+        Connack {
+            session_present,
+            code,
+        }
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
         let mut payload = [0u8; 2];
         reader.read_exact(&mut payload).await?;
