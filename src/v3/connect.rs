@@ -226,7 +226,7 @@ pub enum ConnectReturnCode {
     UnacceptableProtocolVersion = 1,
     IdentifierRejected = 2,
     ServerUnavailable = 3,
-    BadUsernamePassword = 4,
+    BadUsernameOrPassword = 4,
     NotAuthorized = 5,
 }
 
@@ -237,7 +237,7 @@ impl ConnectReturnCode {
             1 => Ok(ConnectReturnCode::UnacceptableProtocolVersion),
             2 => Ok(ConnectReturnCode::IdentifierRejected),
             3 => Ok(ConnectReturnCode::ServerUnavailable),
-            4 => Ok(ConnectReturnCode::BadUsernamePassword),
+            4 => Ok(ConnectReturnCode::BadUsernameOrPassword),
             5 => Ok(ConnectReturnCode::NotAuthorized),
             n => Err(Error::InvalidConnectReturnCode(n)),
         }
