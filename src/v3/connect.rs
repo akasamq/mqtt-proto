@@ -38,6 +38,18 @@ impl<'a> arbitrary::Arbitrary<'a> for Connect {
 }
 
 impl Connect {
+    pub fn new(client_id: Arc<String>, keep_alive: u16) -> Self {
+        Connect {
+            protocol: Protocol::MqttV311,
+            clean_session: true,
+            keep_alive,
+            client_id,
+            last_will: None,
+            username: None,
+            password: None,
+        }
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
         let protocol = Protocol::decode_async(reader).await?;
         Self::decode_with_protocol(reader, protocol).await
@@ -163,7 +175,7 @@ pub struct Connack {
 }
 
 impl Connack {
-    pub fn new(session_present: bool, code: ConnectReturnCode) -> Connack {
+    pub fn new(session_present: bool, code: ConnectReturnCode) -> Self {
         Connack {
             session_present,
             code,
