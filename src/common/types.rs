@@ -23,7 +23,7 @@ pub trait Encodable {
 }
 
 /// Protocol version.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum Protocol {
     /// [MQTT 3.1]
@@ -159,7 +159,7 @@ impl core::ops::Sub<u16> for Pid {
 ///
 /// [Quality of Service]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718099
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub enum QoS {
     /// `QoS 0`. At most once. No ack needed.

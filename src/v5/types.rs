@@ -228,7 +228,7 @@ pub struct UserProperty {
 }
 
 /// Variable Byte Integer
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
 pub struct VarByteInt(u32);
 
 #[cfg(feature = "arbitrary")]
