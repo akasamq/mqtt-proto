@@ -236,6 +236,12 @@ impl TopicName {
     }
 }
 
+impl fmt::Display for TopicName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 impl TryFrom<String> for TopicName {
     type Error = Error;
     fn try_from(value: String) -> Result<Self, Error> {
@@ -306,6 +312,12 @@ impl TopicFilter {
             }
         }
         false
+    }
+}
+
+impl fmt::Display for TopicFilter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
