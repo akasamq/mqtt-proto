@@ -6,6 +6,14 @@ use simdutf8::basic::from_utf8;
 
 use crate::{Encodable, Error};
 
+/// Read first byte(packet type and flags) and decode remaining length
+#[inline]
+pub async fn decode_raw_header<T: AsyncRead + Unpin>(reader: &mut T) -> Result<(u8, u32), Error> {
+    let typ = read_u8(reader).await?;
+    let (remaining_len, _bytes) = decode_var_int(reader).await?;
+    Ok((typ, remaining_len))
+}
+
 #[inline]
 pub(crate) async fn read_string<T: AsyncRead + Unpin>(reader: &mut T) -> Result<String, Error> {
     let data_buf = read_bytes(reader).await?;
@@ -79,14 +87,6 @@ pub(crate) fn write_var_int<W: io::Write>(writer: &mut W, mut len: usize) -> io:
         }
     }
     Ok(())
-}
-
-/// Read first byte(packet type and flags) and decode remaining length
-#[inline]
-pub async fn decode_raw_header<T: AsyncRead + Unpin>(reader: &mut T) -> Result<(u8, u32), Error> {
-    let typ = read_u8(reader).await?;
-    let (remaining_len, _bytes) = decode_var_int(reader).await?;
-    Ok((typ, remaining_len))
 }
 
 /// Decode a variable byte integer (4 bytes max)
