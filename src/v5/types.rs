@@ -463,126 +463,58 @@ macro_rules! decode_property {
 
 macro_rules! decode_properties {
     (LastWill, $properties:expr, $reader:expr, $($t:ident,)+) => {
-        let (mut property_len, _bytes) = crate::decode_var_int($reader).await?;
-        while property_len > 0 {
+        let (property_len, _bytes) = crate::decode_var_int($reader).await?;
+        let mut len = 0;
+        while property_len as usize > len {
             let property_id = crate::v5::PropertyId::from_u8(crate::read_u8($reader).await?)?;
             match property_id {
                 $(
                     crate::v5::PropertyId::$t => {
                         crate::v5::decode_property!($t, $properties, $reader, property_id);
+                        crate::v5::encode_property_len!($t, $properties, len);
                     }
                 )+
                     crate::v5::PropertyId::UserProperty => {
                         crate::v5::decode_property!(UserProperty, $properties, $reader, property_id);
+                        let last = $properties.user_properties.last().expect("user property exists");
+                        len += 1 + 4 + last.name.len() + last.value.len();
                     }
                     _ => return Err(crate::v5::ErrorV5::InvalidWillProperty(property_id)),
             }
-            property_len -= 1;
+        }
+        if property_len as usize != len {
+            return Err(crate::v5::ErrorV5::InvalidPropertyLength(property_len));
         }
     };
     ($packet_type:expr, $properties:expr, $reader:expr, $($t:ident,)+) => {
-        let (mut property_len, _bytes) = crate::decode_var_int($reader).await?;
-        while property_len > 0 {
+        let (property_len, _bytes) = crate::decode_var_int($reader).await?;
+        let mut len = 0;
+        while property_len as usize > len {
+            println!("property_len: {}, len: {}", property_len, len);
             let property_id = crate::v5::PropertyId::from_u8(crate::read_u8($reader).await?)?;
             match property_id {
                 $(
                     crate::v5::PropertyId::$t => {
                         crate::v5::decode_property!($t, $properties, $reader, property_id);
+                        crate::v5::encode_property_len!($t, $properties, len);
                     }
                 )+
                     crate::v5::PropertyId::UserProperty => {
                         crate::v5::decode_property!(UserProperty, $properties, $reader, property_id);
+                        let last = $properties.user_properties.last().expect("user property exists");
+                        len += 1 + 4 + last.name.len() + last.value.len();
                     }
                 _ => return Err(crate::v5::ErrorV5::InvalidProperty($packet_type, property_id)),
             }
-            property_len -= 1;
+        }
+        if property_len as usize != len {
+            return Err(crate::v5::ErrorV5::InvalidPropertyLength(property_len));
         }
     };
 }
 
 pub(crate) use decode_properties;
 pub(crate) use decode_property;
-
-macro_rules! property_field {
-    (PayloadFormatIndicator, $properties:expr) => {
-        $properties.payload_is_utf8
-    };
-    (MessageExpiryInterval, $properties:expr) => {
-        $properties.message_expiry_interval
-    };
-    (ContentType, $properties:expr) => {
-        $properties.content_type
-    };
-    (ResponseTopic, $properties:expr) => {
-        $properties.response_topic
-    };
-    (CorrelationData, $properties:expr) => {
-        $properties.correlation_data
-    };
-    (SubscriptionIdentifier, $properties:expr) => {
-        $properties.subscription_id
-    };
-    (SessionExpiryInterval, $properties:expr) => {
-        $properties.session_expiry_interval
-    };
-    (AssignedClientIdentifier, $properties:expr) => {
-        $properties.assigned_client_id
-    };
-    (ServerKeepAlive, $properties:expr) => {
-        $properties.server_keep_alive
-    };
-    (AuthenticationMethod, $properties:expr) => {
-        $properties.auth_method
-    };
-    (AuthenticationData, $properties:expr) => {
-        $properties.auth_data
-    };
-    (RequestProblemInformation, $properties:expr) => {
-        $properties.request_problem_info
-    };
-    (WillDelayInterval, $properties:expr) => {
-        $properties.delay_interval
-    };
-    (RequestResponseInformation, $properties:expr) => {
-        $properties.request_response_info
-    };
-    (ResponseInformation, $properties:expr) => {
-        $properties.response_info
-    };
-    (ServerReference, $properties:expr) => {
-        $properties.server_reference
-    };
-    (ReasonString, $properties:expr) => {
-        $properties.reason_string
-    };
-    (ReceiveMaximum, $properties:expr) => {
-        $properties.receive_max
-    };
-    (TopicAliasMaximum, $properties:expr) => {
-        $properties.topic_alias_max
-    };
-    (TopicAlias, $properties:expr) => {
-        $properties.topic_alias
-    };
-    (MaximumQoS, $properties:expr) => {
-        $properties.max_qos
-    };
-    (RetainAvailable, $properties:expr) => {
-        $properties.retain_available
-    };
-    (MaximumPacketSize, $properties:expr) => {
-        $properties.max_packet_size
-    };
-    (WildcardSubscriptionAvailable, $properties: expr) => {
-        $properties.wildcard_subscription_available
-    };
-    (SubscriptionIdentifierAvailable, $properties:expr) => {
-        $properties.subscription_id_available
-    };
-    (SharedSubscriptionAvailable, $properties:expr) => {
-        $properties.shared_subscription_available
-    };
-}
 
 macro_rules! encode_property {
     (PayloadFormatIndicator, $properties:expr, $writer: expr) => {
@@ -763,11 +695,13 @@ macro_rules! encode_property {
 
 macro_rules! encode_properties {
     ($properties:expr, $writer:expr, $($t:ident,)+) => {
-        let mut property_len = $properties.user_properties.len();
+        let mut property_len = $properties.user_properties.len() + $properties
+            .user_properties
+            .iter()
+            .map(|property| 4 + property.name.len() + property.value.len())
+            .sum::<usize>();
         $(
-            if crate::v5::property_field!($t, $properties).is_some() {
-                property_len += 1;
-            }
+            crate::v5::encode_property_len!($t, $properties, property_len);
         )+
 
             crate::write_var_int($writer, property_len)?;
@@ -785,164 +719,137 @@ macro_rules! encode_properties {
 
 pub(crate) use encode_properties;
 pub(crate) use encode_property;
-pub(crate) use property_field;
 
 macro_rules! encode_property_len {
-    (PayloadFormatIndicator, $properties:expr, $len:expr, $property_len:expr) => {
+    (PayloadFormatIndicator, $properties:expr, $property_len:expr) => {
         if $properties.payload_is_utf8.is_some() {
-            $property_len += 1;
-            $len += 1;
+            $property_len += 1 + 1;
         }
     };
-    (MessageExpiryInterval, $properties:expr, $len:expr, $property_len:expr) => {
+    (MessageExpiryInterval, $properties:expr, $property_len:expr) => {
         if $properties.message_expiry_interval.is_some() {
-            $property_len += 1;
-            $len += 4;
+            $property_len += 1 + 4;
         }
     };
-    (ContentType, $properties:expr, $len:expr, $property_len:expr) => {
+    (ContentType, $properties:expr, $property_len:expr) => {
         if let Some(value) = $properties.content_type.as_ref() {
-            $property_len += 1;
-            $len += 2 + value.len();
+            $property_len += 1 + 2 + value.len();
         }
     };
-    (ResponseTopic, $properties:expr, $len:expr, $property_len:expr) => {
+    (ResponseTopic, $properties:expr, $property_len:expr) => {
         if let Some(value) = $properties.response_topic.as_ref() {
-            $property_len += 1;
-            $len += 2 + value.len();
+            $property_len += 1 + 2 + value.len();
         }
     };
-    (CorrelationData, $properties:expr, $len:expr, $property_len:expr) => {
+    (CorrelationData, $properties:expr, $property_len:expr) => {
         if let Some(value) = $properties.correlation_data.as_ref() {
-            $property_len += 1;
-            $len += 2 + value.len();
+            $property_len += 1 + 2 + value.len();
         }
     };
-    (SubscriptionIdentifier, $properties:expr, $len:expr, $property_len:expr) => {
+    (SubscriptionIdentifier, $properties:expr, $property_len:expr) => {
         if let Some(value) = $properties.subscription_id {
-            $property_len += 1;
-            $len += crate::var_int_len(value.value() as usize)
+            $property_len += 1 + crate::var_int_len(value.value() as usize)
                 .expect("subscription id exceed 268,435,455");
         }
     };
-    (SessionExpiryInterval, $properties:expr, $len:expr, $property_len:expr) => {
+    (SessionExpiryInterval, $properties:expr, $property_len:expr) => {
         if $properties.session_expiry_interval.is_some() {
-            $property_len += 1;
-            $len += 4;
+            $property_len += 1 + 4;
         }
     };
-    (AssignedClientIdentifier, $properties:expr, $len:expr, $property_len:expr) => {
+    (AssignedClientIdentifier, $properties:expr, $property_len:expr) => {
         if let Some(value) = $properties.assigned_client_id.as_ref() {
-            $property_len += 1;
-            $len += 2 + value.len();
+            $property_len += 1 + 2 + value.len();
         }
     };
-    (ServerKeepAlive, $properties:expr, $len:expr, $property_len:expr) => {
+    (ServerKeepAlive, $properties:expr, $property_len:expr) => {
         if $properties.server_keep_alive.is_some() {
-            $property_len += 1;
-            $len += 2;
+            $property_len += 1 + 2;
         }
     };
-    (AuthenticationMethod, $properties:expr, $len:expr, $property_len:expr) => {
+    (AuthenticationMethod, $properties:expr, $property_len:expr) => {
         if let Some(value) = $properties.auth_method.as_ref() {
-            $property_len += 1;
-            $len += 2 + value.len();
+            $property_len += 1 + 2 + value.len();
         }
     };
-    (AuthenticationData, $properties:expr, $len:expr, $property_len:expr) => {
+    (AuthenticationData, $properties:expr, $property_len:expr) => {
         if let Some(value) = $properties.auth_data.as_ref() {
-            $property_len += 1;
-            $len += 2 + value.len();
+            $property_len += 1 + 2 + value.len();
         }
     };
-    (RequestProblemInformation, $properties:expr, $len:expr, $property_len:expr) => {
+    (RequestProblemInformation, $properties:expr, $property_len:expr) => {
         if $properties.request_problem_info.is_some() {
-            $property_len += 1;
-            $len += 1;
+            $property_len += 1 + 1;
         }
     };
-    (WillDelayInterval, $properties:expr, $len:expr, $property_len:expr) => {
+    (WillDelayInterval, $properties:expr, $property_len:expr) => {
         if $properties.delay_interval.is_some() {
-            $property_len += 1;
-            $len += 4;
+            $property_len += 1 + 4;
         }
     };
-    (RequestResponseInformation, $properties:expr, $len:expr, $property_len:expr) => {
+    (RequestResponseInformation, $properties:expr, $property_len:expr) => {
         if $properties.request_response_info.is_some() {
-            $property_len += 1;
-            $len += 1;
+            $property_len += 1 + 1;
         }
     };
-    (ResponseInformation, $properties:expr, $len:expr, $property_len:expr) => {
+    (ResponseInformation, $properties:expr, $property_len:expr) => {
         if let Some(value) = $properties.response_info.as_ref() {
-            $property_len += 1;
-            $len += 2 + value.len();
+            $property_len += 1 + 2 + value.len();
         }
     };
-    (ServerReference, $properties:expr, $len:expr, $property_len:expr) => {
+    (ServerReference, $properties:expr, $property_len:expr) => {
         if let Some(value) = $properties.server_reference.as_ref() {
-            $property_len += 1;
-            $len += 2 + value.len();
+            $property_len += 1 + 2 + value.len();
         }
     };
-    (ReasonString, $properties:expr, $len:expr, $property_len:expr) => {
+    (ReasonString, $properties:expr, $property_len:expr) => {
         if let Some(value) = $properties.reason_string.as_ref() {
-            $property_len += 1;
-            $len += 2 + value.len();
+            $property_len += 1 + 2 + value.len();
         }
     };
-    (ReceiveMaximum, $properties:expr, $len:expr, $property_len:expr) => {
+    (ReceiveMaximum, $properties:expr, $property_len:expr) => {
         if $properties.receive_max.is_some() {
-            $property_len += 1;
-            $len += 2;
+            $property_len += 1 + 2;
         }
     };
-    (TopicAliasMaximum, $properties:expr, $len:expr, $property_len:expr) => {
+    (TopicAliasMaximum, $properties:expr, $property_len:expr) => {
         if $properties.topic_alias_max.is_some() {
-            $property_len += 1;
-            $len += 2;
+            $property_len += 1 + 2;
         }
     };
-    (TopicAlias, $properties:expr, $len:expr, $property_len:expr) => {
+    (TopicAlias, $properties:expr, $property_len:expr) => {
         if $properties.topic_alias.is_some() {
-            $property_len += 1;
-            $len += 2;
+            $property_len += 1 + 2;
         }
     };
-    (MaximumQoS, $properties:expr, $len:expr, $property_len:expr) => {
+    (MaximumQoS, $properties:expr, $property_len:expr) => {
         if $properties.max_qos.is_some() {
-            $property_len += 1;
-            $len += 1;
+            $property_len += 1 + 1;
         }
     };
-    (RetainAvailable, $properties:expr, $len:expr, $property_len:expr) => {
+    (RetainAvailable, $properties:expr, $property_len:expr) => {
         if $properties.retain_available.is_some() {
-            $property_len += 1;
-            $len += 1;
+            $property_len += 1 + 1;
         }
     };
-    (MaximumPacketSize, $properties:expr, $len:expr, $property_len:expr) => {
+    (MaximumPacketSize, $properties:expr, $property_len:expr) => {
         if $properties.max_packet_size.is_some() {
-            $property_len += 1;
-            $len += 4;
+            $property_len += 1 + 4;
         }
     };
-    (WildcardSubscriptionAvailable, $properties:expr, $len:expr, $property_len:expr) => {
+    (WildcardSubscriptionAvailable, $properties:expr, $property_len:expr) => {
         if $properties.wildcard_subscription_available.is_some() {
-            $property_len += 1;
-            $len += 1;
+            $property_len += 1 + 1;
         }
     };
-    (SubscriptionIdentifierAvailable, $properties:expr, $len:expr, $property_len:expr) => {
+    (SubscriptionIdentifierAvailable, $properties:expr, $property_len:expr) => {
         if $properties.subscription_id_available.is_some() {
-            $property_len += 1;
-            $len += 1;
+            $property_len += 1 + 1;
         }
     };
-    (SharedSubscriptionAvailable, $properties:expr, $len:expr, $property_len:expr) => {
+    (SharedSubscriptionAvailable, $properties:expr, $property_len:expr) => {
         if $properties.shared_subscription_available.is_some() {
-            $property_len += 1;
-            $len += 1;
+            $property_len += 1 + 1;
         }
     };
 }
@@ -950,18 +857,16 @@ macro_rules! encode_property_len {
 macro_rules! encode_properties_len {
     ($properties:expr, $len:expr, $($t:ident,)+) => {
         // Every properties have user property
-        let mut property_len = $properties.user_properties.len();
-        $(
-            crate::v5::encode_property_len!($t, $properties, $len, property_len);
-        )+
-
-            $len += crate::var_int_len(property_len).expect("total properties length exceed 268,435,455");
-        $len += property_len;
-        $len += $properties
+        let mut property_len: usize = $properties.user_properties.len() + $properties
             .user_properties
             .iter()
             .map(|property| 4 + property.name.len() + property.value.len())
             .sum::<usize>();
+        $(
+            crate::v5::encode_property_len!($t, $properties, property_len);
+        )+
+
+            $len += property_len + crate::var_int_len(property_len).expect("total properties length exceed 268,435,455");
     };
 }
 

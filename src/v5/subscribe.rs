@@ -322,22 +322,25 @@ impl Unsubscribe {
     ) -> Result<Self, ErrorV5> {
         let mut remaining_len = header.remaining_len as usize;
         let pid = Pid::try_from(read_u16(reader).await?)?;
-        let (mut property_len, mut properties_bytes) = decode_var_int(reader).await?;
+        let (property_len, property_len_bytes) = decode_var_int(reader).await?;
         let mut properties = Vec::new();
-        while property_len > 0 {
+        let mut len = 0;
+        while property_len as usize > len {
             let property_id = PropertyId::from_u8(read_u8(reader).await?)?;
             match property_id {
                 PropertyId::UserProperty => {
                     let property = PropertyValue::decode_user_property(reader).await?;
-                    properties_bytes += 1 + 4 + property.name.len() + property.value.len();
+                    len += 1 + 4 + property.name.len() + property.value.len();
                     properties.push(property);
                 }
                 _ => return Err(ErrorV5::InvalidProperty(header.typ, property_id)),
             }
-            property_len -= 1;
+        }
+        if property_len as usize != len {
+            return Err(ErrorV5::InvalidPropertyLength(property_len));
         }
         remaining_len = remaining_len
-            .checked_sub(2 + properties_bytes)
+            .checked_sub(2 + property_len_bytes + len)
             .ok_or(Error::InvalidRemainingLength)?;
         if remaining_len == 0 {
             return Err(Error::EmptySubscription.into());
@@ -362,7 +365,13 @@ impl Encodable for Unsubscribe {
     fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
         write_u16(writer, self.pid.value())?;
 
-        write_var_int(writer, self.properties.len())?;
+        let property_len = self.properties.len()
+            + self
+                .properties
+                .iter()
+                .map(|p| 4 + p.name.len() + p.value.len())
+                .sum::<usize>();
+        write_var_int(writer, property_len)?;
         for UserProperty { name, value } in &self.properties {
             crate::write_u8(writer, PropertyId::UserProperty as u8)?;
             crate::write_bytes(writer, name.as_bytes())?;
@@ -375,15 +384,15 @@ impl Encodable for Unsubscribe {
     }
 
     fn encode_len(&self) -> usize {
+        let property_len = self.properties.len()
+            + self
+                .properties
+                .iter()
+                .map(|p| 4 + p.name.len() + p.value.len())
+                .sum::<usize>();
         let mut len = 2;
-        len +=
-            var_int_len(self.properties.len()).expect("user properties length exceed 268,435,455");
-        len += self.properties.len();
-        len += self
-            .properties
-            .iter()
-            .map(|property| 4 + property.name.len() + property.value.len())
-            .sum::<usize>();
+        len += var_int_len(property_len).expect("user properties length exceed 268,435,455");
+        len += property_len;
         len += self
             .topics
             .iter()

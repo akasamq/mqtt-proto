@@ -180,7 +180,7 @@ fn test_v5_decode_connect() {
         0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x05,       // protocol (size=7)
         0b00000000, // connect flags
         0x00, 0x0a, // keepalive 10 sec
-        0x01, // properties
+        0x04, // properties
         0x16, 0x00, 0x01, 0x03, // auth data: [0x03]
         0x00, 0x04, 't' as u8, 'e' as u8, 's' as u8, 't' as u8, // client_id (size=6)
     ];
@@ -197,7 +197,7 @@ fn test_v5_decode_connect() {
         0x00, 0x0a, // keepalive 10 sec
         0x00, // properties.len = 0
         0x00, 0x01, 't' as u8, // client_id = "t"
-        0x01,      // WillProperties.len = 1
+        0x02,      // WillProperties.len = 1
         0x01,      // PayloadFormatIndicator = true
         0x01, 0x00, // topic name = "t"
         0x01, b't', 0x00, // payload = "0xff,0xfc"
@@ -226,7 +226,7 @@ fn test_v5_decode_connack() {
         11,         // remaining length
         0x00,       // session_present
         0x84,       // reason code
-        0x02,       // property length
+        0x08,       // property length
         0x24, 0x01, // maximum qos
         0x1F, 0x00, 0x03, b'a', b'b', b'c', // reason string
     ];
@@ -256,7 +256,7 @@ fn test_v5_decode_connack() {
         11,         // remaining length
         0x00,       // session_present
         0x84,       // reason code
-        0x02,       // property length
+        0x04,       // property length
         0x24, 0x01, // maximum qos
         0x24, 0x01, // maximum qos
     ];
@@ -283,7 +283,7 @@ fn test_v5_decode_connack() {
         11,         // remaining length
         0x00,       // session_present
         0x84,       // reason code
-        0x01,       // property length
+        0x04,       // property length
         0x16, 0x00, 0x01, 0x03, // auth data: [0x03]
     ];
     assert_eq!(
@@ -298,12 +298,12 @@ fn test_v5_decode_disconnect() {
         14 << 4, // packet type
         7,       // remaining length
         0x89,    // reason: server busy
-        0x01,    // properties.len() = 1
-        0x11,
+        0x05,    // properties.len = 5
+        0x11,    // SessionExpiryInterval=0x33
         0x00,
         0x00,
         0x00,
-        0x33, // SessionExpiryInterval=0x33
+        0x33,
     ];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
@@ -361,7 +361,7 @@ fn test_v5_decode_auth() {
         15 << 4, // packet type
         10,      // remaining length
         0x18,    // reason: Continuation Authentication
-        0x01,    // properties.len = 1
+        0x05,    // properties.len = 5
         0x1F,    // reason string = "xy"
         0x00,
         0x02,
@@ -420,7 +420,7 @@ fn test_v5_decode_auth() {
         15 << 4, // packet type
         8,       // remaining length
         0x00,    // reason code
-        0x01,    // properties.len = 1
+        0x05,    // properties.len = 5
         0x16,    // Authentication Data
         0x00,
         0x02,
@@ -465,7 +465,7 @@ fn test_v5_decode_publish() {
         0x02,
         'x' as u8,
         'y' as u8,
-        0x01, // properties.len = 1
+        0x03, // properties.len = 3
         0x23, // topic alias = 0x33
         0x11,
         0x33,
@@ -496,7 +496,7 @@ fn test_v5_decode_publish() {
         'y' as u8,
         0x22, // pid = 0x2244
         0x44,
-        0x01, // properties.len = 1
+        0x02, // properties.len = 2
         0x01, // payload is utf8 = true
         0x01,
         0x61, // payload = "ab"
@@ -594,7 +594,7 @@ fn test_v5_decode_publish() {
         0x00, // topic name = "t"
         0x01,
         't' as u8,
-        0x01, // properties.len = 1
+        0x02, // properties.len = 2
         0x01, // PayloadFormatIndicator = true
         0x01,
         0xff, // payload = "0xff,0xfc"
@@ -605,6 +605,7 @@ fn test_v5_decode_publish() {
         ErrorV5::InvalidPayloadFormat,
     );
 }
+
 #[test]
 fn test_v5_decode_puback() {
     let data = &[
@@ -613,7 +614,7 @@ fn test_v5_decode_puback() {
         0x11,   // packet identifier = 0x1122
         0x22,
         0x87, // reason code = NotAuthorized
-        0x01, // properties.len = 1
+        0x04, // properties.len = 4
         0x1F, // reason string = "e"
         0x00,
         0x01,
@@ -655,7 +656,7 @@ fn test_v5_decode_pubrec() {
         0x11,   // packet identifier = 0x1122
         0x22,
         0x87, // reason code = NotAuthorized
-        0x01, // properties.len = 1
+        0x04, // properties.len = 4
         0x1F, // reason string = "e"
         0x00,
         0x01,
@@ -696,7 +697,7 @@ fn test_v5_decode_pubrel() {
         0x11,       // packet identifier = 0x1122
         0x22,
         0x92, // reason code = PacketIdentifierNotFound
-        0x01, // properties.len = 1
+        0x04, // properties.len = 4
         0x1F, // reason string = "e"
         0x00,
         0x01,
@@ -737,7 +738,7 @@ fn test_v5_decode_pubcomp() {
         0x11,   // packet identifier = 0x1122
         0x22,
         0x92, // reason code = PacketIdentifierNotFound
-        0x01, // properties.len = 1
+        0x04, // properties.len = 4
         0x1F, // reason string = "e"
         0x00,
         0x01,
@@ -778,7 +779,7 @@ fn test_v5_decode_subscribe() {
         11,         // remaining length
         0x11,       // packet identifier = 0x1122
         0x22,
-        0x01, // properties.len = 1
+        0x03, // properties.len = 3
         0x0B, // subscription identifier = 16,383
         0xFF,
         0x7F,
@@ -880,7 +881,7 @@ fn test_v5_decode_suback() {
         9,      // remaining length
         0x11,   // packet identifier = 0x1122
         0x22,
-        0x01, // properties.len = 1
+        0x04, // properties.len = 4
         0x1F, // reason string = "e"
         0x00,
         0x01,
@@ -923,7 +924,7 @@ fn test_v5_decode_unsubscribe() {
         28,          // remaining length
         0x11,        // packet identifier = 0x1122
         0x22,
-        0x02, // properties.len = 2
+        0x12, // properties.len = 18
         0x26, // UserProperty { name: "k1", value: "v1" }
         0x00,
         0x02,
@@ -1005,7 +1006,7 @@ fn test_v5_decode_unsuback() {
         9,       // remaining length
         0x11,    // packet identifier = 0x1122
         0x22,
-        0x01, // properties.len = 1
+        0x04, // properties.len = 4
         0x1F, // reason string = "e"
         0x00,
         0x01,

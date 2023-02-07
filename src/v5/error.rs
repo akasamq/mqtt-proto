@@ -25,6 +25,10 @@ pub enum ErrorV5 {
     #[error("invalid property identifier: `{0}`")]
     InvalidPropertyId(u8),
 
+    /// Invalid property length.
+    #[error("invalid property length: `{0}`")]
+    InvalidPropertyLength(u32),
+
     /// Invalid byte property value.
     #[error("invalid byte value `{1}` for property `{0}`")]
     InvalidByteProperty(PropertyId, u8),
