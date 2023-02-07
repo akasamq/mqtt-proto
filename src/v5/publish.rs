@@ -19,11 +19,11 @@ use crate::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Publish {
     pub dup: bool,
-    pub qos_pid: QosPid,
     pub retain: bool,
+    pub qos_pid: QosPid,
     pub topic_name: TopicName,
-    pub properties: PublishProperties,
     pub payload: Bytes,
+    pub properties: PublishProperties,
 }
 
 #[cfg(feature = "arbitrary")]
@@ -31,8 +31,8 @@ impl<'a> arbitrary::Arbitrary<'a> for Publish {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Publish {
             dup: u.arbitrary()?,
-            qos_pid: u.arbitrary()?,
             retain: u.arbitrary()?,
+            qos_pid: u.arbitrary()?,
             topic_name: u.arbitrary()?,
             properties: u.arbitrary()?,
             payload: Bytes::from(Vec::<u8>::arbitrary(u)?),

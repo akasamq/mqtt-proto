@@ -12,8 +12,8 @@ use crate::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Publish {
     pub dup: bool,
-    pub qos_pid: QosPid,
     pub retain: bool,
+    pub qos_pid: QosPid,
     pub topic_name: TopicName,
     pub payload: Bytes,
 }
