@@ -322,7 +322,6 @@ fn test_v5_encode_puback() {
         2, // header
         2, // packet identifier
         1, // reason code
-        1, // properties
     ]
     .into_iter()
     .sum();
@@ -387,7 +386,6 @@ fn test_v5_encode_pubrec() {
         2, // header
         2, // packet identifier
         1, // reason code
-        1, // properties
     ]
     .into_iter()
     .sum();
@@ -452,7 +450,6 @@ fn test_v5_encode_pubrel() {
         2, // header
         2, // packet identifier
         1, // reason code
-        1, // properties
     ]
     .into_iter()
     .sum();
@@ -517,7 +514,6 @@ fn test_v5_encode_pubcomp() {
         2, // header
         2, // packet identifier
         1, // reason code
-        1, // properties
     ]
     .into_iter()
     .sum();

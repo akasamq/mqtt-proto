@@ -646,6 +646,22 @@ fn test_v5_decode_puback() {
             properties: Default::default(),
         })
     );
+
+    let data = &[
+        4 << 4, // packet type
+        3,      // remaining length
+        0x11,   // packet identifier = 0x1122
+        0x22,
+        0x00, // reason code = success
+    ];
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        Packet::Puback(Puback {
+            pid: Pid::try_from(0x1122).unwrap(),
+            reason_code: PubackReasonCode::Success,
+            properties: Default::default(),
+        })
+    );
 }
 
 #[test]
@@ -679,6 +695,21 @@ fn test_v5_decode_pubrec() {
         2,      // remaining length
         0x11,   // packet identifier = 0x1122
         0x22,
+    ];
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        Packet::Pubrec(Pubrec {
+            pid: Pid::try_from(0x1122).unwrap(),
+            reason_code: PubrecReasonCode::Success,
+            properties: Default::default(),
+        })
+    );
+    let data = &[
+        5 << 4, // packet type
+        3,      // remaining length
+        0x11,   // packet identifier = 0x1122
+        0x22,
+        0x00, // reason code = success
     ];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
@@ -729,6 +760,22 @@ fn test_v5_decode_pubrel() {
             properties: Default::default(),
         })
     );
+
+    let data = &[
+        6 << 4 | 2, // packet type
+        3,          // remaining length
+        0x11,       // packet identifier = 0x1122
+        0x22,
+        0x00, // reason code = success
+    ];
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        Packet::Pubrel(Pubrel {
+            pid: Pid::try_from(0x1122).unwrap(),
+            reason_code: PubrelReasonCode::Success,
+            properties: Default::default(),
+        })
+    );
 }
 #[test]
 fn test_v5_decode_pubcomp() {
@@ -761,6 +808,22 @@ fn test_v5_decode_pubcomp() {
         2,      // remaining length
         0x11,   // packet identifier = 0x1122
         0x22,
+    ];
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        Packet::Pubcomp(Pubcomp {
+            pid: Pid::try_from(0x1122).unwrap(),
+            reason_code: PubcompReasonCode::Success,
+            properties: Default::default(),
+        })
+    );
+
+    let data = &[
+        7 << 4, // packet type
+        3,      // remaining length
+        0x11,   // packet identifier = 0x1122
+        0x22,
+        0x00, // reason code = success
     ];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),

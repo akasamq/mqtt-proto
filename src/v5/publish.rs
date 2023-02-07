@@ -220,9 +220,12 @@ impl Puback {
     ) -> Result<Self, ErrorV5> {
         let pid = Pid::try_from(read_u16(reader).await?)?;
         let (reason_code, properties) = if header.remaining_len == 2 {
-            let reason_code = PubackReasonCode::Success;
-            let properties = PubackProperties::default();
-            (reason_code, properties)
+            (PubackReasonCode::Success, PubackProperties::default())
+        } else if header.remaining_len == 3 {
+            let reason_byte = read_u8(reader).await?;
+            let reason_code = PubackReasonCode::from_u8(reason_byte)
+                .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
+            (reason_code, PubackProperties::default())
         } else {
             let reason_byte = read_u8(reader).await?;
             let reason_code = PubackReasonCode::from_u8(reason_byte)
@@ -241,22 +244,24 @@ impl Puback {
 impl Encodable for Puback {
     fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
         write_u16(writer, self.pid.value())?;
-        if self.reason_code != PubackReasonCode::Success
-            || self.properties != PubackProperties::default()
-        {
+        if self.reason_code != PubackReasonCode::Success {
             write_u8(writer, self.reason_code as u8)?;
-            self.properties.encode(writer)?;
+            if self.properties != PubackProperties::default() {
+                self.properties.encode(writer)?;
+            }
         }
         Ok(())
     }
 
     fn encode_len(&self) -> usize {
-        if self.reason_code == PubackReasonCode::Success
-            && self.properties == PubackProperties::default()
-        {
-            2
+        if self.properties == PubackProperties::default() {
+            if self.reason_code == PubackReasonCode::Success {
+                2
+            } else {
+                3
+            }
         } else {
-            2 + 1 + self.properties.encode_len()
+            3 + self.properties.encode_len()
         }
     }
 }
@@ -357,9 +362,12 @@ impl Pubrec {
     ) -> Result<Self, ErrorV5> {
         let pid = Pid::try_from(read_u16(reader).await?)?;
         let (reason_code, properties) = if header.remaining_len == 2 {
-            let reason_code = PubrecReasonCode::Success;
-            let properties = PubrecProperties::default();
-            (reason_code, properties)
+            (PubrecReasonCode::Success, PubrecProperties::default())
+        } else if header.remaining_len == 3 {
+            let reason_byte = read_u8(reader).await?;
+            let reason_code = PubrecReasonCode::from_u8(reason_byte)
+                .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
+            (reason_code, PubrecProperties::default())
         } else {
             let reason_byte = read_u8(reader).await?;
             let reason_code = PubrecReasonCode::from_u8(reason_byte)
@@ -378,22 +386,24 @@ impl Pubrec {
 impl Encodable for Pubrec {
     fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
         write_u16(writer, self.pid.value())?;
-        if self.reason_code != PubrecReasonCode::Success
-            || self.properties != PubrecProperties::default()
-        {
+        if self.reason_code != PubrecReasonCode::Success {
             write_u8(writer, self.reason_code as u8)?;
-            self.properties.encode(writer)?;
+            if self.properties != PubrecProperties::default() {
+                self.properties.encode(writer)?;
+            }
         }
         Ok(())
     }
 
     fn encode_len(&self) -> usize {
-        if self.reason_code == PubrecReasonCode::Success
-            && self.properties == PubrecProperties::default()
-        {
-            2
+        if self.properties == PubrecProperties::default() {
+            if self.reason_code == PubrecReasonCode::Success {
+                2
+            } else {
+                3
+            }
         } else {
-            2 + 1 + self.properties.encode_len()
+            3 + self.properties.encode_len()
         }
     }
 }
@@ -494,9 +504,12 @@ impl Pubrel {
     ) -> Result<Self, ErrorV5> {
         let pid = Pid::try_from(read_u16(reader).await?)?;
         let (reason_code, properties) = if header.remaining_len == 2 {
-            let reason_code = PubrelReasonCode::Success;
-            let properties = PubrelProperties::default();
-            (reason_code, properties)
+            (PubrelReasonCode::Success, PubrelProperties::default())
+        } else if header.remaining_len == 3 {
+            let reason_byte = read_u8(reader).await?;
+            let reason_code = PubrelReasonCode::from_u8(reason_byte)
+                .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
+            (reason_code, PubrelProperties::default())
         } else {
             let reason_byte = read_u8(reader).await?;
             let reason_code = PubrelReasonCode::from_u8(reason_byte)
@@ -515,22 +528,24 @@ impl Pubrel {
 impl Encodable for Pubrel {
     fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
         write_u16(writer, self.pid.value())?;
-        if self.reason_code != PubrelReasonCode::Success
-            || self.properties != PubrelProperties::default()
-        {
+        if self.reason_code != PubrelReasonCode::Success {
             write_u8(writer, self.reason_code as u8)?;
-            self.properties.encode(writer)?;
+            if self.properties != PubrelProperties::default() {
+                self.properties.encode(writer)?;
+            }
         }
         Ok(())
     }
 
     fn encode_len(&self) -> usize {
-        if self.reason_code == PubrelReasonCode::Success
-            && self.properties == PubrelProperties::default()
-        {
-            2
+        if self.properties == PubrelProperties::default() {
+            if self.reason_code == PubrelReasonCode::Success {
+                2
+            } else {
+                3
+            }
         } else {
-            2 + 1 + self.properties.encode_len()
+            3 + self.properties.encode_len()
         }
     }
 }
@@ -608,9 +623,12 @@ impl Pubcomp {
     ) -> Result<Self, ErrorV5> {
         let pid = Pid::try_from(read_u16(reader).await?)?;
         let (reason_code, properties) = if header.remaining_len == 2 {
-            let reason_code = PubcompReasonCode::Success;
-            let properties = PubcompProperties::default();
-            (reason_code, properties)
+            (PubcompReasonCode::Success, PubcompProperties::default())
+        } else if header.remaining_len == 3 {
+            let reason_byte = read_u8(reader).await?;
+            let reason_code = PubcompReasonCode::from_u8(reason_byte)
+                .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
+            (reason_code, PubcompProperties::default())
         } else {
             let reason_byte = read_u8(reader).await?;
             let reason_code = PubcompReasonCode::from_u8(reason_byte)
@@ -629,22 +647,24 @@ impl Pubcomp {
 impl Encodable for Pubcomp {
     fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
         write_u16(writer, self.pid.value())?;
-        if self.reason_code != PubcompReasonCode::Success
-            || self.properties != PubcompProperties::default()
-        {
+        if self.reason_code != PubcompReasonCode::Success {
             write_u8(writer, self.reason_code as u8)?;
-            self.properties.encode(writer)?;
+            if self.properties != PubcompProperties::default() {
+                self.properties.encode(writer)?;
+            }
         }
         Ok(())
     }
 
     fn encode_len(&self) -> usize {
-        if self.reason_code == PubcompReasonCode::Success
-            && self.properties == PubcompProperties::default()
-        {
-            2
+        if self.properties == PubcompProperties::default() {
+            if self.reason_code == PubcompReasonCode::Success {
+                2
+            } else {
+                3
+            }
         } else {
-            2 + 1 + self.properties.encode_len()
+            3 + self.properties.encode_len()
         }
     }
 }
