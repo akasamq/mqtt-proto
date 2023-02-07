@@ -253,7 +253,7 @@ fn test_v5_encode_publish() {
     let packet1 = Publish {
         properties: Default::default(),
         payload: Bytes::default(),
-        ..packet
+        ..packet.clone()
     };
     let len = [2, 2, 5, 1, 0].into_iter().sum();
     assert_encode(packet1.clone().into(), len);
@@ -263,7 +263,18 @@ fn test_v5_encode_publish() {
         ..packet1
     };
     let len = [2, 0, 5, 1, 0].into_iter().sum();
-    assert_encode(packet2.into(), len);
+    assert_encode(packet2.clone().into(), len);
+
+    let packet3 = Publish {
+        properties: PublishProperties {
+            payload_is_utf8: Some(true),
+            ..Default::default()
+        },
+        payload: Bytes::from("abc".as_bytes().to_vec()),
+        ..packet
+    };
+    let len = [2, 2, 5, 3, 3].into_iter().sum();
+    assert_encode(packet3.clone().into(), len);
 }
 
 #[test]

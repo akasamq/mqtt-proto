@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use futures_lite::io::{AsyncRead, AsyncReadExt};
+use simdutf8::basic::from_utf8;
 
 use super::{
     decode_properties, encode_properties, encode_properties_len, ErrorV5, Header, PacketType,
@@ -320,13 +321,16 @@ impl LastWill {
     ) -> Result<Self, ErrorV5> {
         let properties = WillProperties::decode_async(reader).await?;
         let topic_name = TopicName::try_from(read_string(reader).await?)?;
-        let payload = Bytes::from(read_bytes(reader).await?);
+        let payload = read_bytes(reader).await?;
+        if properties.payload_is_utf8 == Some(true) && from_utf8(&payload).is_err() {
+            return Err(ErrorV5::InvalidPayloadFormat);
+        }
         Ok(LastWill {
             qos,
             retain,
             properties,
             topic_name,
-            payload,
+            payload: Bytes::from(payload),
         })
     }
 }

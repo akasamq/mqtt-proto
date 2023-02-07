@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use futures_lite::io::{AsyncRead, AsyncReadExt};
+use simdutf8::basic::from_utf8;
 
 use super::{
     decode_properties, encode_properties, encode_properties_len, ErrorV5, Header, PacketType,
@@ -74,6 +75,9 @@ impl Publish {
                 .read_exact(&mut data)
                 .await
                 .map_err(|err| Error::IoError(err.kind(), err.to_string()))?;
+            if properties.payload_is_utf8 == Some(true) && from_utf8(&data).is_err() {
+                return Err(ErrorV5::InvalidPayloadFormat);
+            }
             data
         } else {
             Vec::new()

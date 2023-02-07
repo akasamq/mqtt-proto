@@ -188,6 +188,25 @@ fn test_v5_decode_connect() {
         Packet::decode(data).unwrap_err(),
         ErrorV5::AuthMethodMissing,
     );
+
+    let data: &[u8] = &[
+        0b00010000, // packet type
+        24,         // remaining length
+        0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x05,       // protocol (size=7)
+        0b00000100, // connect flags +will
+        0x00, 0x0a, // keepalive 10 sec
+        0x00, // properties.len = 0
+        0x00, 0x01, 't' as u8, // client_id = "t"
+        0x01,      // WillProperties.len = 1
+        0x01,      // PayloadFormatIndicator = true
+        0x01, 0x00, // topic name = "t"
+        0x01, b't', 0x00, // payload = "0xff,0xfc"
+        0x02, 0xff, 0xfc,
+    ];
+    assert_eq!(
+        Packet::decode(data).unwrap_err(),
+        ErrorV5::InvalidPayloadFormat,
+    );
 }
 
 #[test]
@@ -480,8 +499,8 @@ fn test_v5_decode_publish() {
         0x01, // properties.len = 1
         0x01, // payload is utf8 = true
         0x01,
-        0xaa, // payload = "0xaa,0xbb"
-        0xbb,
+        0x61, // payload = "ab"
+        0x62,
     ];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
@@ -494,7 +513,7 @@ fn test_v5_decode_publish() {
                 payload_is_utf8: Some(true),
                 ..Default::default()
             },
-            payload: Bytes::from(vec![0xaa, 0xbb]),
+            payload: Bytes::from("ab".as_bytes().to_vec()),
         })
     );
 
@@ -567,6 +586,23 @@ fn test_v5_decode_publish() {
     assert_eq!(
         Packet::decode(data).unwrap_err(),
         ErrorV5::Common(Error::InvalidRemainingLength),
+    );
+
+    let data = &[
+        3 << 4,
+        8,
+        0x00, // topic name = "t"
+        0x01,
+        't' as u8,
+        0x01, // properties.len = 1
+        0x01, // PayloadFormatIndicator = true
+        0x01,
+        0xff, // payload = "0xff,0xfc"
+        0xfc,
+    ];
+    assert_eq!(
+        Packet::decode(data).unwrap_err(),
+        ErrorV5::InvalidPayloadFormat,
     );
 }
 #[test]

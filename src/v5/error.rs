@@ -17,6 +17,10 @@ pub enum ErrorV5 {
     #[error("invalid subscription option: `{0}`")]
     InvalidSubscriptionOption(u8),
 
+    /// Invalid payload format, utf8 expected
+    #[error("invalid payload format, utf8 expected")]
+    InvalidPayloadFormat,
+
     /// Invalid property identifier.
     #[error("invalid property identifier: `{0}`")]
     InvalidPropertyId(u8),
@@ -40,4 +44,13 @@ pub enum ErrorV5 {
     /// Authentication Data exists but Authentication Method is mssing.
     #[error("Authentication Data exists but Authentication Method is mssing")]
     AuthMethodMissing,
+}
+
+impl ErrorV5 {
+    pub fn is_eof(&self) -> bool {
+        match self {
+            ErrorV5::Common(err) => err.is_eof(),
+            _ => false,
+        }
+    }
 }
