@@ -176,20 +176,6 @@ fn test_v5_decode_connect() {
     );
 
     let data: &[u8] = &[
-        0b00010000, 21, // Connect packet, remaining length
-        0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x05,       // protocol (size=7)
-        0b00000000, // connect flags
-        0x00, 0x0a, // keepalive 10 sec
-        0x04, // properties
-        0x16, 0x00, 0x01, 0x03, // auth data: [0x03]
-        0x00, 0x04, 't' as u8, 'e' as u8, 's' as u8, 't' as u8, // client_id (size=6)
-    ];
-    assert_eq!(
-        Packet::decode(data).unwrap_err(),
-        ErrorV5::AuthMethodMissing,
-    );
-
-    let data: &[u8] = &[
         0b00010000, // packet type
         24,         // remaining length
         0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x05,       // protocol (size=7)
@@ -276,19 +262,6 @@ fn test_v5_decode_connack() {
     assert_eq!(
         Packet::decode(data).unwrap_err(),
         ErrorV5::InvalidByteProperty(PropertyId::RetainAvailable, 0x02),
-    );
-
-    let data: &[u8] = &[
-        0b00100000, // packet type
-        11,         // remaining length
-        0x00,       // session_present
-        0x84,       // reason code
-        0x04,       // property length
-        0x16, 0x00, 0x01, 0x03, // auth data: [0x03]
-    ];
-    assert_eq!(
-        Packet::decode(data).unwrap_err(),
-        ErrorV5::AuthMethodMissing,
     );
 }
 
@@ -414,22 +387,6 @@ fn test_v5_decode_auth() {
     assert_eq!(
         Packet::decode(data).unwrap_err(),
         ErrorV5::InvalidReasonCode(PacketType::Auth, 0x59),
-    );
-
-    let data = &[
-        15 << 4, // packet type
-        8,       // remaining length
-        0x00,    // reason code
-        0x05,    // properties.len = 5
-        0x16,    // Authentication Data
-        0x00,
-        0x02,
-        0xaa,
-        0xbb,
-    ];
-    assert_eq!(
-        Packet::decode(data).unwrap_err(),
-        ErrorV5::AuthMethodMissing,
     );
 }
 

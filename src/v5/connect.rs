@@ -248,9 +248,6 @@ impl ConnectProperties {
             AuthenticationMethod,
             AuthenticationData,
         );
-        if properties.auth_data.is_some() && properties.auth_method.is_none() {
-            return Err(ErrorV5::AuthMethodMissing);
-        }
         Ok(properties)
     }
 }
@@ -295,9 +292,9 @@ impl Encodable for ConnectProperties {
 pub struct LastWill {
     pub qos: QoS,
     pub retain: bool,
-    pub properties: WillProperties,
     pub topic_name: TopicName,
     pub payload: Bytes,
+    pub properties: WillProperties,
 }
 
 #[cfg(feature = "arbitrary")]
@@ -636,9 +633,6 @@ impl ConnackProperties {
             AuthenticationMethod,
             AuthenticationData,
         );
-        if properties.auth_data.is_some() && properties.auth_method.is_none() {
-            return Err(ErrorV5::AuthMethodMissing);
-        }
         Ok(properties)
     }
 }
@@ -1033,9 +1027,6 @@ impl AuthProperties {
             AuthenticationData,
             ReasonString,
         );
-        if properties.auth_data.is_some() && properties.auth_method.is_none() {
-            return Err(ErrorV5::AuthMethodMissing);
-        }
         Ok(properties)
     }
 }

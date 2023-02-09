@@ -44,10 +44,6 @@ pub enum ErrorV5 {
     /// Invalid will property (connect packet).
     #[error("invalid will property: `{0}`")]
     InvalidWillProperty(PropertyId),
-
-    /// Authentication Data exists but Authentication Method is mssing.
-    #[error("Authentication Data exists but Authentication Method is mssing")]
-    AuthMethodMissing,
 }
 
 impl ErrorV5 {
