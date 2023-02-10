@@ -561,6 +561,25 @@ fn test_v5_decode_publish() {
         Packet::decode(data).unwrap_err(),
         ErrorV5::InvalidPayloadFormat,
     );
+
+    let data = &[
+        3 << 4,
+        10,
+        0x00, // topic name = "t"
+        0x01,
+        't' as u8,
+        0x04, // properties.len = 4
+        0x08, // ResponseTopic = "+"
+        0x00,
+        0x01,
+        '+' as u8,
+        0xff, // payload = "0xff,0xfc"
+        0xfc,
+    ];
+    assert_eq!(
+        Packet::decode(data).unwrap_err(),
+        ErrorV5::InvalidResponseTopic,
+    );
 }
 
 #[test]

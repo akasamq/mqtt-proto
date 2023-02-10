@@ -287,7 +287,13 @@ macro_rules! decode_property {
             $property_id,
             &mut $properties.response_topic,
         )
-        .await?;
+        .await
+        .map_err(|err| match err {
+            crate::v5::ErrorV5::Common(crate::Error::InvalidTopicName(_)) => {
+                crate::v5::ErrorV5::InvalidResponseTopic
+            }
+            err => err,
+        })?;
     };
     (CorrelationData, $properties:expr, $reader:expr, $property_id:expr) => {
         crate::v5::PropertyValue::decode_bytes(
@@ -490,7 +496,6 @@ macro_rules! decode_properties {
         let (property_len, _bytes) = crate::decode_var_int($reader).await?;
         let mut len = 0;
         while property_len as usize > len {
-            println!("property_len: {}, len: {}", property_len, len);
             let property_id = crate::v5::PropertyId::from_u8(crate::read_u8($reader).await?)?;
             match property_id {
                 $(

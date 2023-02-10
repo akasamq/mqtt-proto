@@ -21,6 +21,10 @@ pub enum ErrorV5 {
     #[error("invalid payload format, utf8 expected")]
     InvalidPayloadFormat,
 
+    /// Invalid response topic name
+    #[error("invalid response topic")]
+    InvalidResponseTopic,
+
     /// Invalid property identifier.
     #[error("invalid property identifier: `{0}`")]
     InvalidPropertyId(u8),
