@@ -21,3 +21,8 @@ pub const MATCH_ALL_CHAR: char = '#';
 pub const MATCH_ONE_STR: &str = "+";
 /// The &str version of `MATCH_ALL_CHAR`
 pub const MATCH_ALL_STR: &str = "#";
+
+/// System topic prefix
+pub const SYS_PREFIX: &str = "$SYS/";
+/// Shared topic prefix
+pub const SHARED_PREFIX: &str = "$share/";

@@ -123,7 +123,7 @@ impl Encodable for SubscribeProperties {
 }
 
 /// Subscription options.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct SubscriptionOptions {
     pub max_qos: QoS,

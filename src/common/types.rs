@@ -9,7 +9,7 @@ use futures_lite::io::AsyncRead;
 use simdutf8::basic::from_utf8;
 
 use super::{read_bytes, read_u8};
-use crate::{Error, LEVEL_SEP, MATCH_ALL_CHAR, MATCH_ONE_CHAR};
+use crate::{Error, LEVEL_SEP, MATCH_ALL_CHAR, MATCH_ONE_CHAR, SHARED_PREFIX, SYS_PREFIX};
 
 pub const MQISDP: &[u8] = b"MQIsdp";
 pub const MQTT: &[u8] = b"MQTT";
@@ -246,6 +246,13 @@ impl TopicName {
     pub fn is_invalid(value: &str) -> bool {
         value.contains(|c| c == MATCH_ONE_CHAR || c == MATCH_ALL_CHAR || c == '\0')
     }
+
+    pub fn is_shared(&self) -> bool {
+        self.0.starts_with(SHARED_PREFIX)
+    }
+    pub fn is_sys(&self) -> bool {
+        self.0.starts_with(SYS_PREFIX)
+    }
 }
 
 impl fmt::Display for TopicName {
@@ -324,6 +331,13 @@ impl TopicFilter {
             }
         }
         false
+    }
+
+    pub fn is_shared(&self) -> bool {
+        self.0.starts_with(SHARED_PREFIX)
+    }
+    pub fn is_sys(&self) -> bool {
+        self.0.starts_with(SYS_PREFIX)
     }
 }
 

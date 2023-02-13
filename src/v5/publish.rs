@@ -130,6 +130,7 @@ pub struct PublishProperties {
     pub response_topic: Option<TopicName>,
     pub correlation_data: Option<Bytes>,
     pub user_properties: Vec<UserProperty>,
+    // FIXME: this is a list of identifiers
     pub subscription_id: Option<VarByteInt>,
     pub content_type: Option<Arc<String>>,
 }
