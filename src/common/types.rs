@@ -286,74 +286,157 @@ impl Deref for TopicName {
 /// [MQTT 4.7]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718106
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-pub struct TopicFilter(Arc<String>);
+pub struct TopicFilter {
+    inner: Arc<String>,
+    shared_filter_sep: u16,
+}
 
 impl TopicFilter {
     /// Check if the topic filter is invalid.
-    pub fn is_invalid(value: &str) -> bool {
+    ///
+    ///   * The u16 returned is where the bytes index of '/' char before shared topic filter
+    pub fn is_invalid(value: &str) -> (bool, u16) {
+        const SHARED_PREFIX_CHARS: [char; 7] = ['$', 's', 'h', 'a', 'r', 'e', '/'];
         let mut last_sep: Option<usize> = None;
         let mut has_all = false;
         let mut has_one = false;
+        let mut byte_idx = 0;
+        let mut is_shared = true;
+        let mut shared_group_sep = 0;
+        let mut shared_filter_sep = 0;
         for (char_idx, c) in value.chars().enumerate() {
             if c == '\0' {
-                return true;
+                return (true, 0);
             }
             // "#" must be last char
             if has_all {
-                return true;
+                return (true, 0);
             }
+
+            if is_shared && char_idx < 7 && c != SHARED_PREFIX_CHARS[char_idx] {
+                is_shared = false;
+            }
+
             if c == LEVEL_SEP {
+                if is_shared {
+                    if shared_group_sep == 0 {
+                        shared_group_sep = byte_idx as u16;
+                    } else if shared_filter_sep == 0 {
+                        shared_filter_sep = byte_idx as u16;
+                    }
+                }
                 // "+" must occupy an entire level of the filter
                 if has_one && Some(char_idx) != last_sep.map(|v| v + 2) && char_idx != 1 {
-                    return true;
+                    return (true, 0);
                 }
                 last_sep = Some(char_idx);
                 has_one = false;
             } else if c == MATCH_ALL_CHAR {
+                // v5.0 [MQTT-4.8.2-2]
+                if shared_group_sep > 0 && shared_filter_sep == 0 {
+                    return (true, 0);
+                }
                 if has_one {
                     // invalid topic filter: "/+#"
-                    return true;
+                    return (true, 0);
                 } else if Some(char_idx) == last_sep.map(|v| v + 1) || char_idx == 0 {
                     has_all = true;
                 } else {
                     // invalid topic filter: "/ab#"
-                    return true;
+                    return (true, 0);
                 }
             } else if c == MATCH_ONE_CHAR {
+                // v5.0 [MQTT-4.8.2-2]
+                if shared_group_sep > 0 && shared_filter_sep == 0 {
+                    return (true, 0);
+                }
                 if has_one {
                     // invalid topic filter: "/++"
-                    return true;
+                    return (true, 0);
                 } else if Some(char_idx) == last_sep.map(|v| v + 1) || char_idx == 0 {
                     has_one = true;
                 } else {
-                    return true;
+                    return (true, 0);
                 }
             }
+
+            byte_idx += c.len_utf8();
         }
-        false
+
+        // v5.0 [MQTT-4.8.2-2]
+        if shared_group_sep > 0 && shared_filter_sep == 0 {
+            return (true, 0);
+        }
+        // v5.0 [MQTT-4.8.2-1]
+        if shared_group_sep + 1 == shared_filter_sep {
+            return (true, 0);
+        }
+
+        debug_assert!(shared_group_sep == 0 || shared_group_sep == 6);
+
+        (false, shared_filter_sep)
     }
 
     pub fn is_shared(&self) -> bool {
-        self.0.starts_with(SHARED_PREFIX)
+        self.shared_filter_sep > 0
     }
     pub fn is_sys(&self) -> bool {
-        self.0.starts_with(SYS_PREFIX)
+        self.inner.starts_with(SYS_PREFIX)
+    }
+
+    pub fn shared_group_name(&self) -> Option<&str> {
+        if self.is_shared() {
+            let end = self.shared_filter_sep as usize;
+            Some(&self.inner[7..end])
+        } else {
+            None
+        }
+    }
+
+    pub fn shared_filter(&self) -> Option<&str> {
+        if self.is_shared() {
+            let begin = self.shared_filter_sep as usize + 1;
+            Some(&self.inner[begin..])
+        } else {
+            None
+        }
+    }
+
+    /// return (shared group name, shared filter)
+    pub fn shared_info(&self) -> Option<(&str, &str)> {
+        if self.is_shared() {
+            let group_name = {
+                let end = self.shared_filter_sep as usize;
+                &self.inner[7..end]
+            };
+            let filter = {
+                let begin = self.shared_filter_sep as usize + 1;
+                &self.inner[begin..]
+            };
+            Some((group_name, filter))
+        } else {
+            None
+        }
     }
 }
 
 impl fmt::Display for TopicFilter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.inner)
     }
 }
 
 impl TryFrom<String> for TopicFilter {
     type Error = Error;
     fn try_from(value: String) -> Result<Self, Error> {
-        if TopicFilter::is_invalid(value.as_str()) {
+        let (is_invalid, shared_filter_sep) = TopicFilter::is_invalid(value.as_str());
+        if is_invalid {
             Err(Error::InvalidTopicFilter(value))
         } else {
-            Ok(TopicFilter(Arc::new(value)))
+            Ok(TopicFilter {
+                inner: Arc::new(value),
+                shared_filter_sep,
+            })
         }
     }
 }
@@ -361,7 +444,7 @@ impl TryFrom<String> for TopicFilter {
 impl Deref for TopicFilter {
     type Target = str;
     fn deref(&self) -> &str {
-        self.0.as_str()
+        self.inner.as_str()
     }
 }
 
@@ -414,48 +497,126 @@ mod tests {
     }
 
     #[test]
-    fn test_case() {
-        assert!(!TopicFilter::is_invalid("+/+"));
+    fn test_valid_topic_filter() {
+        for (is_invalid, topic) in [
+            // valid topic filter
+            (false, "abc/def"),
+            (false, "abc/+"),
+            (false, "abc/#"),
+            (false, "#"),
+            (false, "+"),
+            (false, "+/"),
+            (false, "+/+"),
+            (false, "///"),
+            (false, "//+/"),
+            (false, "//abc/"),
+            (false, "//+//#"),
+            (false, "/abc/+//#"),
+            (false, "+/abc/+"),
+            // invalid topic filter
+            (true, "abc\0def"),
+            (true, "abc/\0def"),
+            (true, "++"),
+            (true, "++/"),
+            (true, "/++"),
+            (true, "abc/++"),
+            (true, "abc/++/"),
+            (true, "#/abc"),
+            (true, "/ab#"),
+            (true, "##"),
+            (true, "/abc/ab#"),
+            (true, "/+#"),
+            (true, "//+#"),
+            (true, "/abc/+#"),
+            (true, "xxx/abc/+#"),
+            (true, "xxx/a+bc/"),
+            (true, "x+x/abc/"),
+            (true, "x+/abc/"),
+            (true, "+x/abc/"),
+            (true, "+/abc/++"),
+            (true, "+/a+c/+"),
+        ] {
+            assert_eq!((is_invalid, 0), TopicFilter::is_invalid(topic));
+        }
     }
 
     #[test]
-    fn test_valid_topic_filter() {
-        // valid topic filter
-        assert!(!TopicFilter::is_invalid("abc/def"));
-        assert!(!TopicFilter::is_invalid("abc/+"));
-        assert!(!TopicFilter::is_invalid("abc/#"));
-        assert!(!TopicFilter::is_invalid("#"));
-        assert!(!TopicFilter::is_invalid("+"));
-        assert!(!TopicFilter::is_invalid("+/"));
-        assert!(!TopicFilter::is_invalid("+/+"));
-        assert!(!TopicFilter::is_invalid("///"));
-        assert!(!TopicFilter::is_invalid("//+/"));
-        assert!(!TopicFilter::is_invalid("//abc/"));
-        assert!(!TopicFilter::is_invalid("//+//#"));
-        assert!(!TopicFilter::is_invalid("/abc/+//#"));
-        assert!(!TopicFilter::is_invalid("+/abc/+"));
+    fn test_valid_shared_topic_filter() {
+        for (is_invalid, topic) in [
+            // valid topic filter
+            (false, "abc/def"),
+            (false, "abc/+"),
+            (false, "abc/#"),
+            (false, "#"),
+            (false, "+"),
+            (false, "+/"),
+            (false, "+/+"),
+            (false, "///"),
+            (false, "//+/"),
+            (false, "//abc/"),
+            (false, "//+//#"),
+            (false, "/abc/+//#"),
+            (false, "+/abc/+"),
+            // invalid topic filter
+            (true, "abc\0def"),
+            (true, "abc/\0def"),
+            (true, "++"),
+            (true, "++/"),
+            (true, "/++"),
+            (true, "abc/++"),
+            (true, "abc/++/"),
+            (true, "#/abc"),
+            (true, "/ab#"),
+            (true, "##"),
+            (true, "/abc/ab#"),
+            (true, "/+#"),
+            (true, "//+#"),
+            (true, "/abc/+#"),
+            (true, "xxx/abc/+#"),
+            (true, "xxx/a+bc/"),
+            (true, "x+x/abc/"),
+            (true, "x+/abc/"),
+            (true, "+x/abc/"),
+            (true, "+/abc/++"),
+            (true, "+/a+c/+"),
+        ] {
+            let result = if is_invalid { (true, 0) } else { (false, 10) };
+            assert_eq!(
+                result,
+                TopicFilter::is_invalid(format!("$share/xyz/{}", topic).as_str()),
+            );
+        }
 
-        // invalid topic filter
-        assert!(TopicFilter::is_invalid("abc\0def"));
-        assert!(TopicFilter::is_invalid("abc/\0def"));
-        assert!(TopicFilter::is_invalid("++"));
-        assert!(TopicFilter::is_invalid("++/"));
-        assert!(TopicFilter::is_invalid("/++"));
-        assert!(TopicFilter::is_invalid("abc/++"));
-        assert!(TopicFilter::is_invalid("abc/++/"));
-        assert!(TopicFilter::is_invalid("#/abc"));
-        assert!(TopicFilter::is_invalid("/ab#"));
-        assert!(TopicFilter::is_invalid("##"));
-        assert!(TopicFilter::is_invalid("/abc/ab#"));
-        assert!(TopicFilter::is_invalid("/+#"));
-        assert!(TopicFilter::is_invalid("//+#"));
-        assert!(TopicFilter::is_invalid("/abc/+#"));
-        assert!(TopicFilter::is_invalid("xxx/abc/+#"));
-        assert!(TopicFilter::is_invalid("xxx/a+bc/"));
-        assert!(TopicFilter::is_invalid("x+x/abc/"));
-        assert!(TopicFilter::is_invalid("x+/abc/"));
-        assert!(TopicFilter::is_invalid("+x/abc/"));
-        assert!(TopicFilter::is_invalid("+/abc/++"));
-        assert!(TopicFilter::is_invalid("+/a+c/+"));
+        for (result, raw_filter) in [
+            (Some((None, None)), "$abc/a/b"),
+            (Some((None, None)), "$abc/a/b/xyz/def"),
+            (Some((None, None)), "$sys/abc"),
+            (Some((Some("abc"), Some("xyz"))), "$share/abc/xyz"),
+            (Some((Some("abc"), Some("xyz/ijk"))), "$share/abc/xyz/ijk"),
+            (Some((Some("abc"), Some("/xyz"))), "$share/abc//xyz"),
+            (Some((Some("abc"), Some("/#"))), "$share/abc//#"),
+            (Some((Some("abc"), Some("/a/x/+"))), "$share/abc//a/x/+"),
+            (Some((Some("abc"), Some("+"))), "$share/abc/+"),
+            (Some((Some("abc"), Some("#"))), "$share/abc/#"),
+            (None, "$share/abc"),
+            (None, "$share/+/y"),
+            (None, "$share/+/+"),
+            (None, "$share//y"),
+            (None, "$share//+"),
+        ] {
+            if let Some((shared_group, shared_filter)) = result {
+                let filter = TopicFilter::try_from(raw_filter.to_owned()).unwrap();
+                assert_eq!(filter.shared_group_name(), shared_group);
+                assert_eq!(filter.shared_filter(), shared_filter);
+                if let Some(group_name) = shared_group {
+                    assert_eq!(
+                        filter.shared_info(),
+                        Some((group_name, shared_filter.unwrap()))
+                    );
+                }
+            } else {
+                assert_eq!((true, 0), TopicFilter::is_invalid(raw_filter));
+            }
+        }
     }
 }
