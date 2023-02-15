@@ -8,7 +8,7 @@ use crate::{
 };
 
 /// Subscribe packet payload type.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Subscribe {
     pub pid: Pid,
@@ -24,7 +24,7 @@ pub struct Suback {
 }
 
 /// Unsubscribe packet payload type.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Unsubscribe {
     pub pid: Pid,

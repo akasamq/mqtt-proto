@@ -9,7 +9,7 @@ use crate::{
 };
 
 /// Publish packet payload type.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Publish {
     pub dup: bool,
     pub retain: bool,
