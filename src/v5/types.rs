@@ -218,7 +218,7 @@ impl PropertyValue {
 }
 
 /// User Property is a UTF-8 String Pair.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct UserProperty {
     /// The name of the user property.

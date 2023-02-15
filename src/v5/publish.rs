@@ -16,7 +16,7 @@ use crate::{
 };
 
 /// Payload type of PUBLISH packet.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Publish {
     pub dup: bool,
     pub retain: bool,
@@ -122,7 +122,7 @@ impl Encodable for Publish {
 }
 
 /// Property list for PUBLISH packet.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Hash)]
 pub struct PublishProperties {
     pub payload_is_utf8: Option<bool>,
     pub message_expiry_interval: Option<u32>,

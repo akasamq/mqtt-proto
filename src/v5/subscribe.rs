@@ -14,7 +14,7 @@ use crate::{
 };
 
 /// Payload type for SUBSCRIBE packet.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Subscribe {
     pub pid: Pid,
@@ -92,7 +92,7 @@ impl Encodable for Subscribe {
 }
 
 /// Property list for SUBSCRIBE packet.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Hash)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct SubscribeProperties {
     pub subscription_id: Option<VarByteInt>,
@@ -123,7 +123,7 @@ impl Encodable for SubscribeProperties {
 }
 
 /// Subscription options.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct SubscriptionOptions {
     pub max_qos: QoS,
@@ -307,7 +307,7 @@ impl SubscribeReasonCode {
 }
 
 /// Payload type for UNSUBSCRIBE packet.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Unsubscribe {
     pub pid: Pid,
