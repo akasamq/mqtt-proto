@@ -244,6 +244,10 @@ pub struct TopicName(Arc<String>);
 impl TopicName {
     /// Check if the topic name is invalid.
     pub fn is_invalid(value: &str) -> bool {
+        // v5.0 [MQTT-4.7.3-1]
+        if value.is_empty() {
+            return true;
+        }
         value.contains(|c| c == MATCH_ONE_CHAR || c == MATCH_ALL_CHAR || c == '\0')
     }
 
@@ -297,6 +301,12 @@ impl TopicFilter {
     ///   * The u16 returned is where the bytes index of '/' char before shared topic filter
     pub fn is_invalid(value: &str) -> (bool, u16) {
         const SHARED_PREFIX_CHARS: [char; 7] = ['$', 's', 'h', 'a', 'r', 'e', '/'];
+
+        // v5.0 [MQTT-4.7.3-1]
+        if value.is_empty() {
+            return (true, 0);
+        }
+
         let mut last_sep: Option<usize> = None;
         let mut has_all = false;
         let mut has_one = false;
@@ -363,6 +373,10 @@ impl TopicFilter {
             byte_idx += c.len_utf8();
         }
 
+        // v5.0 [MQTT-4.7.3-1]
+        if shared_filter_sep > 0 && shared_filter_sep as usize == value.len() - 1 {
+            return (true, 0);
+        }
         // v5.0 [MQTT-4.8.2-2]
         if shared_group_sep > 0 && shared_filter_sep == 0 {
             return (true, 0);
@@ -386,8 +400,8 @@ impl TopicFilter {
 
     pub fn shared_group_name(&self) -> Option<&str> {
         if self.is_shared() {
-            let end = self.shared_filter_sep as usize;
-            Some(&self.inner[7..end])
+            let group_end = self.shared_filter_sep as usize;
+            Some(&self.inner[7..group_end])
         } else {
             None
         }
@@ -395,8 +409,8 @@ impl TopicFilter {
 
     pub fn shared_filter(&self) -> Option<&str> {
         if self.is_shared() {
-            let begin = self.shared_filter_sep as usize + 1;
-            Some(&self.inner[begin..])
+            let filter_begin = self.shared_filter_sep as usize + 1;
+            Some(&self.inner[filter_begin..])
         } else {
             None
         }
@@ -405,15 +419,9 @@ impl TopicFilter {
     /// return (shared group name, shared filter)
     pub fn shared_info(&self) -> Option<(&str, &str)> {
         if self.is_shared() {
-            let group_name = {
-                let end = self.shared_filter_sep as usize;
-                &self.inner[7..end]
-            };
-            let filter = {
-                let begin = self.shared_filter_sep as usize + 1;
-                &self.inner[begin..]
-            };
-            Some((group_name, filter))
+            let group_end = self.shared_filter_sep as usize;
+            let filter_begin = self.shared_filter_sep as usize + 1;
+            Some((&self.inner[7..group_end], &self.inner[filter_begin..]))
         } else {
             None
         }
@@ -486,6 +494,7 @@ mod tests {
         assert!(!TopicName::is_invalid("//"));
 
         // invalid topic name
+        assert!(TopicName::is_invalid(""));
         assert!(TopicName::is_invalid("#"));
         assert!(TopicName::is_invalid("+"));
         assert!(TopicName::is_invalid("/+"));
@@ -514,6 +523,7 @@ mod tests {
             (false, "/abc/+//#"),
             (false, "+/abc/+"),
             // invalid topic filter
+            (true, ""),
             (true, "abc\0def"),
             (true, "abc/\0def"),
             (true, "++"),
@@ -597,7 +607,11 @@ mod tests {
             (Some((Some("abc"), Some("/#"))), "$share/abc//#"),
             (Some((Some("abc"), Some("/a/x/+"))), "$share/abc//a/x/+"),
             (Some((Some("abc"), Some("+"))), "$share/abc/+"),
+            (Some((Some("你好"), Some("+"))), "$share/你好/+"),
+            (Some((Some("你好"), Some("你好"))), "$share/你好/你好"),
             (Some((Some("abc"), Some("#"))), "$share/abc/#"),
+            (Some((Some("abc"), Some("#"))), "$share/abc/#"),
+            (None, "$share/abc/"),
             (None, "$share/abc"),
             (None, "$share/+/y"),
             (None, "$share/+/+"),
