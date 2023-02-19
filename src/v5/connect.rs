@@ -476,7 +476,7 @@ impl Encodable for Connack {
 
 /// Reason code for CONNECT packet.
 ///
-/// | Dec  |  Hex | Reason Code name              | Description                                                                                              |
+/// | Dec |  Hex | Reason Code name              | Description                                                                                              |
 /// |-----|------|-------------------------------|----------------------------------------------------------------------------------------------------------|
 /// |   0 | 0x00 | Success                       | The Connection is accepted.                                                                              |
 /// | 128 | 0x80 | Unspecified error             | The Server does not wish to reveal the reason for the failure, or none of the other Reason Codes apply.  |

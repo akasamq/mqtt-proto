@@ -1,5 +1,7 @@
+use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 use std::convert::TryFrom;
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::io;
 use std::ops::Deref;
 use std::slice;
@@ -285,10 +287,13 @@ impl Deref for TopicName {
 
 /// Topic filter.
 ///
-/// See [MQTT 4.7]. The internal value is `Arc<String>`.
+/// See [MQTT 4.7]. The internal value is `Arc<String>` and a cache value for
+/// where shared filter byte index started. The traits:
+/// `Hash`/`Ord`/`PartialOrd`/`Eq`/`PartialEq` are all manually implemented for
+/// only contains the string value.
 ///
 /// [MQTT 4.7]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718106
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct TopicFilter {
     inner: Arc<String>,
@@ -427,6 +432,32 @@ impl TopicFilter {
         }
     }
 }
+
+impl Hash for TopicFilter {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.inner.hash(state);
+    }
+}
+
+impl Ord for TopicFilter {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.inner.cmp(&other.inner)
+    }
+}
+
+impl PartialOrd for TopicFilter {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.inner.partial_cmp(&other.inner)
+    }
+}
+
+impl PartialEq for TopicFilter {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner.eq(&other.inner)
+    }
+}
+
+impl Eq for TopicFilter {}
 
 impl fmt::Display for TopicFilter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
