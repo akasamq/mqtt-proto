@@ -324,6 +324,16 @@ impl<'a> arbitrary::Arbitrary<'a> for LastWill {
 }
 
 impl LastWill {
+    pub fn new(qos: QoS, topic_name: TopicName, payload: Bytes) -> Self {
+        LastWill {
+            qos,
+            retain: false,
+            topic_name,
+            payload,
+            properties: WillProperties::default(),
+        }
+    }
+
     pub(crate) async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         qos: QoS,

@@ -212,6 +212,17 @@ pub struct LastWill {
     pub message: Bytes,
 }
 
+impl LastWill {
+    pub fn new(qos: QoS, topic_name: TopicName, message: Bytes) -> Self {
+        LastWill {
+            qos,
+            retain: false,
+            topic_name,
+            message,
+        }
+    }
+}
+
 #[cfg(feature = "arbitrary")]
 impl<'a> arbitrary::Arbitrary<'a> for LastWill {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
