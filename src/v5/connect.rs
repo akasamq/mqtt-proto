@@ -70,6 +70,19 @@ impl<'a> arbitrary::Arbitrary<'a> for Connect {
 }
 
 impl Connect {
+    pub fn new(client_id: Arc<String>, keep_alive: u16) -> Self {
+        Connect {
+            protocol: Protocol::V500,
+            clean_start: true,
+            keep_alive,
+            properties: ConnectProperties::default(),
+            client_id,
+            last_will: None,
+            username: None,
+            password: None,
+        }
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,
@@ -436,6 +449,13 @@ pub struct Connack {
 }
 
 impl Connack {
+    pub fn new(session_present: bool, reason_code: ConnectReasonCode) -> Self {
+        Connack {
+            session_present,
+            reason_code,
+            properties: ConnackProperties::default(),
+        }
+    }
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,
@@ -697,6 +717,17 @@ pub struct Disconnect {
 }
 
 impl Disconnect {
+    pub fn new(reason_code: DisconnectReasonCode) -> Self {
+        Disconnect {
+            reason_code,
+            properties: DisconnectProperties::default(),
+        }
+    }
+
+    pub fn new_normal() -> Self {
+        Self::new(DisconnectReasonCode::NormalDisconnect)
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,
@@ -919,6 +950,17 @@ pub struct Auth {
 }
 
 impl Auth {
+    pub fn new(reason_code: AuthReasonCode) -> Self {
+        Auth {
+            reason_code,
+            properties: AuthProperties::default(),
+        }
+    }
+
+    pub fn new_success() -> Self {
+        Self::new(AuthReasonCode::Success)
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,

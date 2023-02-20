@@ -41,6 +41,17 @@ impl<'a> arbitrary::Arbitrary<'a> for Publish {
 }
 
 impl Publish {
+    pub fn new(qos_pid: QosPid, topic_name: TopicName, payload: Bytes) -> Self {
+        Publish {
+            dup: false,
+            retain: false,
+            qos_pid,
+            topic_name,
+            payload,
+            properties: PublishProperties::default(),
+        }
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,
@@ -215,6 +226,18 @@ pub struct Puback {
 }
 
 impl Puback {
+    pub fn new(pid: Pid, reason_code: PubackReasonCode) -> Self {
+        Puback {
+            pid,
+            reason_code,
+            properties: PubackProperties::default(),
+        }
+    }
+
+    pub fn new_success(pid: Pid) -> Self {
+        Self::new(pid, PubackReasonCode::Success)
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,
@@ -357,6 +380,18 @@ pub struct Pubrec {
 }
 
 impl Pubrec {
+    pub fn new(pid: Pid, reason_code: PubrecReasonCode) -> Self {
+        Pubrec {
+            pid,
+            reason_code,
+            properties: PubrecProperties::default(),
+        }
+    }
+
+    pub fn new_success(pid: Pid) -> Self {
+        Self::new(pid, PubrecReasonCode::Success)
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,
@@ -499,6 +534,18 @@ pub struct Pubrel {
 }
 
 impl Pubrel {
+    pub fn new(pid: Pid, reason_code: PubrelReasonCode) -> Self {
+        Pubrel {
+            pid,
+            reason_code,
+            properties: PubrelProperties::default(),
+        }
+    }
+
+    pub fn new_success(pid: Pid) -> Self {
+        Self::new(pid, PubrelReasonCode::Success)
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,
@@ -618,6 +665,18 @@ pub struct Pubcomp {
 }
 
 impl Pubcomp {
+    pub fn new(pid: Pid, reason_code: PubcompReasonCode) -> Self {
+        Pubcomp {
+            pid,
+            reason_code,
+            properties: PubcompProperties::default(),
+        }
+    }
+
+    pub fn new_success(pid: Pid) -> Self {
+        Self::new(pid, PubcompReasonCode::Success)
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,

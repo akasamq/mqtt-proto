@@ -23,6 +23,14 @@ pub struct Subscribe {
 }
 
 impl Subscribe {
+    pub fn new(pid: Pid, topics: Vec<(TopicFilter, SubscriptionOptions)>) -> Self {
+        Subscribe {
+            pid,
+            properties: SubscribeProperties::default(),
+            topics,
+        }
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,
@@ -178,6 +186,14 @@ pub struct Suback {
 }
 
 impl Suback {
+    pub fn new(pid: Pid, topics: Vec<SubscribeReasonCode>) -> Self {
+        Suback {
+            pid,
+            properties: SubackProperties::default(),
+            topics,
+        }
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,
@@ -316,6 +332,14 @@ pub struct Unsubscribe {
 }
 
 impl Unsubscribe {
+    pub fn new(pid: Pid, topics: Vec<TopicFilter>) -> Self {
+        Unsubscribe {
+            pid,
+            properties: Vec::new(),
+            topics,
+        }
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,
@@ -412,6 +436,14 @@ pub struct Unsuback {
 }
 
 impl Unsuback {
+    pub fn new(pid: Pid, topics: Vec<UnsubscribeReasonCode>) -> Self {
+        Unsuback {
+            pid,
+            properties: UnsubackProperties::default(),
+            topics,
+        }
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,
