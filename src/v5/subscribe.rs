@@ -141,6 +141,15 @@ pub struct SubscriptionOptions {
 }
 
 impl SubscriptionOptions {
+    pub fn new(max_qos: QoS) -> Self {
+        SubscriptionOptions {
+            max_qos,
+            no_local: false,
+            retain_as_published: true,
+            retain_handling: RetainHandling::SendAtSubscribe,
+        }
+    }
+
     pub fn to_u8(&self) -> u8 {
         let mut byte = self.max_qos as u8;
         if self.no_local {
