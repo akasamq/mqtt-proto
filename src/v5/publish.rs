@@ -15,7 +15,7 @@ use crate::{
     QosPid, TopicName,
 };
 
-/// Payload type of PUBLISH packet.
+/// Body type of PUBLISH packet.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Publish {
     pub dup: bool,
@@ -216,7 +216,7 @@ impl Encodable for PublishProperties {
     }
 }
 
-/// Payload type for PUBACK packet.
+/// Body type for PUBACK packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Puback {
@@ -370,7 +370,7 @@ impl PubackReasonCode {
     }
 }
 
-/// Payload type for PUBREC packet.
+/// Body type for PUBREC packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Pubrec {
@@ -524,7 +524,7 @@ impl PubrecReasonCode {
     }
 }
 
-/// Payload type for PUBREL packet.
+/// Body type for PUBREL packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Pubrel {
@@ -655,7 +655,7 @@ impl PubrelReasonCode {
     }
 }
 
-/// Payload type for PUBCOMP packet.
+/// Body type for PUBCOMP packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Pubcomp {

@@ -2,6 +2,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use bytes::Bytes;
+use futures_lite::future::block_on;
 
 use crate::v3::*;
 use crate::*;
@@ -90,7 +91,7 @@ fn test_header_len() {
 
 #[test]
 fn test_non_utf8_string() {
-    let data: &[u8] = &[
+    let mut data: &[u8] = &[
         0b00110000, 10, // type=Publish, remaining_len=10
         0x00, 0x03, 'a' as u8, '/' as u8, 0xc0 as u8, // Topic with Invalid utf8
         'h' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8, // payload
@@ -99,11 +100,15 @@ fn test_non_utf8_string() {
         Packet::decode(data).unwrap_err(),
         Error::InvalidString
     ));
+    assert_eq!(
+        Packet::decode(data).unwrap_err(),
+        block_on(PollPacket::new(&mut data)).unwrap_err()
+    );
 }
 
 #[test]
 fn test_inner_length_too_long() {
-    let data: &[u8] = &[
+    let mut data: &[u8] = &[
         0b00010000, 20, // Connect packet, remaining_len=20
         0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x04, 0b01000000, // +password
         0x00, 0x0a, // keepalive 10 sec
@@ -111,11 +116,15 @@ fn test_inner_length_too_long() {
         0x00, 0x03, 'm' as u8, 'q' as u8, // password with invalid length
     ];
     assert_eq!(Ok(None), Packet::decode(data));
+    assert_eq!(
+        block_on(PollPacket::new(&mut data)).unwrap_err(),
+        Error::InvalidRemainingLength
+    );
 }
 
 #[test]
 fn test_decode_half_connect() {
-    let data: &[u8] = &[
+    let mut data: &[u8] = &[
         0b00010000, 39, 0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x04,
         0b11001110, // +username, +password, -will retain, will qos=1, +last_will, +clean_session
         0x00,
@@ -129,11 +138,12 @@ fn test_decode_half_connect() {
     ];
     assert_eq!(Ok(None), Packet::decode(data));
     assert_eq!(12, data.len());
+    assert!(block_on(PollPacket::new(&mut data)).unwrap_err().is_eof());
 }
 
 #[test]
 fn test_decode_connect_wrong_version() {
-    let data: &[u8] = &[
+    let mut data: &[u8] = &[
         0b00010000, 39, 0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x01,
         0b11001110, // +username, +password, -will retain, will qos=1, +last_will, +clean_session
         0x00, 0x0a, // 10 sec
@@ -148,12 +158,16 @@ fn test_decode_connect_wrong_version() {
         Packet::decode(data),
         Err(Error::InvalidProtocol("MQTT".to_owned(), 1)),
     );
+    assert_eq!(
+        Packet::decode(data).unwrap_err(),
+        block_on(PollPacket::new(&mut data)).unwrap_err()
+    );
 }
 
 #[test]
 fn test_decode_reserved_connect_flags() {
-    let data: &[u8] = &[
-        0b00010000, 39, 0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x04,
+    let mut data: &[u8] = &[
+        0b00010000, 16, 0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x04,
         0b11001111, // +username, +password, -will retain, will qos=1, +last_will, +clean_session
         0x00, 0x0a, // 10 sec
         0x00, 0x04, 't' as u8, 'e' as u8, 's' as u8, 't' as u8, // client_id
@@ -161,6 +175,10 @@ fn test_decode_reserved_connect_flags() {
     assert_eq!(
         Packet::decode(data),
         Err(Error::InvalidConnectFlags(0b11001111)),
+    );
+    assert_eq!(
+        Packet::decode(data).unwrap_err(),
+        block_on(PollPacket::new(&mut data)).unwrap_err()
     );
 }
 
@@ -202,11 +220,28 @@ fn test_decode_packet_n() {
 
     // decode 3 packets in a sequence stored in the same buffer
     let mut offset = 0;
-    let decode_pkt1 = Packet::decode(&data[offset..]).unwrap().unwrap();
+    let mut data1 = &data[offset..];
+    let decode_pkt1 = Packet::decode(data1).unwrap().unwrap();
+    assert_eq!(
+        Packet::decode(data1).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data1)).unwrap().1
+    );
+
     offset += total_len(pkt1.encode_len()).unwrap();
-    let decode_pkt2 = Packet::decode(&data[offset..]).unwrap().unwrap();
+    let mut data2 = &data[offset..];
+    let decode_pkt2 = Packet::decode(data2).unwrap().unwrap();
+    assert_eq!(
+        Packet::decode(data2).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data2)).unwrap().1
+    );
+
     offset += total_len(0).unwrap();
-    let decode_pkt3 = Packet::decode(&data[offset..]).unwrap().unwrap();
+    let mut data3 = &data[offset..];
+    let decode_pkt3 = Packet::decode(data3).unwrap().unwrap();
+    assert_eq!(
+        Packet::decode(data3).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data3)).unwrap().1
+    );
 
     assert_eq!(Packet::Connect(pkt1), decode_pkt1);
     assert_eq!(pkt2, decode_pkt2);
@@ -215,7 +250,7 @@ fn test_decode_packet_n() {
 
 #[test]
 fn test_decode_connack() {
-    let data: &[u8] = &[0b00100000, 2, 0b00000000, 0b00000001];
+    let mut data: &[u8] = &[0b00100000, 2, 0b00000000, 0b00000001];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
         Packet::Connack(v3::Connack {
@@ -223,24 +258,40 @@ fn test_decode_connack() {
             code: ConnectReturnCode::UnacceptableProtocolVersion,
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1
+    );
 }
 
 #[test]
 fn test_decode_ping_req() {
-    let data: &[u8] = &[0b11000000, 0b00000000];
+    let mut data: &[u8] = &[0b11000000, 0b00000000];
     assert_eq!(Ok(Some(Packet::Pingreq)), Packet::decode(data));
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1
+    );
 }
 
 #[test]
 fn test_decode_ping_resp() {
-    let data: &[u8] = &[0b11010000, 0b00000000];
+    let mut data: &[u8] = &[0b11010000, 0b00000000];
     assert_eq!(Ok(Some(Packet::Pingresp)), Packet::decode(data));
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1
+    );
 }
 
 #[test]
 fn test_decode_disconnect() {
-    let data: &[u8] = &[0b11100000, 0b00000000];
+    let mut data: &[u8] = &[0b11100000, 0b00000000];
     assert_eq!(Ok(Some(Packet::Disconnect)), Packet::decode(data));
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1
+    );
 }
 
 #[test]
@@ -254,13 +305,14 @@ fn test_decode_publish() {
         'l' as u8, 'l' as u8, 'o' as u8,
     ];
 
+    let mut data1 = &data[..];
     assert_eq!(
-        Header::decode(data).unwrap(),
+        Header::decode(data1).unwrap(),
         Header::new_with(0b00110000, 10).unwrap(),
     );
     assert_eq!(data.len(), 38);
 
-    match Packet::decode(data).unwrap().unwrap() {
+    match Packet::decode(data1).unwrap().unwrap() {
         Packet::Publish(p) => {
             assert_eq!(p.dup, false);
             assert_eq!(p.retain, false);
@@ -270,8 +322,12 @@ fn test_decode_publish() {
         }
         other => panic!("Failed decode: {:?}", other),
     }
+    assert_eq!(
+        Packet::decode(data1).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data1)).unwrap().1
+    );
 
-    let data2 = &data[12..];
+    let mut data2 = &data[12..];
     match Packet::decode(data2).unwrap().unwrap() {
         Packet::Publish(p) => {
             assert_eq!(p.dup, true);
@@ -282,8 +338,12 @@ fn test_decode_publish() {
         }
         other => panic!("Failed decode: {:?}", other),
     }
+    assert_eq!(
+        Packet::decode(data2).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data2)).unwrap().1
+    );
 
-    let data3 = &data[24..];
+    let mut data3 = &data[24..];
     match Packet::decode(data3).unwrap().unwrap() {
         Packet::Publish(p) => {
             assert_eq!(p.dup, true);
@@ -294,47 +354,67 @@ fn test_decode_publish() {
         }
         other => panic!("Failed decode: {:?}", other),
     }
+    assert_eq!(
+        Packet::decode(data3).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data3)).unwrap().1
+    );
 }
 
 #[test]
 fn test_decode_pub_ack() {
-    let data: &[u8] = &[0b01000000, 0b00000010, 0, 10];
+    let mut data: &[u8] = &[0b01000000, 0b00000010, 0, 10];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
         Packet::Puback(Pid::try_from(10).unwrap())
+    );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1
     );
 }
 
 #[test]
 fn test_decode_pub_rec() {
-    let data: &[u8] = &[0b01010000, 0b00000010, 0, 10];
+    let mut data: &[u8] = &[0b01010000, 0b00000010, 0, 10];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
         Packet::Pubrec(Pid::try_from(10).unwrap())
+    );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1
     );
 }
 
 #[test]
 fn test_decode_pub_rel() {
-    let data: &[u8] = &[0b01100010, 0b00000010, 0, 10];
+    let mut data: &[u8] = &[0b01100010, 0b00000010, 0, 10];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
         Packet::Pubrel(Pid::try_from(10).unwrap())
+    );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1
     );
 }
 
 #[test]
 fn test_decode_pub_comp() {
-    let data: &[u8] = &[0b01110000, 0b00000010, 0, 10];
+    let mut data: &[u8] = &[0b01110000, 0b00000010, 0, 10];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
         Packet::Pubcomp(Pid::try_from(10).unwrap())
+    );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1
     );
 }
 
 #[test]
 fn test_decode_subscribe() {
-    let data: &[u8] = &[
+    let mut data: &[u8] = &[
         0b10000010, 8, 0, 10, 0, 3, 'a' as u8, '/' as u8, 'b' as u8, 0,
     ];
     assert_eq!(
@@ -347,11 +427,15 @@ fn test_decode_subscribe() {
             )],
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1
+    );
 }
 
 #[test]
 fn test_decode_suback() {
-    let data: &[u8] = &[0b10010000, 3, 0, 10, 0b00000010];
+    let mut data: &[u8] = &[0b10010000, 3, 0, 10, 0b00000010];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
         Packet::Suback(v3::Suback {
@@ -359,11 +443,15 @@ fn test_decode_suback() {
             topics: vec![SubscribeReturnCode::MaxLevel2],
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1
+    );
 }
 
 #[test]
 fn test_decode_unsubscribe() {
-    let data: &[u8] = &[0b10100010, 5, 0, 10, 0, 1, 'a' as u8];
+    let mut data: &[u8] = &[0b10100010, 5, 0, 10, 0, 1, 'a' as u8];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
         Packet::Unsubscribe(v3::Unsubscribe {
@@ -371,13 +459,21 @@ fn test_decode_unsubscribe() {
             topics: vec![TopicFilter::try_from("a".to_owned()).unwrap(),],
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1
+    );
 }
 
 #[test]
 fn test_decode_unsub_ack() {
-    let data: &[u8] = &[0b10110000, 2, 0, 10];
+    let mut data: &[u8] = &[0b10110000, 2, 0, 10];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
         Packet::Unsuback(Pid::try_from(10).unwrap())
+    );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1
     );
 }

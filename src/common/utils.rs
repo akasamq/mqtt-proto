@@ -144,10 +144,10 @@ pub(crate) fn total_len(remaining_len: usize) -> Result<usize, Error> {
     Ok(header_len + remaining_len)
 }
 
-/// Encode packet use control byte and payload type
+/// Encode packet use control byte and body type
 #[inline]
-pub(crate) fn encode_packet<E: Encodable>(control_byte: u8, payload: &E) -> Result<Vec<u8>, Error> {
-    let remaining_len = payload.encode_len();
+pub(crate) fn encode_packet<E: Encodable>(control_byte: u8, body: &E) -> Result<Vec<u8>, Error> {
+    let remaining_len = body.encode_len();
     let total = total_len(remaining_len)?;
     let mut buf = Vec::with_capacity(total);
 
@@ -155,7 +155,7 @@ pub(crate) fn encode_packet<E: Encodable>(control_byte: u8, payload: &E) -> Resu
     buf.push(control_byte);
     write_var_int(&mut buf, remaining_len).expect("encode header write var int");
 
-    payload.encode(&mut buf)?;
+    body.encode(&mut buf)?;
     debug_assert_eq!(buf.len(), total);
     Ok(buf)
 }

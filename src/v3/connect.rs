@@ -10,7 +10,7 @@ use crate::{
     Protocol, QoS, TopicName,
 };
 
-/// Connect packet payload type.
+/// Connect packet body type.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Connect {
     pub protocol: Protocol,
@@ -166,7 +166,7 @@ impl Encodable for Connect {
     }
 }
 
-/// Connack packet payload type.
+/// Connack packet body type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Connack {

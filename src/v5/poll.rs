@@ -4,7 +4,7 @@ use super::{
     Auth, Connack, Connect, Disconnect, ErrorV5, Header, Packet, PacketType, Puback, Pubcomp,
     Publish, Pubrec, Pubrel, Suback, Subscribe, Unsuback, Unsubscribe,
 };
-use crate::{GenericPollPacket, GenericPollPacketState, GenericPollPayloadState, PollHeader};
+use crate::{GenericPollBodyState, GenericPollPacket, GenericPollPacketState, PollHeader};
 
 impl PollHeader for Header {
     type TheError = ErrorV5;
@@ -64,4 +64,4 @@ impl PollHeader for Header {
 
 pub type PollPacket<'a, T> = GenericPollPacket<'a, T, Header>;
 pub type PollPacketState = GenericPollPacketState<Header>;
-pub type PollPayloadState = GenericPollPayloadState<Header>;
+pub type PollBodyState = GenericPollBodyState<Header>;

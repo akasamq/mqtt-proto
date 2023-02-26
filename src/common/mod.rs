@@ -10,7 +10,7 @@ pub(crate) use utils::{
 
 pub use error::Error;
 pub use poll::{
-    GenericPollPacket, GenericPollPacketState, GenericPollPayloadState, PollHeader, PollHeaderState,
+    GenericPollBodyState, GenericPollPacket, GenericPollPacketState, PollHeader, PollHeaderState,
 };
 pub use types::{Encodable, Pid, Protocol, QoS, QosPid, TopicFilter, TopicName};
 pub use utils::decode_raw_header;

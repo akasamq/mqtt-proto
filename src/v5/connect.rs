@@ -15,7 +15,7 @@ use crate::{
     Protocol, QoS, TopicName,
 };
 
-/// Payload type of CONNECT packet.
+/// Body type of CONNECT packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Connect {
     /// The [protocol version](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901036).
@@ -449,7 +449,7 @@ impl Encodable for WillProperties {
     }
 }
 
-/// Payload type of CONNACK packet.
+/// Body type of CONNACK packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Connack {
@@ -718,7 +718,7 @@ impl Encodable for ConnackProperties {
     }
 }
 
-/// Payload type for DISCONNECT packet.
+/// Body type for DISCONNECT packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Disconnect {
@@ -951,7 +951,7 @@ impl Encodable for DisconnectProperties {
     }
 }
 
-/// Payload type of AUTH packet .
+/// Body type of AUTH packet .
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Auth {

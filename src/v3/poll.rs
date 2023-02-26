@@ -4,7 +4,7 @@ use super::{
     Connack, Connect, Header, Packet, PacketType, Publish, Suback, Subscribe, Unsubscribe,
 };
 use crate::{
-    read_u16, Error, GenericPollPacket, GenericPollPacketState, GenericPollPayloadState, Pid,
+    read_u16, Error, GenericPollBodyState, GenericPollPacket, GenericPollPacketState, Pid,
     PollHeader,
 };
 
@@ -65,4 +65,4 @@ impl PollHeader for Header {
 
 pub type PollPacket<'a, T> = GenericPollPacket<'a, T, Header>;
 pub type PollPacketState = GenericPollPacketState<Header>;
-pub type PollPayloadState = GenericPollPayloadState<Header>;
+pub type PollBodyState = GenericPollBodyState<Header>;

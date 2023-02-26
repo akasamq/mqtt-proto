@@ -8,7 +8,7 @@ use crate::{
     read_string, read_u16, write_bytes, write_u16, Encodable, Error, Pid, QoS, QosPid, TopicName,
 };
 
-/// Publish packet payload type.
+/// Publish packet body type.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Publish {
     pub dup: bool,

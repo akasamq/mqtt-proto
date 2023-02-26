@@ -13,7 +13,7 @@ use crate::{
     write_var_int, Encodable, Error, Pid, QoS, TopicFilter,
 };
 
-/// Payload type for SUBSCRIBE packet.
+/// Body type for SUBSCRIBE packet.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Subscribe {
@@ -185,7 +185,7 @@ impl RetainHandling {
     }
 }
 
-/// Payload type for SUBACK packet.
+/// Body type for SUBACK packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Suback {
@@ -331,7 +331,7 @@ impl SubscribeReasonCode {
     }
 }
 
-/// Payload type for UNSUBSCRIBE packet.
+/// Body type for UNSUBSCRIBE packet.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Unsubscribe {
@@ -435,7 +435,7 @@ impl Encodable for Unsubscribe {
     }
 }
 
-/// Payload type for UNSUBACK packet.
+/// Body type for UNSUBACK packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Unsuback {

@@ -11,18 +11,18 @@ use crate::Error;
 #[derive(Debug, Clone)]
 pub enum GenericPollPacketState<H> {
     Header(PollHeaderState),
-    Payload(GenericPollPayloadState<H>),
+    Body(GenericPollBodyState<H>),
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct PollHeaderState {
-    pub packet_type: Option<u8>,
+    pub control_byte: Option<u8>,
     pub var_idx: u8,
     pub var_int: u32,
 }
 
 #[derive(Debug, Clone)]
-pub struct GenericPollPayloadState<H> {
+pub struct GenericPollBodyState<H> {
     pub header: H,
     /// Packet total size (include header)
     pub total: usize,
@@ -37,7 +37,7 @@ pub trait PollHeader {
     fn new_with(hd: u8, remaining_len: u32) -> Result<Self, Self::TheError>
     where
         Self: Sized;
-    /// Packet without payload is empty packet
+    /// Packet without body is empty packet
     fn build_empty_packet(&self) -> Option<Self::ThePacket>;
     fn block_decode(self, reader: &mut &[u8]) -> Result<Self::ThePacket, Self::TheError>;
     fn remaining_len(&self) -> usize;
@@ -85,7 +85,7 @@ where
         loop {
             match state {
                 GenericPollPacketState::Header(PollHeaderState {
-                    packet_type,
+                    control_byte,
                     var_idx,
                     var_int,
                 }) => {
@@ -105,8 +105,8 @@ where
                         };
 
                         let byte = buf[0];
-                        if packet_type.is_none() {
-                            *packet_type = Some(byte);
+                        if control_byte.is_none() {
+                            *control_byte = Some(byte);
                         } else {
                             *var_int |= (u32::from(byte) & 0x7F) << (7 * u32::from(*var_idx));
                             if byte & 0x80 == 0 {
@@ -119,7 +119,7 @@ where
                         }
                     }
 
-                    let header = match H::new_with(packet_type.unwrap(), *var_int) {
+                    let header = match H::new_with(control_byte.unwrap(), *var_int) {
                         Ok(header) => header,
                         Err(err) => return Poll::Ready(Err(err)),
                     };
@@ -133,14 +133,14 @@ where
                     unsafe {
                         buf.set_len(header.remaining_len());
                     }
-                    *state = GenericPollPacketState::Payload(GenericPollPayloadState {
+                    *state = GenericPollPacketState::Body(GenericPollBodyState {
                         header,
                         total: 1 + 1 + *var_idx as usize + header.remaining_len(),
                         idx: 0,
                         buf,
                     });
                 }
-                GenericPollPacketState::Payload(GenericPollPayloadState {
+                GenericPollPacketState::Body(GenericPollBodyState {
                     header,
                     idx,
                     buf,

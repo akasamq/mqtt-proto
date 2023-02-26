@@ -7,7 +7,7 @@ use crate::{
     TopicFilter,
 };
 
-/// Subscribe packet payload type.
+/// Subscribe packet body type.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Subscribe {
@@ -15,7 +15,7 @@ pub struct Subscribe {
     pub topics: Vec<(TopicFilter, QoS)>,
 }
 
-/// Suback packet payload type.
+/// Suback packet body type.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Suback {
@@ -23,7 +23,7 @@ pub struct Suback {
     pub topics: Vec<SubscribeReturnCode>,
 }
 
-/// Unsubscribe packet payload type.
+/// Unsubscribe packet body type.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Unsubscribe {
