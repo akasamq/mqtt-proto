@@ -137,7 +137,6 @@ where
                     buf,
                     total,
                 } => loop {
-                    println!("header: {:?}, total: {}", header, total);
                     let buf_refmut: &mut [u8] = unsafe { mem::transmute(&mut buf[*idx..]) };
                     match Pin::new(&mut *reader).poll_read(cx, buf_refmut) {
                         Poll::Ready(Ok(0)) => {
@@ -206,7 +205,7 @@ where
                                     }
                                     _ => unreachable!(),
                                 };
-                                if !buf_ref.is_empty() {
+                                if result.is_ok() && !buf_ref.is_empty() {
                                     return Poll::Ready(Err(ErrorV5::Common(
                                         Error::InvalidRemainingLength,
                                     )));

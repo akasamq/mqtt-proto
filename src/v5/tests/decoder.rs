@@ -1,6 +1,8 @@
 use bytes::Bytes;
 use std::sync::Arc;
 
+use futures_lite::future::block_on;
+
 use crate::v5::*;
 use crate::*;
 use QoS::*;
@@ -89,9 +91,9 @@ fn test_v5_header_len() {
 
 #[test]
 fn test_v5_non_utf8_string() {
-    let data: &[u8] = &[
+    let mut data: &[u8] = &[
         0b00110000, // type=Publish
-        10,         // remaining length
+        11,         // remaining length
         0x00, 0x03, 'a' as u8, '/' as u8, 0xc0 as u8, // Topic with Invalid utf8
         0x00,       // properties
         'h' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8, // payload
@@ -100,11 +102,15 @@ fn test_v5_non_utf8_string() {
         Packet::decode(data).unwrap_err(),
         ErrorV5::Common(Error::InvalidString)
     ));
+    assert_eq!(
+        Packet::decode(data).unwrap_err(),
+        block_on(PollPacket::new(&mut data)).unwrap_err()
+    );
 }
 
 #[test]
 fn test_v5_decode_connect() {
-    let data: &[u8] = &[
+    let mut data: &[u8] = &[
         0b00010000, 22, // Connect packet, remaining length
         0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x05, 0b01000000, // +password
         0x00, 0x0a, // keepalive 10 sec
@@ -125,8 +131,12 @@ fn test_v5_decode_connect() {
             password: Some(Bytes::from(vec!['m' as u8, 'q' as u8, 't' as u8])),
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data: &[u8] = &[
+    let mut data: &[u8] = &[
         0b00010000, 21, // Connect packet, remaining length
         0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x05, 0b01000000, // +password
         0x00, 0x0a, // keepalive 10 sec
@@ -135,16 +145,21 @@ fn test_v5_decode_connect() {
         0x00, 0x03, 'm' as u8, 'q' as u8, // password with invalid length
     ];
     assert_eq!(Ok(None), Packet::decode(data));
+    assert_eq!(
+        block_on(PollPacket::new(&mut data)).unwrap_err(),
+        Error::InvalidRemainingLength.into()
+    );
 
-    let data: &[u8] = &[
-        0b00010000, 39, 0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x05,
+    let mut data: &[u8] = &[
+        0b00010000, 11, 0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x05,
         0b11001110, // +username, +password, -will retain, will qos=1, +last_will, +clean_session
         0x00, 0x0a, // 10 sec
     ];
     assert_eq!(Ok(None), Packet::decode(data));
+    assert!(block_on(PollPacket::new(&mut data)).unwrap_err().is_eof());
 
-    let data: &[u8] = &[
-        0b00010000, 39, 0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x01,
+    let mut data: &[u8] = &[
+        0b00010000, 11, 0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x01,
         0b11001110, // +username, +password, -will retain, will qos=1, +last_will, +clean_session
         0x00, 0x0a, // 10 sec
         0x00, // properties
@@ -153,9 +168,13 @@ fn test_v5_decode_connect() {
         Packet::decode(data).unwrap_err(),
         ErrorV5::Common(Error::InvalidProtocol("MQTT".to_owned(), 1)),
     );
+    assert_eq!(
+        Packet::decode(data).unwrap_err(),
+        block_on(PollPacket::new(&mut data)).unwrap_err()
+    );
 
-    let data: &[u8] = &[
-        0b00010000, 39, 0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x04,
+    let mut data: &[u8] = &[
+        0b00010000, 11, 0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x04,
         0b11001110, // +username, +password, -will retain, will qos=1, +last_will, +clean_session
         0x00, 0x0a, // 10 sec
         0x00, // properties
@@ -164,18 +183,26 @@ fn test_v5_decode_connect() {
         Packet::decode(data).unwrap_err(),
         ErrorV5::Common(Error::UnexpectedProtocol(Protocol::V311)),
     );
+    assert_eq!(
+        Packet::decode(data).unwrap_err(),
+        block_on(PollPacket::new(&mut data)).unwrap_err()
+    );
 
-    let data: &[u8] = &[
-        0b00010000, 39, 0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x05,
+    let mut data: &[u8] = &[
+        0b00010000, 10, 0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x05,
         0b11001111, // +username, +password, -will retain, will qos=1, +last_will, +clean_session
         0x00, 0x0a, // 10 sec
     ];
     assert_eq!(
-        Packet::decode(data),
-        Err(ErrorV5::Common(Error::InvalidConnectFlags(0b11001111))),
+        Packet::decode(data).unwrap_err(),
+        ErrorV5::Common(Error::InvalidConnectFlags(0b11001111)),
+    );
+    assert_eq!(
+        Packet::decode(data).unwrap_err(),
+        block_on(PollPacket::new(&mut data)).unwrap_err()
     );
 
-    let data: &[u8] = &[
+    let mut data: &[u8] = &[
         0b00010000, // packet type
         24,         // remaining length
         0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x05,       // protocol (size=7)
@@ -193,11 +220,16 @@ fn test_v5_decode_connect() {
         Packet::decode(data).unwrap_err(),
         ErrorV5::InvalidPayloadFormat,
     );
+    assert_eq!(
+        Packet::decode(data).unwrap_err(),
+        block_on(PollPacket::new(&mut data)).unwrap_err()
+    );
 }
 
 #[test]
 fn test_v5_decode_connack() {
-    let data: &[u8] = &[0b00100000, 2, 0x00, 0x84, 0x00];
+    // FIXME: check remaining length in Packet::decode_async()
+    let mut data: &[u8] = &[0b00100000, 3, 0x00, 0x84, 0x00];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
         Packet::Connack(Connack {
@@ -206,8 +238,12 @@ fn test_v5_decode_connack() {
             properties: ConnackProperties::default(),
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data: &[u8] = &[
+    let mut data: &[u8] = &[
         0b00100000, // packet type
         11,         // remaining length
         0x00,       // session_present
@@ -228,18 +264,26 @@ fn test_v5_decode_connack() {
             },
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
     for byte0 in [2, 3, 4, 128u8] {
-        let data: &[u8] = &[0b00100000, 2, byte0, 0x84, 0x00];
+        let mut data: &[u8] = &[0b00100000, 2, byte0, 0x84, 0x00];
         assert_eq!(
             Packet::decode(data).unwrap_err(),
             ErrorV5::Common(Error::InvalidConnackFlags(byte0)),
         );
+        assert_eq!(
+            Packet::decode(data).unwrap_err(),
+            block_on(PollPacket::new(&mut data)).unwrap_err()
+        );
     }
 
-    let data: &[u8] = &[
+    let mut data: &[u8] = &[
         0b00100000, // packet type
-        11,         // remaining length
+        7,          // remaining length
         0x00,       // session_present
         0x84,       // reason code
         0x04,       // property length
@@ -250,10 +294,14 @@ fn test_v5_decode_connack() {
         Packet::decode(data).unwrap_err(),
         ErrorV5::DuplicatedProperty(PropertyId::MaximumQoS),
     );
+    assert_eq!(
+        Packet::decode(data).unwrap_err(),
+        block_on(PollPacket::new(&mut data)).unwrap_err()
+    );
 
-    let data: &[u8] = &[
+    let mut data: &[u8] = &[
         0b00100000, // packet type
-        11,         // remaining length
+        5,          // remaining length
         0x00,       // session_present
         0x84,       // reason code
         0x01,       // property length
@@ -263,11 +311,15 @@ fn test_v5_decode_connack() {
         Packet::decode(data).unwrap_err(),
         ErrorV5::InvalidByteProperty(PropertyId::RetainAvailable, 0x02),
     );
+    assert_eq!(
+        Packet::decode(data).unwrap_err(),
+        block_on(PollPacket::new(&mut data)).unwrap_err()
+    );
 }
 
 #[test]
 fn test_v5_decode_disconnect() {
-    let data = &[
+    let mut data: &[u8] = &[
         14 << 4, // packet type
         7,       // remaining length
         0x89,    // reason: server busy
@@ -288,8 +340,12 @@ fn test_v5_decode_disconnect() {
             }
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         14 << 4, // packet type
         2,       // remaining length
         0x89,    // reason: server busy
@@ -302,8 +358,12 @@ fn test_v5_decode_disconnect() {
             properties: Default::default(),
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         14 << 4, // packet type
         1,       // remaining length
         0x89,    // reason: server busy
@@ -315,8 +375,12 @@ fn test_v5_decode_disconnect() {
             properties: Default::default(),
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         14 << 4, // packet type
         0,       // remaining length
     ];
@@ -327,12 +391,16 @@ fn test_v5_decode_disconnect() {
             properties: Default::default(),
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 }
 #[test]
 fn test_v5_decode_auth() {
-    let data = &[
+    let mut data: &[u8] = &[
         15 << 4, // packet type
-        10,      // remaining length
+        7,       // remaining length
         0x18,    // reason: Continuation Authentication
         0x05,    // properties.len = 5
         0x1F,    // reason string = "xy"
@@ -351,8 +419,12 @@ fn test_v5_decode_auth() {
             },
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         15 << 4, // packet type
         2,       // remaining length
         0x00,    // reason code
@@ -365,8 +437,12 @@ fn test_v5_decode_auth() {
             properties: Default::default(),
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         15 << 4, // packet type
         0,       // remaining length
     ];
@@ -377,8 +453,12 @@ fn test_v5_decode_auth() {
             properties: Default::default(),
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         15 << 4, // packet type
         2,       // remaining length
         0x59,    // reason code
@@ -388,11 +468,15 @@ fn test_v5_decode_auth() {
         Packet::decode(data).unwrap_err(),
         ErrorV5::InvalidReasonCode(PacketType::Auth, 0x59),
     );
+    assert_eq!(
+        Packet::decode(data).unwrap_err(),
+        block_on(PollPacket::new(&mut data)).unwrap_err()
+    );
 }
 
 #[test]
 fn test_v5_decode_publish() {
-    let data = &[
+    let mut data: &[u8] = &[
         3 << 4, // packet type
         7,      // remaining length
         0x00,   // topic name = "xy"
@@ -414,8 +498,12 @@ fn test_v5_decode_publish() {
             payload: Bytes::from(vec![0xaa, 0xbb]),
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         3 << 4 | 0b1000, // packet type, dup = true
         10,              // remaining length
         0x00,            // topic name = "xy"
@@ -443,8 +531,12 @@ fn test_v5_decode_publish() {
             payload: Bytes::from(vec![0xaa, 0xbb]),
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         3 << 4 | 0b0010, // packet type, qos = 1
         11,              // remaining length
         0x00,            // topic name = "xy"
@@ -473,8 +565,12 @@ fn test_v5_decode_publish() {
             payload: Bytes::from("ab".as_bytes().to_vec()),
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         3 << 4 | 0b0001, // packet type, retain = true
         5,               // remaining length
         0x00,            // topic name = "xy"
@@ -494,8 +590,12 @@ fn test_v5_decode_publish() {
             payload: Bytes::default(),
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         3 << 4 | 0b1101, // packet type, dup=true, qos=2 retain=true
         7,               // remaining length
         0x00,            // topic name = "xy"
@@ -517,8 +617,12 @@ fn test_v5_decode_publish() {
             payload: Bytes::default(),
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         3 << 4, // packet type
         6,      // remaining length
         0x00,   // topic name = "t"
@@ -532,8 +636,12 @@ fn test_v5_decode_publish() {
         Packet::decode(data).unwrap_err(),
         ErrorV5::InvalidProperty(PacketType::Publish, PropertyId::MaximumQoS),
     );
+    assert_eq!(
+        Packet::decode(data).unwrap_err(),
+        block_on(PollPacket::new(&mut data)).unwrap_err()
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         3 << 4,
         2,
         0x00, // topic name = "t"
@@ -544,8 +652,12 @@ fn test_v5_decode_publish() {
         Packet::decode(data).unwrap_err(),
         ErrorV5::Common(Error::InvalidRemainingLength),
     );
+    assert_eq!(
+        Packet::decode(data).unwrap_err(),
+        block_on(PollPacket::new(&mut data)).unwrap_err()
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         3 << 4,
         8,
         0x00, // topic name = "t"
@@ -561,8 +673,12 @@ fn test_v5_decode_publish() {
         Packet::decode(data).unwrap_err(),
         ErrorV5::InvalidPayloadFormat,
     );
+    assert_eq!(
+        Packet::decode(data).unwrap_err(),
+        block_on(PollPacket::new(&mut data)).unwrap_err()
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         3 << 4,
         10,
         0x00, // topic name = "t"
@@ -580,11 +696,15 @@ fn test_v5_decode_publish() {
         Packet::decode(data).unwrap_err(),
         ErrorV5::InvalidResponseTopic,
     );
+    assert_eq!(
+        Packet::decode(data).unwrap_err(),
+        block_on(PollPacket::new(&mut data)).unwrap_err()
+    );
 }
 
 #[test]
 fn test_v5_decode_puback() {
-    let data = &[
+    let mut data: &[u8] = &[
         4 << 4, // packet type
         8,      // remaining length
         0x11,   // packet identifier = 0x1122
@@ -607,8 +727,12 @@ fn test_v5_decode_puback() {
             },
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         4 << 4, // packet type
         2,      // remaining length
         0x11,   // packet identifier = 0x1122
@@ -622,8 +746,12 @@ fn test_v5_decode_puback() {
             properties: Default::default(),
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         4 << 4, // packet type
         3,      // remaining length
         0x11,   // packet identifier = 0x1122
@@ -638,11 +766,15 @@ fn test_v5_decode_puback() {
             properties: Default::default(),
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 }
 
 #[test]
 fn test_v5_decode_pubrec() {
-    let data = &[
+    let mut data: &[u8] = &[
         5 << 4, // packet type
         8,      // remaining length
         0x11,   // packet identifier = 0x1122
@@ -665,8 +797,12 @@ fn test_v5_decode_pubrec() {
             },
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         5 << 4, // packet type
         2,      // remaining length
         0x11,   // packet identifier = 0x1122
@@ -680,7 +816,12 @@ fn test_v5_decode_pubrec() {
             properties: Default::default(),
         })
     );
-    let data = &[
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
+
+    let mut data: &[u8] = &[
         5 << 4, // packet type
         3,      // remaining length
         0x11,   // packet identifier = 0x1122
@@ -695,10 +836,14 @@ fn test_v5_decode_pubrec() {
             properties: Default::default(),
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 }
 #[test]
 fn test_v5_decode_pubrel() {
-    let data = &[
+    let mut data: &[u8] = &[
         6 << 4 | 2, // packet type
         8,          // remaining length
         0x11,       // packet identifier = 0x1122
@@ -721,8 +866,12 @@ fn test_v5_decode_pubrel() {
             },
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         6 << 4 | 2, // packet type
         2,          // remaining length
         0x11,       // packet identifier = 0x1122
@@ -736,8 +885,12 @@ fn test_v5_decode_pubrel() {
             properties: Default::default(),
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         6 << 4 | 2, // packet type
         3,          // remaining length
         0x11,       // packet identifier = 0x1122
@@ -752,10 +905,14 @@ fn test_v5_decode_pubrel() {
             properties: Default::default(),
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 }
 #[test]
 fn test_v5_decode_pubcomp() {
-    let data = &[
+    let mut data: &[u8] = &[
         7 << 4, // packet type
         8,      // remaining length
         0x11,   // packet identifier = 0x1122
@@ -778,8 +935,12 @@ fn test_v5_decode_pubcomp() {
             },
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         7 << 4, // packet type
         2,      // remaining length
         0x11,   // packet identifier = 0x1122
@@ -793,8 +954,12 @@ fn test_v5_decode_pubcomp() {
             properties: Default::default(),
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         7 << 4, // packet type
         3,      // remaining length
         0x11,   // packet identifier = 0x1122
@@ -809,11 +974,15 @@ fn test_v5_decode_pubcomp() {
             properties: Default::default(),
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 }
 
 #[test]
 fn test_v5_decode_subscribe() {
-    let data = &[
+    let mut data: &[u8] = &[
         8 << 4 | 2, // packet type
         11,         // remaining length
         0x11,       // packet identifier = 0x1122
@@ -847,8 +1016,12 @@ fn test_v5_decode_subscribe() {
             )],
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         8 << 4 | 2, // packet type
         8,          // remaining length
         0x11,       // packet identifier = 0x1122
@@ -876,13 +1049,17 @@ fn test_v5_decode_subscribe() {
             )],
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
     for opt_byte in [
         0b01000000, // reserved bits
         0b00000011, // max_qos=3
         0b00110000, // RetainHandling=3
     ] {
-        let data = &[
+        let mut data: &[u8] = &[
             8 << 4 | 2, // packet type
             8,          // remaining length
             0x11,       // packet identifier = 0x1122
@@ -898,9 +1075,13 @@ fn test_v5_decode_subscribe() {
             Packet::decode(data).unwrap_err(),
             ErrorV5::InvalidSubscriptionOption(opt_byte),
         );
+        assert_eq!(
+            Packet::decode(data).unwrap_err(),
+            block_on(PollPacket::new(&mut data)).unwrap_err()
+        );
     }
 
-    let data = &[
+    let mut data: &[u8] = &[
         8 << 4 | 2, // packet type
         3,          // remaining length
         0x11,       // packet identifier = 0x1122
@@ -910,12 +1091,16 @@ fn test_v5_decode_subscribe() {
     assert_eq!(
         Packet::decode(data).unwrap_err(),
         ErrorV5::Common(Error::EmptySubscription),
-    )
+    );
+    assert_eq!(
+        Packet::decode(data).unwrap_err(),
+        block_on(PollPacket::new(&mut data)).unwrap_err()
+    );
 }
 
 #[test]
 fn test_v5_decode_suback() {
-    let data = &[
+    let mut data: &[u8] = &[
         9 << 4, // packet type
         9,      // remaining length
         0x11,   // packet identifier = 0x1122
@@ -942,8 +1127,12 @@ fn test_v5_decode_suback() {
             ]
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         9 << 4, // packet type
         4,      // remaining length
         0x11,   // packet identifier = 0x1122
@@ -955,10 +1144,14 @@ fn test_v5_decode_suback() {
         Packet::decode(data).unwrap_err(),
         ErrorV5::InvalidReasonCode(PacketType::Suback, 0x43),
     );
+    assert_eq!(
+        Packet::decode(data).unwrap_err(),
+        block_on(PollPacket::new(&mut data)).unwrap_err()
+    );
 }
 #[test]
 fn test_v5_decode_unsubscribe() {
-    let data = &[
+    let mut data: &[u8] = &[
         10 << 4 | 2, // packet type
         28,          // remaining length
         0x11,        // packet identifier = 0x1122
@@ -1010,10 +1203,14 @@ fn test_v5_decode_unsubscribe() {
             ],
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         10 << 4 | 2, // packet type
-        28,          // remaining length
+        4,           // remaining length
         0x11,        // packet identifier = 0x1122
         0x22,
         0x02, // properties.len = 2
@@ -1023,10 +1220,14 @@ fn test_v5_decode_unsubscribe() {
         Packet::decode(data).unwrap_err(),
         ErrorV5::InvalidProperty(PacketType::Unsubscribe, PropertyId::MaximumPacketSize),
     );
+    assert_eq!(
+        Packet::decode(data).unwrap_err(),
+        block_on(PollPacket::new(&mut data)).unwrap_err()
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         10 << 4 | 2, // packet type
-        28,          // remaining length
+        4,           // remaining length
         0x11,        // packet identifier = 0x1122
         0x22,
         0x02, // properties.len = 2
@@ -1036,11 +1237,15 @@ fn test_v5_decode_unsubscribe() {
         Packet::decode(data).unwrap_err(),
         ErrorV5::InvalidPropertyId(0xAA),
     );
+    assert_eq!(
+        Packet::decode(data).unwrap_err(),
+        block_on(PollPacket::new(&mut data)).unwrap_err()
+    );
 }
 
 #[test]
 fn test_v5_decode_unsuback() {
-    let data = &[
+    let mut data: &[u8] = &[
         11 << 4, // packet type
         9,       // remaining length
         0x11,    // packet identifier = 0x1122
@@ -1067,8 +1272,12 @@ fn test_v5_decode_unsuback() {
             ]
         })
     );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data = &[
+    let mut data: &[u8] = &[
         11 << 4, // packet type
         4,       // remaining length
         0x11,    // packet identifier = 0x1122
@@ -1080,22 +1289,42 @@ fn test_v5_decode_unsuback() {
         Packet::decode(data).unwrap_err(),
         ErrorV5::InvalidReasonCode(PacketType::Unsuback, 0x43),
     );
+    assert_eq!(
+        Packet::decode(data).unwrap_err(),
+        block_on(PollPacket::new(&mut data)).unwrap_err()
+    );
 }
 
 #[test]
 fn test_v5_decode_pingreq() {
-    let data = &[12 << 4, 0];
+    let mut data: &[u8] = &[12 << 4, 0];
     assert_eq!(Packet::decode(data).unwrap().unwrap(), Packet::Pingreq);
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data = &[12 << 4, 0, 0x11, 0x22];
+    let mut data: &[u8] = &[12 << 4, 0, 0x11, 0x22];
     assert_eq!(Packet::decode(data).unwrap().unwrap(), Packet::Pingreq);
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 }
 
 #[test]
 fn test_v5_decode_pingresp() {
-    let data = &[13 << 4, 0];
+    let mut data: &[u8] = &[13 << 4, 0];
     assert_eq!(Packet::decode(data).unwrap().unwrap(), Packet::Pingresp);
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 
-    let data = &[13 << 4, 0, 0x11, 0x22];
+    let mut data: &[u8] = &[13 << 4, 0, 0x11, 0x22];
     assert_eq!(Packet::decode(data).unwrap().unwrap(), Packet::Pingresp);
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut data)).unwrap().1,
+    );
 }
