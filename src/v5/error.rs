@@ -1,3 +1,4 @@
+use std::io;
 use thiserror::Error;
 
 use super::{PacketType, PropertyId};
@@ -56,5 +57,11 @@ impl ErrorV5 {
             ErrorV5::Common(err) => err.is_eof(),
             _ => false,
         }
+    }
+}
+
+impl From<io::Error> for ErrorV5 {
+    fn from(err: io::Error) -> ErrorV5 {
+        ErrorV5::Common(err.into())
     }
 }

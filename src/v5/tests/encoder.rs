@@ -15,7 +15,11 @@ fn assert_encode(pkt: Packet, len: usize) {
     assert_eq!(data_async.len(), len);
 
     let decoded_pkt = Packet::decode(&data_async).unwrap().unwrap();
+    let mut data = &data_async[..];
+    let (total, polled_pkt) = block_on(PollPacket::new(&mut data)).unwrap();
+    assert_eq!(total, len);
     assert_eq!(pkt, decoded_pkt);
+    assert_eq!(pkt, polled_pkt);
 }
 
 #[test]

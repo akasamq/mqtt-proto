@@ -5,6 +5,7 @@
 mod connect;
 mod error;
 mod packet;
+mod poll;
 mod publish;
 mod subscribe;
 mod types;
@@ -24,6 +25,7 @@ pub use connect::{
 };
 pub use error::ErrorV5;
 pub use packet::{Header, Packet, PacketType, VarBytes};
+pub use poll::{PollPacket, PollPacketState};
 pub use publish::{
     Puback, PubackProperties, PubackReasonCode, Pubcomp, PubcompProperties, PubcompReasonCode,
     Publish, PublishProperties, Pubrec, PubrecProperties, PubrecReasonCode, Pubrel,

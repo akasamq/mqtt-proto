@@ -173,3 +173,30 @@ macro_rules! packet_from {
 }
 
 pub(crate) use packet_from;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures_lite::future::block_on;
+
+    #[test]
+    fn test_decode_var_int() {
+        for (mut data, value, size) in [
+            (&[0xff, 0xff, 0xff, 0x7f][..], 268435455, 4),
+            (&[0x80, 0x80, 0x80, 0x01][..], 2097152, 4),
+            (&[0xff, 0xff, 0x7f][..], 2097151, 3),
+            (&[0x80, 0x80, 0x01][..], 16384, 3),
+            (&[0xff, 0x7f][..], 16383, 2),
+            (&[0x80, 0x01][..], 128, 2),
+            (&[0x7f][..], 127, 1),
+            (&[0x00][..], 0, 1),
+        ] {
+            assert_eq!(block_on(decode_var_int(&mut data)).unwrap(), (value, size));
+        }
+
+        let mut err_data = &[0xff, 0xff, 0xff][..];
+        assert!(block_on(decode_var_int(&mut err_data))
+            .unwrap_err()
+            .is_eof());
+    }
+}
