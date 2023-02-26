@@ -5,6 +5,7 @@
 
 mod connect;
 mod packet;
+mod poll;
 mod publish;
 mod subscribe;
 
@@ -13,5 +14,6 @@ mod tests;
 
 pub use connect::{Connack, Connect, ConnectReturnCode, LastWill};
 pub use packet::{Header, Packet, PacketType, VarBytes};
+pub use poll::{PollPacket, PollPacketState, PollPayloadState};
 pub use publish::Publish;
 pub use subscribe::{Suback, Subscribe, SubscribeReturnCode, Unsubscribe};

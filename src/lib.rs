@@ -8,7 +8,8 @@ pub(crate) use common::{
 };
 
 pub use common::{
-    decode_raw_header, Encodable, Error, Pid, Protocol, QoS, QosPid, TopicFilter, TopicName,
-    LEVEL_SEP, MATCH_ALL_CHAR, MATCH_ALL_STR, MATCH_ONE_CHAR, MATCH_ONE_STR, SHARED_PREFIX,
-    SYS_PREFIX,
+    decode_raw_header, Encodable, Error, GenericPollPacket, GenericPollPacketState,
+    GenericPollPayloadState, Pid, PollHeader, PollHeaderState, Protocol, QoS, QosPid, TopicFilter,
+    TopicName, LEVEL_SEP, MATCH_ALL_CHAR, MATCH_ALL_STR, MATCH_ONE_CHAR, MATCH_ONE_STR,
+    SHARED_PREFIX, SYS_PREFIX,
 };

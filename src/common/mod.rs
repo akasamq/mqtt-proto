@@ -1,4 +1,5 @@
 mod error;
+mod poll;
 mod types;
 mod utils;
 
@@ -8,6 +9,9 @@ pub(crate) use utils::{
 };
 
 pub use error::Error;
+pub use poll::{
+    GenericPollPacket, GenericPollPacketState, GenericPollPayloadState, PollHeader, PollHeaderState,
+};
 pub use types::{Encodable, Pid, Protocol, QoS, QosPid, TopicFilter, TopicName};
 pub use utils::decode_raw_header;
 
