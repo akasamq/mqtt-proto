@@ -51,21 +51,13 @@ impl<H> Default for GenericPollPacketState<H> {
 }
 
 pub struct GenericPollPacket<'a, T, H> {
-    state: GenericPollPacketState<H>,
+    state: &'a mut GenericPollPacketState<H>,
     reader: &'a mut T,
 }
 
 impl<'a, T, H> GenericPollPacket<'a, T, H> {
-    pub fn new(reader: &'a mut T) -> Self {
-        GenericPollPacket::from_state(GenericPollPacketState::default(), reader)
-    }
-
-    pub fn from_state(state: GenericPollPacketState<H>, reader: &'a mut T) -> Self {
+    pub fn new(state: &'a mut GenericPollPacketState<H>, reader: &'a mut T) -> Self {
         GenericPollPacket { state, reader }
-    }
-
-    pub fn into_state(self) -> GenericPollPacketState<H> {
-        self.state
     }
 }
 
@@ -133,7 +125,7 @@ where
                     unsafe {
                         buf.set_len(header.remaining_len());
                     }
-                    *state = GenericPollPacketState::Body(GenericPollBodyState {
+                    **state = GenericPollPacketState::Body(GenericPollBodyState {
                         header,
                         total: 1 + 1 + *var_idx as usize + header.remaining_len(),
                         idx: 0,

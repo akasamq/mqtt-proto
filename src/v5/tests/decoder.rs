@@ -104,7 +104,7 @@ fn test_v5_non_utf8_string() {
     ));
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        block_on(PollPacket::new(&mut data)).unwrap_err()
+        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
     );
 }
 
@@ -133,7 +133,9 @@ fn test_v5_decode_connect() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[
@@ -146,7 +148,7 @@ fn test_v5_decode_connect() {
     ];
     assert_eq!(Ok(None), Packet::decode(data));
     assert_eq!(
-        block_on(PollPacket::new(&mut data)).unwrap_err(),
+        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err(),
         Error::InvalidRemainingLength.into()
     );
 
@@ -156,7 +158,11 @@ fn test_v5_decode_connect() {
         0x00, 0x0a, // 10 sec
     ];
     assert_eq!(Ok(None), Packet::decode(data));
-    assert!(block_on(PollPacket::new(&mut data)).unwrap_err().is_eof());
+    assert!(
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap_err()
+            .is_eof()
+    );
 
     let mut data: &[u8] = &[
         0b00010000, 11, 0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x01,
@@ -170,7 +176,7 @@ fn test_v5_decode_connect() {
     );
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        block_on(PollPacket::new(&mut data)).unwrap_err()
+        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
     );
 
     let mut data: &[u8] = &[
@@ -185,7 +191,7 @@ fn test_v5_decode_connect() {
     );
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        block_on(PollPacket::new(&mut data)).unwrap_err()
+        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
     );
 
     let mut data: &[u8] = &[
@@ -199,7 +205,7 @@ fn test_v5_decode_connect() {
     );
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        block_on(PollPacket::new(&mut data)).unwrap_err()
+        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
     );
 
     let mut data: &[u8] = &[
@@ -222,7 +228,7 @@ fn test_v5_decode_connect() {
     );
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        block_on(PollPacket::new(&mut data)).unwrap_err()
+        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
     );
 }
 
@@ -240,7 +246,9 @@ fn test_v5_decode_connack() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[
@@ -266,7 +274,9 @@ fn test_v5_decode_connack() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     for byte0 in [2, 3, 4, 128u8] {
@@ -277,7 +287,7 @@ fn test_v5_decode_connack() {
         );
         assert_eq!(
             Packet::decode(data).unwrap_err(),
-            block_on(PollPacket::new(&mut data)).unwrap_err()
+            block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
         );
     }
 
@@ -296,7 +306,7 @@ fn test_v5_decode_connack() {
     );
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        block_on(PollPacket::new(&mut data)).unwrap_err()
+        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
     );
 
     let mut data: &[u8] = &[
@@ -313,7 +323,7 @@ fn test_v5_decode_connack() {
     );
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        block_on(PollPacket::new(&mut data)).unwrap_err()
+        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
     );
 }
 
@@ -342,7 +352,9 @@ fn test_v5_decode_disconnect() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[
@@ -360,7 +372,9 @@ fn test_v5_decode_disconnect() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[
@@ -377,7 +391,9 @@ fn test_v5_decode_disconnect() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[
@@ -393,7 +409,9 @@ fn test_v5_decode_disconnect() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 }
 #[test]
@@ -421,7 +439,9 @@ fn test_v5_decode_auth() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[
@@ -439,7 +459,9 @@ fn test_v5_decode_auth() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[
@@ -455,7 +477,9 @@ fn test_v5_decode_auth() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[
@@ -470,7 +494,7 @@ fn test_v5_decode_auth() {
     );
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        block_on(PollPacket::new(&mut data)).unwrap_err()
+        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
     );
 }
 
@@ -500,7 +524,9 @@ fn test_v5_decode_publish() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[
@@ -533,7 +559,9 @@ fn test_v5_decode_publish() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[
@@ -567,7 +595,9 @@ fn test_v5_decode_publish() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[
@@ -592,7 +622,9 @@ fn test_v5_decode_publish() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[
@@ -619,7 +651,9 @@ fn test_v5_decode_publish() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[
@@ -638,7 +672,7 @@ fn test_v5_decode_publish() {
     );
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        block_on(PollPacket::new(&mut data)).unwrap_err()
+        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
     );
 
     let mut data: &[u8] = &[
@@ -654,7 +688,7 @@ fn test_v5_decode_publish() {
     );
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        block_on(PollPacket::new(&mut data)).unwrap_err()
+        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
     );
 
     let mut data: &[u8] = &[
@@ -675,7 +709,7 @@ fn test_v5_decode_publish() {
     );
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        block_on(PollPacket::new(&mut data)).unwrap_err()
+        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
     );
 
     let mut data: &[u8] = &[
@@ -698,7 +732,7 @@ fn test_v5_decode_publish() {
     );
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        block_on(PollPacket::new(&mut data)).unwrap_err()
+        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
     );
 }
 
@@ -729,7 +763,9 @@ fn test_v5_decode_puback() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[
@@ -748,7 +784,9 @@ fn test_v5_decode_puback() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[
@@ -768,7 +806,9 @@ fn test_v5_decode_puback() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 }
 
@@ -799,7 +839,9 @@ fn test_v5_decode_pubrec() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[
@@ -818,7 +860,9 @@ fn test_v5_decode_pubrec() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[
@@ -838,7 +882,9 @@ fn test_v5_decode_pubrec() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 }
 #[test]
@@ -868,7 +914,9 @@ fn test_v5_decode_pubrel() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[
@@ -887,7 +935,9 @@ fn test_v5_decode_pubrel() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[
@@ -907,7 +957,9 @@ fn test_v5_decode_pubrel() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 }
 #[test]
@@ -937,7 +989,9 @@ fn test_v5_decode_pubcomp() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[
@@ -956,7 +1010,9 @@ fn test_v5_decode_pubcomp() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[
@@ -976,7 +1032,9 @@ fn test_v5_decode_pubcomp() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 }
 
@@ -1018,7 +1076,9 @@ fn test_v5_decode_subscribe() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[
@@ -1051,7 +1111,9 @@ fn test_v5_decode_subscribe() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     for opt_byte in [
@@ -1077,7 +1139,7 @@ fn test_v5_decode_subscribe() {
         );
         assert_eq!(
             Packet::decode(data).unwrap_err(),
-            block_on(PollPacket::new(&mut data)).unwrap_err()
+            block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
         );
     }
 
@@ -1094,7 +1156,7 @@ fn test_v5_decode_subscribe() {
     );
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        block_on(PollPacket::new(&mut data)).unwrap_err()
+        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
     );
 }
 
@@ -1129,7 +1191,9 @@ fn test_v5_decode_suback() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[
@@ -1146,7 +1210,7 @@ fn test_v5_decode_suback() {
     );
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        block_on(PollPacket::new(&mut data)).unwrap_err()
+        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
     );
 }
 #[test]
@@ -1205,7 +1269,9 @@ fn test_v5_decode_unsubscribe() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[
@@ -1222,7 +1288,7 @@ fn test_v5_decode_unsubscribe() {
     );
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        block_on(PollPacket::new(&mut data)).unwrap_err()
+        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
     );
 
     let mut data: &[u8] = &[
@@ -1239,7 +1305,7 @@ fn test_v5_decode_unsubscribe() {
     );
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        block_on(PollPacket::new(&mut data)).unwrap_err()
+        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
     );
 }
 
@@ -1274,7 +1340,9 @@ fn test_v5_decode_unsuback() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[
@@ -1291,7 +1359,7 @@ fn test_v5_decode_unsuback() {
     );
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        block_on(PollPacket::new(&mut data)).unwrap_err()
+        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
     );
 }
 
@@ -1301,14 +1369,18 @@ fn test_v5_decode_pingreq() {
     assert_eq!(Packet::decode(data).unwrap().unwrap(), Packet::Pingreq);
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[12 << 4, 0, 0x11, 0x22];
     assert_eq!(Packet::decode(data).unwrap().unwrap(), Packet::Pingreq);
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 }
 
@@ -1318,13 +1390,17 @@ fn test_v5_decode_pingresp() {
     assert_eq!(Packet::decode(data).unwrap().unwrap(), Packet::Pingresp);
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 
     let mut data: &[u8] = &[13 << 4, 0, 0x11, 0x22];
     assert_eq!(Packet::decode(data).unwrap().unwrap(), Packet::Pingresp);
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut data)).unwrap().1,
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .1,
     );
 }
