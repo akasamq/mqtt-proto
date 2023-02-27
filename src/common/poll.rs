@@ -153,6 +153,8 @@ where
                     };
 
                     *idx += size;
+                    debug_assert!(*idx <= buf.len());
+
                     if *idx == buf.len() {
                         let mut buf_ref: &[u8] = unsafe { mem::transmute(&buf[..]) };
                         let result = header.block_decode(&mut buf_ref);

@@ -79,7 +79,7 @@ impl fmt::Display for Protocol {
             Self::V311 => "v3.1.1",
             Self::V500 => "v5.0",
         };
-        write!(f, "{}", output)
+        write!(f, "{output}")
     }
 }
 
