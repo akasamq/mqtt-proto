@@ -13,7 +13,7 @@ mod subscribe;
 mod tests;
 
 pub use connect::{Connack, Connect, ConnectReturnCode, LastWill};
-pub use packet::{Header, Packet, PacketType, VarBytes};
+pub use packet::{Header, Packet, PacketType};
 pub use poll::{PollBodyState, PollPacket, PollPacketState};
 pub use publish::Publish;
 pub use subscribe::{Suback, Subscribe, SubscribeReturnCode, Unsubscribe};

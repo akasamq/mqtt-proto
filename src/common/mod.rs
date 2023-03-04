@@ -12,7 +12,7 @@ pub use error::Error;
 pub use poll::{
     GenericPollBodyState, GenericPollPacket, GenericPollPacketState, PollHeader, PollHeaderState,
 };
-pub use types::{Encodable, Pid, Protocol, QoS, QosPid, TopicFilter, TopicName};
+pub use types::{Encodable, Pid, Protocol, QoS, QosPid, TopicFilter, TopicName, VarBytes};
 pub use utils::decode_raw_header;
 
 /// Character used to separate each level within a topic tree and provide a hierarchical structure.

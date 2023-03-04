@@ -7,7 +7,7 @@ use std::convert::AsRef;
 use super::{Connack, Connect, Publish, Suback, Subscribe, Unsubscribe};
 use crate::{
     decode_raw_header, encode_packet, packet_from, read_u16, total_len, Encodable, Error, Pid, QoS,
-    QosPid,
+    QosPid, VarBytes,
 };
 
 /// MQTT v3.x packet types.
@@ -236,25 +236,6 @@ pub enum PacketType {
     Pingreq,
     Pingresp,
     Disconnect,
-}
-
-/// A bytes data structure represent a dynamic vector or fixed array.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum VarBytes {
-    Dynamic(Vec<u8>),
-    Fixed2([u8; 2]),
-    Fixed4([u8; 4]),
-}
-
-impl AsRef<[u8]> for VarBytes {
-    /// Return the slice of the internal bytes.
-    fn as_ref(&self) -> &[u8] {
-        match self {
-            VarBytes::Dynamic(vec) => vec,
-            VarBytes::Fixed2(arr) => &arr[..],
-            VarBytes::Fixed4(arr) => &arr[..],
-        }
-    }
 }
 
 /// Fixed header type.

@@ -24,7 +24,7 @@ pub use connect::{
     WillProperties,
 };
 pub use error::ErrorV5;
-pub use packet::{Header, Packet, PacketType, VarBytes};
+pub use packet::{Header, Packet, PacketType};
 pub use poll::{PollBodyState, PollPacket, PollPacketState};
 pub use publish::{
     Puback, PubackProperties, PubackReasonCode, Pubcomp, PubcompProperties, PubcompReasonCode,

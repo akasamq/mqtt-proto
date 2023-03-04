@@ -13,6 +13,7 @@ use super::{
 };
 use crate::{
     decode_raw_header, encode_packet, packet_from, total_len, Encodable, Error, QoS, QosPid,
+    VarBytes,
 };
 
 /// MQTT v5.0 packet types.
@@ -248,23 +249,6 @@ pub enum PacketType {
 impl fmt::Display for PacketType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{self:?}")
-    }
-}
-
-/// A bytes data structure represent a dynamic vector or fixed array.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum VarBytes {
-    Dynamic(Vec<u8>),
-    Fixed2([u8; 2]),
-}
-
-impl AsRef<[u8]> for VarBytes {
-    /// Return the slice of the internal bytes.
-    fn as_ref(&self) -> &[u8] {
-        match self {
-            VarBytes::Dynamic(vec) => vec,
-            VarBytes::Fixed2(arr) => &arr[..],
-        }
     }
 }
 

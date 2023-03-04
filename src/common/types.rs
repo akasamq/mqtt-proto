@@ -487,6 +487,25 @@ impl Deref for TopicFilter {
     }
 }
 
+/// A bytes data structure represent a dynamic vector or fixed array.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum VarBytes {
+    Dynamic(Vec<u8>),
+    Fixed2([u8; 2]),
+    Fixed4([u8; 4]),
+}
+
+impl AsRef<[u8]> for VarBytes {
+    /// Return the slice of the internal bytes.
+    fn as_ref(&self) -> &[u8] {
+        match self {
+            VarBytes::Dynamic(vec) => vec,
+            VarBytes::Fixed2(arr) => &arr[..],
+            VarBytes::Fixed4(arr) => &arr[..],
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
