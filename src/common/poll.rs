@@ -31,17 +31,17 @@ pub struct GenericPollBodyState<H> {
 }
 
 pub trait PollHeader {
-    type TheError;
-    type ThePacket;
+    type Error;
+    type Packet;
 
-    fn new_with(hd: u8, remaining_len: u32) -> Result<Self, Self::TheError>
+    fn new_with(hd: u8, remaining_len: u32) -> Result<Self, Self::Error>
     where
         Self: Sized;
     /// Packet without body is empty packet
-    fn build_empty_packet(&self) -> Option<Self::ThePacket>;
-    fn block_decode(self, reader: &mut &[u8]) -> Result<Self::ThePacket, Self::TheError>;
+    fn build_empty_packet(&self) -> Option<Self::Packet>;
+    fn block_decode(self, reader: &mut &[u8]) -> Result<Self::Packet, Self::Error>;
     fn remaining_len(&self) -> usize;
-    fn is_eof_error(err: &Self::TheError) -> bool;
+    fn is_eof_error(err: &Self::Error) -> bool;
 }
 
 impl<H> Default for GenericPollPacketState<H> {
@@ -65,9 +65,9 @@ impl<'a, T, H> Future for GenericPollPacket<'a, T, H>
 where
     T: AsyncRead + Unpin,
     H: PollHeader + Copy + Unpin,
-    H::TheError: From<io::Error> + From<Error>,
+    H::Error: From<io::Error> + From<Error>,
 {
-    type Output = Result<(usize, H::ThePacket), H::TheError>;
+    type Output = Result<(usize, H::Packet), H::Error>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let GenericPollPacket {

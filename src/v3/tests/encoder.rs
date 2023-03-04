@@ -10,7 +10,7 @@ fn assert_encode(pkt: Packet, len: usize) {
     let mut data_async = Vec::new();
     block_on(pkt.encode_async(&mut data_async)).unwrap();
     let var_bytes = pkt.encode().unwrap();
-    assert_eq!(var_bytes.as_slice(), &data_async);
+    assert_eq!(var_bytes.as_ref(), &data_async);
     assert_eq!(pkt.encode_len().unwrap(), len);
     assert_eq!(data_async.len(), len);
 

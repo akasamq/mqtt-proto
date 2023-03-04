@@ -7,17 +7,17 @@ use super::{
 use crate::{GenericPollBodyState, GenericPollPacket, GenericPollPacketState, PollHeader};
 
 impl PollHeader for Header {
-    type TheError = ErrorV5;
-    type ThePacket = Packet;
+    type Error = ErrorV5;
+    type Packet = Packet;
 
-    fn new_with(hd: u8, remaining_len: u32) -> Result<Self, Self::TheError>
+    fn new_with(hd: u8, remaining_len: u32) -> Result<Self, Self::Error>
     where
         Self: Sized,
     {
         Header::new_with(hd, remaining_len)
     }
 
-    fn build_empty_packet(&self) -> Option<Self::ThePacket> {
+    fn build_empty_packet(&self) -> Option<Self::Packet> {
         let packet = match self.typ {
             PacketType::Pingreq => Packet::Pingreq,
             PacketType::Pingresp => Packet::Pingresp,
@@ -28,7 +28,7 @@ impl PollHeader for Header {
         Some(packet)
     }
 
-    fn block_decode(self, reader: &mut &[u8]) -> Result<Self::ThePacket, Self::TheError> {
+    fn block_decode(self, reader: &mut &[u8]) -> Result<Self::Packet, Self::Error> {
         match self.typ {
             PacketType::Connect => block_on(Connect::decode_async(reader, self)).map(Into::into),
             PacketType::Connack => block_on(Connack::decode_async(reader, self)).map(Into::into),
@@ -57,7 +57,7 @@ impl PollHeader for Header {
         self.remaining_len as usize
     }
 
-    fn is_eof_error(err: &Self::TheError) -> bool {
+    fn is_eof_error(err: &Self::Error) -> bool {
         err.is_eof()
     }
 }
