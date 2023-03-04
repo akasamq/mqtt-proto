@@ -1,3 +1,4 @@
+use std::convert::AsRef;
 use std::fmt;
 use std::io;
 
@@ -101,7 +102,7 @@ impl Packet {
     pub async fn encode_async<T: AsyncWrite + Unpin>(&self, writer: &mut T) -> Result<(), ErrorV5> {
         let data = self.encode()?;
         writer
-            .write_all(data.as_slice())
+            .write_all(data.as_ref())
             .await
             .map_err(|err| Error::IoError(err.kind(), err.to_string()))?;
         Ok(())
@@ -257,9 +258,9 @@ pub enum VarBytes {
     Fixed2([u8; 2]),
 }
 
-impl VarBytes {
+impl AsRef<[u8]> for VarBytes {
     /// Return the slice of the internal bytes.
-    pub fn as_slice(&self) -> &[u8] {
+    fn as_ref(&self) -> &[u8] {
         match self {
             VarBytes::Dynamic(vec) => vec,
             VarBytes::Fixed2(arr) => &arr[..],

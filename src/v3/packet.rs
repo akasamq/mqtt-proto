@@ -2,6 +2,7 @@ use futures_lite::{
     future::block_on,
     io::{AsyncRead, AsyncWrite, AsyncWriteExt},
 };
+use std::convert::AsRef;
 
 use super::{Connack, Connect, Publish, Suback, Subscribe, Unsubscribe};
 use crate::{
@@ -100,7 +101,7 @@ impl Packet {
     /// Asynchronously encode the packet to an async writer.
     pub async fn encode_async<T: AsyncWrite + Unpin>(&self, writer: &mut T) -> Result<(), Error> {
         let data = self.encode()?;
-        writer.write_all(data.as_slice()).await?;
+        writer.write_all(data.as_ref()).await?;
         Ok(())
     }
 
@@ -245,9 +246,9 @@ pub enum VarBytes {
     Fixed4([u8; 4]),
 }
 
-impl VarBytes {
+impl AsRef<[u8]> for VarBytes {
     /// Return the slice of the internal bytes.
-    pub fn as_slice(&self) -> &[u8] {
+    fn as_ref(&self) -> &[u8] {
         match self {
             VarBytes::Dynamic(vec) => vec,
             VarBytes::Fixed2(arr) => &arr[..],
