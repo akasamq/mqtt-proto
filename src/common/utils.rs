@@ -129,7 +129,7 @@ pub(crate) fn var_int_len(value: usize) -> Result<usize, Error> {
 
 /// Return the packet total encoded length by a given remaining length.
 #[inline]
-pub(crate) fn total_len(remaining_len: usize) -> Result<usize, Error> {
+pub fn total_len(remaining_len: usize) -> Result<usize, Error> {
     let header_len = if remaining_len < 128 {
         2
     } else if remaining_len < 16384 {
