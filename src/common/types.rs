@@ -246,10 +246,6 @@ pub struct TopicName(Arc<String>);
 impl TopicName {
     /// Check if the topic name is invalid.
     pub fn is_invalid(value: &str) -> bool {
-        // v5.0 [MQTT-4.7.3-1]
-        if value.is_empty() {
-            return true;
-        }
         value.contains(|c| c == MATCH_ONE_CHAR || c == MATCH_ALL_CHAR || c == '\0')
     }
 
@@ -542,9 +538,10 @@ mod tests {
         assert!(!TopicName::is_invalid("abc"));
         assert!(!TopicName::is_invalid("/"));
         assert!(!TopicName::is_invalid("//"));
+        // NOTE: Because v5.0 topic alias, we let up level to check empty topic name
+        assert!(!TopicName::is_invalid(""));
 
         // invalid topic name
-        assert!(TopicName::is_invalid(""));
         assert!(TopicName::is_invalid("#"));
         assert!(TopicName::is_invalid("+"));
         assert!(TopicName::is_invalid("/+"));
