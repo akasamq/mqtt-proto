@@ -67,7 +67,7 @@ where
     H: PollHeader + Copy + Unpin,
     H::Error: From<io::Error> + From<Error>,
 {
-    type Output = Result<(usize, H::Packet), H::Error>;
+    type Output = Result<(usize, Vec<MaybeUninit<u8>>, H::Packet), H::Error>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let GenericPollPacket {
@@ -116,7 +116,7 @@ where
                         Err(err) => return Poll::Ready(Err(err)),
                     };
                     if let Some(empty_packet) = header.build_empty_packet() {
-                        return Poll::Ready(Ok((2, empty_packet)));
+                        return Poll::Ready(Ok((2, Vec::new(), empty_packet)));
                     }
                     if header.remaining_len() == 0 {
                         return Poll::Ready(Err(Error::InvalidRemainingLength.into()));
@@ -166,7 +166,7 @@ where
                                 return Poll::Ready(Err(Error::InvalidRemainingLength.into()));
                             }
                         }
-                        return Poll::Ready(result.map(|packet| (*total, packet)));
+                        return Poll::Ready(result.map(|packet| (*total, mem::take(buf), packet)));
                     }
                 },
             }

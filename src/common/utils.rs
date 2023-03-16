@@ -144,6 +144,28 @@ pub fn total_len(remaining_len: usize) -> Result<usize, Error> {
     Ok(header_len + remaining_len)
 }
 
+/// Calculate remaining length by given total length (the total length MUST be
+/// valid value).
+#[inline]
+pub fn remaining_len(total_len: usize) -> usize {
+    total_len - header_len(total_len)
+}
+
+/// Calculate header length by given total length (the total length MUST be
+/// valid value).
+#[inline]
+pub fn header_len(total_len: usize) -> usize {
+    if total_len < 128 + 2 {
+        2
+    } else if total_len < 16384 + 3 {
+        3
+    } else if total_len < 2097152 + 4 {
+        4
+    } else {
+        5
+    }
+}
+
 /// Encode packet use control byte and body type
 #[inline]
 pub(crate) fn encode_packet<E: Encodable>(control_byte: u8, body: &E) -> Result<Vec<u8>, Error> {

@@ -230,7 +230,7 @@ fn test_decode_packet_n() {
         Packet::decode(data1).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data1))
             .unwrap()
-            .1
+            .2
     );
 
     offset += total_len(pkt1.encode_len()).unwrap();
@@ -240,7 +240,7 @@ fn test_decode_packet_n() {
         Packet::decode(data2).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data2))
             .unwrap()
-            .1
+            .2
     );
 
     offset += total_len(0).unwrap();
@@ -250,7 +250,7 @@ fn test_decode_packet_n() {
         Packet::decode(data3).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data3))
             .unwrap()
-            .1
+            .2
     );
 
     assert_eq!(Packet::Connect(pkt1), decode_pkt1);
@@ -272,7 +272,7 @@ fn test_decode_connack() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1
+            .2
     );
 }
 
@@ -284,7 +284,7 @@ fn test_decode_ping_req() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1
+            .2
     );
 }
 
@@ -296,7 +296,7 @@ fn test_decode_ping_resp() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1
+            .2
     );
 }
 
@@ -308,7 +308,7 @@ fn test_decode_disconnect() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1
+            .2
     );
 }
 
@@ -344,7 +344,7 @@ fn test_decode_publish() {
         Packet::decode(data1).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data1))
             .unwrap()
-            .1
+            .2
     );
 
     let mut data2 = &data[12..];
@@ -362,7 +362,7 @@ fn test_decode_publish() {
         Packet::decode(data2).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data2))
             .unwrap()
-            .1
+            .2
     );
 
     let mut data3 = &data[24..];
@@ -380,7 +380,7 @@ fn test_decode_publish() {
         Packet::decode(data3).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data3))
             .unwrap()
-            .1
+            .2
     );
 }
 
@@ -395,7 +395,7 @@ fn test_decode_pub_ack() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1
+            .2
     );
 }
 
@@ -410,7 +410,7 @@ fn test_decode_pub_rec() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1
+            .2
     );
 }
 
@@ -425,7 +425,7 @@ fn test_decode_pub_rel() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1
+            .2
     );
 }
 
@@ -440,7 +440,7 @@ fn test_decode_pub_comp() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1
+            .2
     );
 }
 
@@ -463,7 +463,7 @@ fn test_decode_subscribe() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1
+            .2
     );
 }
 
@@ -481,7 +481,7 @@ fn test_decode_suback() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1
+            .2
     );
 }
 
@@ -499,7 +499,7 @@ fn test_decode_unsubscribe() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1
+            .2
     );
 }
 
@@ -514,6 +514,6 @@ fn test_decode_unsub_ack() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1
+            .2
     );
 }

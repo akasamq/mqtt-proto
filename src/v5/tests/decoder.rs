@@ -135,7 +135,7 @@ fn test_v5_decode_connect() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[
@@ -248,7 +248,7 @@ fn test_v5_decode_connack() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[
@@ -276,7 +276,7 @@ fn test_v5_decode_connack() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     for byte0 in [2, 3, 4, 128u8] {
@@ -354,7 +354,7 @@ fn test_v5_decode_disconnect() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[
@@ -374,7 +374,7 @@ fn test_v5_decode_disconnect() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[
@@ -393,7 +393,7 @@ fn test_v5_decode_disconnect() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[
@@ -411,7 +411,7 @@ fn test_v5_decode_disconnect() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 }
 #[test]
@@ -441,7 +441,7 @@ fn test_v5_decode_auth() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[
@@ -461,7 +461,7 @@ fn test_v5_decode_auth() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[
@@ -479,7 +479,7 @@ fn test_v5_decode_auth() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[
@@ -526,7 +526,7 @@ fn test_v5_decode_publish() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[
@@ -561,7 +561,7 @@ fn test_v5_decode_publish() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[
@@ -597,7 +597,7 @@ fn test_v5_decode_publish() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[
@@ -624,7 +624,7 @@ fn test_v5_decode_publish() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[
@@ -653,7 +653,7 @@ fn test_v5_decode_publish() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[
@@ -765,7 +765,7 @@ fn test_v5_decode_puback() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[
@@ -786,7 +786,7 @@ fn test_v5_decode_puback() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[
@@ -808,7 +808,7 @@ fn test_v5_decode_puback() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 }
 
@@ -841,7 +841,7 @@ fn test_v5_decode_pubrec() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[
@@ -862,7 +862,7 @@ fn test_v5_decode_pubrec() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[
@@ -884,7 +884,7 @@ fn test_v5_decode_pubrec() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 }
 #[test]
@@ -916,7 +916,7 @@ fn test_v5_decode_pubrel() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[
@@ -937,7 +937,7 @@ fn test_v5_decode_pubrel() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[
@@ -959,7 +959,7 @@ fn test_v5_decode_pubrel() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 }
 #[test]
@@ -991,7 +991,7 @@ fn test_v5_decode_pubcomp() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[
@@ -1012,7 +1012,7 @@ fn test_v5_decode_pubcomp() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[
@@ -1034,7 +1034,7 @@ fn test_v5_decode_pubcomp() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 }
 
@@ -1078,7 +1078,7 @@ fn test_v5_decode_subscribe() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[
@@ -1113,7 +1113,7 @@ fn test_v5_decode_subscribe() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     for opt_byte in [
@@ -1193,7 +1193,7 @@ fn test_v5_decode_suback() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[
@@ -1271,7 +1271,7 @@ fn test_v5_decode_unsubscribe() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[
@@ -1342,7 +1342,7 @@ fn test_v5_decode_unsuback() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[
@@ -1371,7 +1371,7 @@ fn test_v5_decode_pingreq() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[12 << 4, 0, 0x11, 0x22];
@@ -1380,7 +1380,7 @@ fn test_v5_decode_pingreq() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 }
 
@@ -1392,7 +1392,7 @@ fn test_v5_decode_pingresp() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 
     let mut data: &[u8] = &[13 << 4, 0, 0x11, 0x22];
@@ -1401,6 +1401,6 @@ fn test_v5_decode_pingresp() {
         Packet::decode(data).unwrap().unwrap(),
         block_on(PollPacket::new(&mut Default::default(), &mut data))
             .unwrap()
-            .1,
+            .2,
     );
 }

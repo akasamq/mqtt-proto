@@ -1,3 +1,4 @@
+use std::mem;
 use std::sync::Arc;
 
 use bytes::Bytes;
@@ -18,9 +19,11 @@ fn assert_encode(pkt: Packet, len: usize) {
     assert_eq!(pkt, decoded_pkt);
 
     let mut data = &data_async[..];
-    let (total, polled_pkt) =
+    let (total, buf, polled_pkt) =
         block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap();
+    let buf_ref: &[u8] = unsafe { mem::transmute(&buf[..]) };
     assert_eq!(total, len);
+    assert_eq!(buf_ref, &data_async[header_len(total)..]);
     assert_eq!(pkt, polled_pkt);
 }
 

@@ -13,7 +13,7 @@ pub use poll::{
     GenericPollBodyState, GenericPollPacket, GenericPollPacketState, PollHeader, PollHeaderState,
 };
 pub use types::{Encodable, Pid, Protocol, QoS, QosPid, TopicFilter, TopicName, VarBytes};
-pub use utils::{decode_raw_header, total_len};
+pub use utils::{decode_raw_header, header_len, remaining_len, total_len};
 
 /// Character used to separate each level within a topic tree and provide a hierarchical structure.
 pub const LEVEL_SEP: char = '/';
