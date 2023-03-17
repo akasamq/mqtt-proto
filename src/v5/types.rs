@@ -1,12 +1,16 @@
 use std::convert::TryFrom;
 use std::fmt;
+use std::io;
 use std::sync::Arc;
 
 use bytes::Bytes;
 use futures_lite::io::AsyncRead;
 
 use super::ErrorV5;
-use crate::{read_bytes, read_string, read_u16, read_u32, read_u8, Error, TopicName};
+use crate::{
+    read_bytes, read_string, read_u16, read_u32, read_u8, var_int_len, write_var_int, Encodable,
+    Error, TopicName,
+};
 
 /// [Property identifier](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901027)
 ///
@@ -225,6 +229,32 @@ pub struct UserProperty {
     pub name: Arc<String>,
     /// The value of the user property.
     pub value: Arc<String>,
+}
+
+impl Encodable for Vec<UserProperty> {
+    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        let property_len = self.len()
+            + self
+                .iter()
+                .map(|p| 4 + p.name.len() + p.value.len())
+                .sum::<usize>();
+        write_var_int(writer, property_len)?;
+        for UserProperty { name, value } in self {
+            crate::write_u8(writer, PropertyId::UserProperty as u8)?;
+            crate::write_bytes(writer, name.as_bytes())?;
+            crate::write_bytes(writer, value.as_bytes())?;
+        }
+        Ok(())
+    }
+
+    fn encode_len(&self) -> usize {
+        let property_len = self.len()
+            + self
+                .iter()
+                .map(|p| 4 + p.name.len() + p.value.len())
+                .sum::<usize>();
+        var_int_len(property_len).expect("user properties length exceed 268,435,455") + property_len
+    }
 }
 
 /// Variable Byte Integer

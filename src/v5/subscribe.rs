@@ -9,8 +9,8 @@ use super::{
     PropertyId, PropertyValue, UserProperty, VarByteInt,
 };
 use crate::{
-    decode_var_int, read_string, read_u16, read_u8, var_int_len, write_bytes, write_u16, write_u8,
-    write_var_int, Encodable, Error, Pid, QoS, TopicFilter,
+    decode_var_int, read_string, read_u16, read_u8, write_bytes, write_u16, write_u8, Encodable,
+    Error, Pid, QoS, TopicFilter,
 };
 
 /// Body type for SUBSCRIBE packet.
@@ -397,19 +397,7 @@ impl Unsubscribe {
 impl Encodable for Unsubscribe {
     fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
         write_u16(writer, self.pid.value())?;
-
-        let property_len = self.properties.len()
-            + self
-                .properties
-                .iter()
-                .map(|p| 4 + p.name.len() + p.value.len())
-                .sum::<usize>();
-        write_var_int(writer, property_len)?;
-        for UserProperty { name, value } in &self.properties {
-            crate::write_u8(writer, PropertyId::UserProperty as u8)?;
-            crate::write_bytes(writer, name.as_bytes())?;
-            crate::write_bytes(writer, value.as_bytes())?;
-        }
+        self.properties.encode(writer)?;
         for topic_filter in &self.topics {
             write_bytes(writer, topic_filter.as_bytes())?;
         }
@@ -417,15 +405,8 @@ impl Encodable for Unsubscribe {
     }
 
     fn encode_len(&self) -> usize {
-        let property_len = self.properties.len()
-            + self
-                .properties
-                .iter()
-                .map(|p| 4 + p.name.len() + p.value.len())
-                .sum::<usize>();
         let mut len = 2;
-        len += var_int_len(property_len).expect("user properties length exceed 268,435,455");
-        len += property_len;
+        len += self.properties.encode_len();
         len += self
             .topics
             .iter()
