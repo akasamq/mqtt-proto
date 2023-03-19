@@ -133,8 +133,7 @@ impl Encodable for Connect {
         write_u16(writer, self.keep_alive)?;
         write_bytes(writer, self.client_id.as_bytes())?;
         if let Some(last_will) = self.last_will.as_ref() {
-            write_bytes(writer, last_will.topic_name.as_bytes())?;
-            write_bytes(writer, last_will.message.as_ref())?;
+            last_will.encode(writer)?;
         }
         if let Some(username) = self.username.as_ref() {
             write_bytes(writer, username.as_bytes())?;
@@ -152,9 +151,7 @@ impl Encodable for Connect {
         // client identifier
         length += 2 + self.client_id.len();
         if let Some(last_will) = self.last_will.as_ref() {
-            length += 4;
-            length += last_will.topic_name.len();
-            length += last_will.message.len();
+            length += last_will.encode_len();
         }
         if let Some(username) = self.username.as_ref() {
             length += 2 + username.len();
@@ -212,6 +209,18 @@ pub struct LastWill {
     pub message: Bytes,
 }
 
+#[cfg(feature = "arbitrary")]
+impl<'a> arbitrary::Arbitrary<'a> for LastWill {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(LastWill {
+            qos: u.arbitrary()?,
+            retain: u.arbitrary()?,
+            topic_name: u.arbitrary()?,
+            message: Bytes::from(Vec::<u8>::arbitrary(u)?),
+        })
+    }
+}
+
 impl LastWill {
     pub fn new(qos: QoS, topic_name: TopicName, message: Bytes) -> Self {
         LastWill {
@@ -223,15 +232,15 @@ impl LastWill {
     }
 }
 
-#[cfg(feature = "arbitrary")]
-impl<'a> arbitrary::Arbitrary<'a> for LastWill {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(LastWill {
-            qos: u.arbitrary()?,
-            retain: u.arbitrary()?,
-            topic_name: u.arbitrary()?,
-            message: Bytes::from(Vec::<u8>::arbitrary(u)?),
-        })
+impl Encodable for LastWill {
+    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        write_bytes(writer, self.topic_name.as_bytes())?;
+        write_bytes(writer, self.message.as_ref())?;
+        Ok(())
+    }
+
+    fn encode_len(&self) -> usize {
+        4 + self.topic_name.len() + self.message.len()
     }
 }
 
