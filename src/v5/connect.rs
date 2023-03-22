@@ -243,7 +243,7 @@ impl<'a> arbitrary::Arbitrary<'a> for ConnectProperties {
 }
 
 impl ConnectProperties {
-    pub(crate) async fn decode_async<T: AsyncRead + Unpin>(
+    pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         packet_type: PacketType,
     ) -> Result<Self, ErrorV5> {
@@ -334,7 +334,7 @@ impl LastWill {
         }
     }
 
-    pub(crate) async fn decode_async<T: AsyncRead + Unpin>(
+    pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         qos: QoS,
         retain: bool,
@@ -399,9 +399,7 @@ impl<'a> arbitrary::Arbitrary<'a> for WillProperties {
 }
 
 impl WillProperties {
-    pub(crate) async fn decode_async<T: AsyncRead + Unpin>(
-        reader: &mut T,
-    ) -> Result<Self, ErrorV5> {
+    pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, ErrorV5> {
         let mut properties = WillProperties::default();
         decode_properties!(
             LastWill,
@@ -637,7 +635,7 @@ impl<'a> arbitrary::Arbitrary<'a> for ConnackProperties {
 }
 
 impl ConnackProperties {
-    pub(crate) async fn decode_async<T: AsyncRead + Unpin>(
+    pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         packet_type: PacketType,
     ) -> Result<Self, ErrorV5> {
@@ -909,7 +907,7 @@ pub struct DisconnectProperties {
 }
 
 impl DisconnectProperties {
-    pub(crate) async fn decode_async<T: AsyncRead + Unpin>(
+    pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         packet_type: PacketType,
     ) -> Result<Self, ErrorV5> {
@@ -1066,7 +1064,7 @@ impl<'a> arbitrary::Arbitrary<'a> for AuthProperties {
 }
 
 impl AuthProperties {
-    pub(crate) async fn decode_async<T: AsyncRead + Unpin>(
+    pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         packet_type: PacketType,
     ) -> Result<Self, ErrorV5> {
