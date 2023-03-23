@@ -112,7 +112,7 @@ pub(crate) async fn decode_var_int<T: AsyncRead + Unpin>(
 
 /// Return the encoded size of the variable byte integer.
 #[inline]
-pub(crate) fn var_int_len(value: usize) -> Result<usize, Error> {
+pub fn var_int_len(value: usize) -> Result<usize, Error> {
     let len = if value < 128 {
         1
     } else if value < 16384 {
