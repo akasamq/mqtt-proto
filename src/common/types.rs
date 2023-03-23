@@ -185,7 +185,7 @@ pub enum QoS {
 }
 
 impl QoS {
-    pub(crate) fn from_u8(byte: u8) -> Result<QoS, Error> {
+    pub fn from_u8(byte: u8) -> Result<QoS, Error> {
         match byte {
             0 => Ok(QoS::Level0),
             1 => Ok(QoS::Level1),

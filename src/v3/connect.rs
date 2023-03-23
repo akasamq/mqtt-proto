@@ -263,7 +263,7 @@ pub enum ConnectReturnCode {
 }
 
 impl ConnectReturnCode {
-    pub(crate) fn from_u8(byte: u8) -> Result<ConnectReturnCode, Error> {
+    pub fn from_u8(byte: u8) -> Result<ConnectReturnCode, Error> {
         match byte {
             0 => Ok(ConnectReturnCode::Accepted),
             1 => Ok(ConnectReturnCode::UnacceptableProtocolVersion),

@@ -79,7 +79,7 @@ pub enum PropertyId {
 }
 
 impl PropertyId {
-    pub(crate) fn from_u8(value: u8) -> Result<Self, ErrorV5> {
+    pub fn from_u8(value: u8) -> Result<Self, ErrorV5> {
         let typ = match value {
             0x01 => Self::PayloadFormatIndicator,
             0x02 => Self::MessageExpiryInterval,
