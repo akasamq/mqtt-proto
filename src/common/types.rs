@@ -246,6 +246,9 @@ pub struct TopicName(Arc<String>);
 impl TopicName {
     /// Check if the topic name is invalid.
     pub fn is_invalid(value: &str) -> bool {
+        if value.len() > u16::max_value() as usize {
+            return true;
+        }
         value.contains(|c| c == MATCH_ONE_CHAR || c == MATCH_ALL_CHAR || c == '\0')
     }
 
@@ -301,6 +304,10 @@ impl TopicFilter {
     ///
     ///   * The u16 returned is where the bytes index of '/' char before shared topic filter
     pub fn is_invalid(value: &str) -> (bool, u16) {
+        if value.len() > u16::max_value() as usize {
+            return (true, 0);
+        }
+
         const SHARED_PREFIX_CHARS: [char; 7] = ['$', 's', 'h', 'a', 'r', 'e', '/'];
 
         // v5.0 [MQTT-4.7.3-1]
@@ -540,6 +547,9 @@ mod tests {
         assert!(!TopicName::is_invalid("//"));
         // NOTE: Because v5.0 topic alias, we let up level to check empty topic name
         assert!(!TopicName::is_invalid(""));
+        assert!(!TopicName::is_invalid(
+            "a".repeat(u16::max_value() as usize).as_str()
+        ));
 
         // invalid topic name
         assert!(TopicName::is_invalid("#"));
@@ -550,10 +560,15 @@ mod tests {
         assert!(TopicName::is_invalid("abc\0def"));
         assert!(TopicName::is_invalid("abc#def"));
         assert!(TopicName::is_invalid("abc+def"));
+        assert!(TopicName::is_invalid(
+            "a".repeat(u16::max_value() as usize + 1).as_str()
+        ));
     }
 
     #[test]
     fn test_valid_topic_filter() {
+        let string_65535 = "a".repeat(u16::max_value() as usize);
+        let string_65536 = "a".repeat(u16::max_value() as usize + 1);
         for (is_invalid, topic) in [
             // valid topic filter
             (false, "abc/def"),
@@ -569,6 +584,7 @@ mod tests {
             (false, "//+//#"),
             (false, "/abc/+//#"),
             (false, "+/abc/+"),
+            (false, string_65535.as_str()),
             // invalid topic filter
             (true, ""),
             (true, "abc\0def"),
@@ -592,6 +608,7 @@ mod tests {
             (true, "+x/abc/"),
             (true, "+/abc/++"),
             (true, "+/a+c/+"),
+            (true, string_65536.as_str()),
         ] {
             assert_eq!((is_invalid, 0), TopicFilter::is_invalid(topic));
         }
