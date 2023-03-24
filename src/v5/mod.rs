@@ -33,6 +33,7 @@ pub use publish::{
 };
 pub use subscribe::{
     RetainHandling, Suback, SubackProperties, Subscribe, SubscribeProperties, SubscribeReasonCode,
-    SubscriptionOptions, Unsuback, UnsubackProperties, Unsubscribe, UnsubscribeReasonCode,
+    SubscriptionOptions, Unsuback, UnsubackProperties, Unsubscribe, UnsubscribeProperties,
+    UnsubscribeReasonCode,
 };
 pub use types::{PropertyId, UserProperty, VarByteInt};
