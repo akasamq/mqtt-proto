@@ -1260,11 +1260,13 @@ fn test_v5_decode_unsubscribe() {
                     name: Arc::new("k2".to_string()),
                     value: Arc::new("v2".to_string()),
                 },
-            ],
+            ]
+            .into(),
             topics: vec![
                 TopicFilter::try_from("/+".to_string()).unwrap(),
                 TopicFilter::try_from("/".to_string()).unwrap(),
-            ],
+            ]
+            .into(),
         })
     );
     assert_eq!(

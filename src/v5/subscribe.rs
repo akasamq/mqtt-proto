@@ -336,7 +336,7 @@ impl SubscribeReasonCode {
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Unsubscribe {
     pub pid: Pid,
-    pub properties: Vec<UserProperty>,
+    pub properties: UnsubscribeProperties,
     pub topics: Vec<TopicFilter>,
 }
 
@@ -344,7 +344,7 @@ impl Unsubscribe {
     pub fn new(pid: Pid, topics: Vec<TopicFilter>) -> Self {
         Unsubscribe {
             pid,
-            properties: Vec::new(),
+            properties: Default::default(),
             topics,
         }
     }
@@ -356,7 +356,7 @@ impl Unsubscribe {
         let mut remaining_len = header.remaining_len as usize;
         let pid = Pid::try_from(read_u16(reader).await?)?;
         let (property_len, property_len_bytes) = decode_var_int(reader).await?;
-        let mut properties = Vec::new();
+        let mut properties = UnsubscribeProperties::default();
         let mut len = 0;
         while property_len as usize > len {
             let property_id = PropertyId::from_u8(read_u8(reader).await?)?;
@@ -364,7 +364,7 @@ impl Unsubscribe {
                 PropertyId::UserProperty => {
                     let property = PropertyValue::decode_user_property(reader).await?;
                     len += 1 + 4 + property.name.len() + property.value.len();
-                    properties.push(property);
+                    properties.user_properties.push(property);
                 }
                 _ => return Err(ErrorV5::InvalidProperty(header.typ, property_id)),
             }
@@ -413,6 +413,42 @@ impl Encodable for Unsubscribe {
             .map(|topic_filter| 2 + topic_filter.len())
             .sum::<usize>();
         len
+    }
+}
+
+/// Property list for UNSUBSCRIBE packet.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Hash)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+pub struct UnsubscribeProperties {
+    pub user_properties: Vec<UserProperty>,
+}
+
+impl UnsubscribeProperties {
+    pub async fn decode_async<T: AsyncRead + Unpin>(
+        reader: &mut T,
+        packet_type: PacketType,
+    ) -> Result<Self, ErrorV5> {
+        let mut properties = UnsubscribeProperties::default();
+        decode_properties!(packet_type, properties, reader,);
+        Ok(properties)
+    }
+}
+
+impl Encodable for UnsubscribeProperties {
+    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        encode_properties!(self, writer);
+        Ok(())
+    }
+    fn encode_len(&self) -> usize {
+        let mut len = 0;
+        encode_properties_len!(self, len);
+        len
+    }
+}
+
+impl From<Vec<UserProperty>> for UnsubscribeProperties {
+    fn from(user_properties: Vec<UserProperty>) -> UnsubscribeProperties {
+        UnsubscribeProperties { user_properties }
     }
 }
 

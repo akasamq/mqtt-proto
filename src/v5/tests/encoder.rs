@@ -613,7 +613,8 @@ fn test_v5_encode_unsubscribe() {
                 name: Arc::new("name".to_string()),
                 value: Arc::new("value".to_string()),
             },
-        ],
+        ]
+        .into(),
         // 5 + 3 = 8
         topics: vec![
             // 2 + 3 = 5
@@ -646,7 +647,8 @@ fn test_v5_encode_unsubscribe() {
                 name: Arc::new("key".to_string()),
                 value: Arc::new("value".to_string()),
             },
-        ],
+        ]
+        .into(),
         // 5 + 3 = 8
         topics: vec![
             // 2 + 3 = 5
