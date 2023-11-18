@@ -2,7 +2,7 @@ use std::convert::TryFrom;
 use std::io;
 use std::sync::Arc;
 
-use futures_lite::io::AsyncRead;
+use tokio::io::AsyncRead;
 
 use super::{
     decode_properties, encode_properties, encode_properties_len, ErrorV5, Header, PacketType,

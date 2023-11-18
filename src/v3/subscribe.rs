@@ -1,6 +1,6 @@
 use std::io;
 
-use futures_lite::io::AsyncRead;
+use tokio::io::AsyncRead;
 
 use crate::{
     read_string, read_u16, read_u8, write_bytes, write_u16, write_u8, Encodable, Error, Pid, QoS,

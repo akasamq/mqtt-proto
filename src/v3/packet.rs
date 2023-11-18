@@ -1,8 +1,6 @@
-use futures_lite::{
-    future::block_on,
-    io::{AsyncRead, AsyncWrite, AsyncWriteExt},
-};
+use futures_lite::future::block_on;
 use std::convert::AsRef;
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
 use super::{Connack, Connect, Publish, Suback, Subscribe, Unsubscribe};
 use crate::{

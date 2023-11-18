@@ -3,7 +3,7 @@ use std::fmt;
 use std::sync::Arc;
 
 use bytes::Bytes;
-use futures_lite::io::AsyncRead;
+use tokio::io::AsyncRead;
 
 use super::ErrorV5;
 use crate::{read_bytes, read_string, read_u16, read_u32, read_u8, Error, TopicName};

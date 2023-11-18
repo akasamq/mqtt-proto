@@ -1,8 +1,8 @@
 use std::io;
 use std::slice;
 
-use futures_lite::io::{AsyncRead, AsyncReadExt};
 use simdutf8::basic::from_utf8;
+use tokio::io::{AsyncRead, AsyncReadExt};
 
 use crate::{Encodable, Error};
 

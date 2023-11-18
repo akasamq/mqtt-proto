@@ -3,8 +3,8 @@ use std::io;
 use std::sync::Arc;
 
 use bytes::Bytes;
-use futures_lite::io::{AsyncRead, AsyncReadExt};
 use simdutf8::basic::from_utf8;
+use tokio::io::{AsyncRead, AsyncReadExt};
 
 use super::{
     decode_properties, encode_properties, encode_properties_len, ErrorV5, Header, PacketType,

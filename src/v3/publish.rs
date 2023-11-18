@@ -1,7 +1,7 @@
 use std::io;
 
 use bytes::Bytes;
-use futures_lite::io::{AsyncRead, AsyncReadExt};
+use tokio::io::{AsyncRead, AsyncReadExt};
 
 use super::Header;
 use crate::{

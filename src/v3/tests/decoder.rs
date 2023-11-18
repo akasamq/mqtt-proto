@@ -93,8 +93,8 @@ fn test_header_len() {
 fn test_non_utf8_string() {
     let mut data: &[u8] = &[
         0b00110000, 10, // type=Publish, remaining_len=10
-        0x00, 0x03, 'a' as u8, '/' as u8, 0xc0 as u8, // Topic with Invalid utf8
-        'h' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8, // payload
+        0x00, 0x03, b'a', b'/', 0xc0_u8, // Topic with Invalid utf8
+        b'h', b'e', b'l', b'l', b'o', // payload
     ];
     assert!(matches!(
         Packet::decode(data).unwrap_err(),
@@ -110,10 +110,10 @@ fn test_non_utf8_string() {
 fn test_inner_length_too_long() {
     let mut data: &[u8] = &[
         0b00010000, 20, // Connect packet, remaining_len=20
-        0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x04, 0b01000000, // +password
+        0x00, 0x04, b'M', b'Q', b'T', b'T', 0x04, 0b01000000, // +password
         0x00, 0x0a, // keepalive 10 sec
-        0x00, 0x04, 't' as u8, 'e' as u8, 's' as u8, 't' as u8, // client_id
-        0x00, 0x03, 'm' as u8, 'q' as u8, // password with invalid length
+        0x00, 0x04, b't', b'e', b's', b't', // client_id
+        0x00, 0x03, b'm', b'q', // password with invalid length
     ];
     assert_eq!(Ok(None), Packet::decode(data));
     assert_eq!(
@@ -125,7 +125,7 @@ fn test_inner_length_too_long() {
 #[test]
 fn test_decode_half_connect() {
     let mut data: &[u8] = &[
-        0b00010000, 39, 0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x04,
+        0b00010000, 39, 0x00, 0x04, b'M', b'Q', b'T', b'T', 0x04,
         0b11001110, // +username, +password, -will retain, will qos=1, +last_will, +clean_session
         0x00,
         0x0a, // 10 sec
@@ -148,15 +148,14 @@ fn test_decode_half_connect() {
 #[test]
 fn test_decode_connect_wrong_version() {
     let mut data: &[u8] = &[
-        0b00010000, 39, 0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x01,
+        0b00010000, 39, 0x00, 0x04, b'M', b'Q', b'T', b'T', 0x01,
         0b11001110, // +username, +password, -will retain, will qos=1, +last_will, +clean_session
         0x00, 0x0a, // 10 sec
-        0x00, 0x04, 't' as u8, 'e' as u8, 's' as u8, 't' as u8, // client_id
-        0x00, 0x02, '/' as u8, 'a' as u8, // will topic = '/a'
-        0x00, 0x07, 'o' as u8, 'f' as u8, 'f' as u8, 'l' as u8, 'i' as u8, 'n' as u8,
-        'e' as u8, // will msg = 'offline'
-        0x00, 0x04, 'r' as u8, 'u' as u8, 's' as u8, 't' as u8, // username = 'rust'
-        0x00, 0x02, 'm' as u8, 'q' as u8, // password = 'mq'
+        0x00, 0x04, b't', b'e', b's', b't', // client_id
+        0x00, 0x02, b'/', b'a', // will topic = '/a'
+        0x00, 0x07, b'o', b'f', b'f', b'l', b'i', b'n', b'e', // will msg = 'offline'
+        0x00, 0x04, b'r', b'u', b's', b't', // username = 'rust'
+        0x00, 0x02, b'm', b'q', // password = 'mq'
     ];
     assert_eq!(
         Packet::decode(data),
@@ -171,10 +170,10 @@ fn test_decode_connect_wrong_version() {
 #[test]
 fn test_decode_reserved_connect_flags() {
     let mut data: &[u8] = &[
-        0b00010000, 16, 0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x04,
+        0b00010000, 16, 0x00, 0x04, b'M', b'Q', b'T', b'T', 0x04,
         0b11001111, // +username, +password, -will retain, will qos=1, +last_will, +clean_session
         0x00, 0x0a, // 10 sec
-        0x00, 0x04, 't' as u8, 'e' as u8, 's' as u8, 't' as u8, // client_id
+        0x00, 0x04, b't', b'e', b's', b't', // client_id
     ];
     assert_eq!(
         Packet::decode(data),
@@ -190,15 +189,14 @@ fn test_decode_reserved_connect_flags() {
 fn test_decode_packet_n() {
     let data: &[u8] = &[
         // connect packet
-        0b00010000, 39, 0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x04,
+        0b00010000, 39, 0x00, 0x04, b'M', b'Q', b'T', b'T', 0x04,
         0b11001110, // +username, +password, -will retain, will qos=1, +last_will, +clean_session
         0x00, 0x0a, // 10 sec
-        0x00, 0x04, 't' as u8, 'e' as u8, 's' as u8, 't' as u8, // client_id
-        0x00, 0x02, '/' as u8, 'a' as u8, // will topic = '/a'
-        0x00, 0x07, 'o' as u8, 'f' as u8, 'f' as u8, 'l' as u8, 'i' as u8, 'n' as u8,
-        'e' as u8, // will msg = 'offline'
-        0x00, 0x04, 'r' as u8, 'u' as u8, 's' as u8, 't' as u8, // username = 'rust'
-        0x00, 0x02, 'm' as u8, 'q' as u8, // password = 'mq'
+        0x00, 0x04, b't', b'e', b's', b't', // client_id
+        0x00, 0x02, b'/', b'a', // will topic = '/a'
+        0x00, 0x07, b'o', b'f', b'f', b'l', b'i', b'n', b'e', // will msg = 'offline'
+        0x00, 0x04, b'r', b'u', b's', b't', // username = 'rust'
+        0x00, 0x02, b'm', b'q', // password = 'mq'
         // pingreq packet
         0b11000000, 0b00000000, // pingresp packet
         0b11010000, 0b00000000,
@@ -315,15 +313,12 @@ fn test_decode_disconnect() {
 #[test]
 fn test_decode_publish() {
     let data: &[u8] = &[
-        0b00110000, 10, 0x00, 0x03, 'a' as u8, '/' as u8, 'b' as u8, 'h' as u8, 'e' as u8,
-        'l' as u8, 'l' as u8, 'o' as u8, //
-        0b00111000, 10, 0x00, 0x03, 'a' as u8, '/' as u8, 'b' as u8, 'h' as u8, 'e' as u8,
-        'l' as u8, 'l' as u8, 'o' as u8, //
-        0b00111101, 12, 0x00, 0x03, 'a' as u8, '/' as u8, 'b' as u8, 0, 10, 'h' as u8, 'e' as u8,
-        'l' as u8, 'l' as u8, 'o' as u8,
+        0b00110000, 10, 0x00, 0x03, b'a', b'/', b'b', b'h', b'e', b'l', b'l', b'o', //
+        0b00111000, 10, 0x00, 0x03, b'a', b'/', b'b', b'h', b'e', b'l', b'l', b'o', //
+        0b00111101, 12, 0x00, 0x03, b'a', b'/', b'b', 0, 10, b'h', b'e', b'l', b'l', b'o',
     ];
 
-    let mut data1 = &data[..];
+    let mut data1 = data;
     assert_eq!(
         Header::decode(data1).unwrap(),
         Header::new_with(0b00110000, 10).unwrap(),
@@ -332,8 +327,8 @@ fn test_decode_publish() {
 
     match Packet::decode(data1).unwrap().unwrap() {
         Packet::Publish(p) => {
-            assert_eq!(p.dup, false);
-            assert_eq!(p.retain, false);
+            assert!(!p.dup);
+            assert!(!p.retain);
             assert_eq!(p.qos_pid, QosPid::Level0);
             assert_eq!(p.topic_name.deref(), "a/b");
             assert_eq!(core::str::from_utf8(p.payload.as_ref()).unwrap(), "hello");
@@ -350,8 +345,8 @@ fn test_decode_publish() {
     let mut data2 = &data[12..];
     match Packet::decode(data2).unwrap().unwrap() {
         Packet::Publish(p) => {
-            assert_eq!(p.dup, true);
-            assert_eq!(p.retain, false);
+            assert!(p.dup);
+            assert!(!p.retain);
             assert_eq!(p.qos_pid, QosPid::Level0);
             assert_eq!(p.topic_name.deref(), "a/b");
             assert_eq!(core::str::from_utf8(p.payload.as_ref()).unwrap(), "hello");
@@ -368,8 +363,8 @@ fn test_decode_publish() {
     let mut data3 = &data[24..];
     match Packet::decode(data3).unwrap().unwrap() {
         Packet::Publish(p) => {
-            assert_eq!(p.dup, true);
-            assert_eq!(p.retain, true);
+            assert!(p.dup);
+            assert!(p.retain);
             assert_eq!(p.qos_pid, QosPid::Level2(Pid::try_from(10).unwrap()));
             assert_eq!(p.topic_name.deref(), "a/b");
             assert_eq!(core::str::from_utf8(p.payload.as_ref()).unwrap(), "hello");
@@ -446,9 +441,7 @@ fn test_decode_pub_comp() {
 
 #[test]
 fn test_decode_subscribe() {
-    let mut data: &[u8] = &[
-        0b10000010, 8, 0, 10, 0, 3, 'a' as u8, '/' as u8, 'b' as u8, 0,
-    ];
+    let mut data: &[u8] = &[0b10000010, 8, 0, 10, 0, 3, b'a', b'/', b'b', 0];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
         Packet::Subscribe(v3::Subscribe {
@@ -487,7 +480,7 @@ fn test_decode_suback() {
 
 #[test]
 fn test_decode_unsubscribe() {
-    let mut data: &[u8] = &[0b10100010, 5, 0, 10, 0, 1, 'a' as u8];
+    let mut data: &[u8] = &[0b10100010, 5, 0, 10, 0, 1, b'a'];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
         Packet::Unsubscribe(v3::Unsubscribe {

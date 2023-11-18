@@ -7,8 +7,8 @@ use std::ops::Deref;
 use std::slice;
 use std::sync::Arc;
 
-use futures_lite::io::AsyncRead;
 use simdutf8::basic::from_utf8;
+use tokio::io::AsyncRead;
 
 use super::{read_bytes, read_u8};
 use crate::{Error, LEVEL_SEP, MATCH_ALL_CHAR, MATCH_ONE_CHAR, SHARED_PREFIX, SYS_PREFIX};
@@ -450,7 +450,7 @@ impl Ord for TopicFilter {
 
 impl PartialOrd for TopicFilter {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.inner.partial_cmp(&other.inner)
+        Some(self.cmp(other))
     }
 }
 

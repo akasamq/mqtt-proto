@@ -4,7 +4,7 @@ use std::mem::{self, MaybeUninit};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use futures_lite::io::AsyncRead;
+use tokio::io::{AsyncRead, ReadBuf};
 
 use crate::Error;
 
@@ -83,20 +83,24 @@ where
                 }) => {
                     let mut buf = [0u8; 1];
                     loop {
-                        let _size = match Pin::new(&mut *reader).poll_read(cx, &mut buf) {
-                            Poll::Ready(Ok(0)) => {
-                                return Poll::Ready(Err(Error::IoError(
-                                    io::ErrorKind::UnexpectedEof,
-                                    "eof".to_owned(),
-                                )
-                                .into()));
+                        let mut readbuf = ReadBuf::new(&mut buf);
+                        let _size = match Pin::new(&mut *reader).poll_read(cx, &mut readbuf) {
+                            Poll::Ready(Ok(())) => {
+                                let size = readbuf.filled().len();
+                                if size == 0 {
+                                    return Poll::Ready(Err(Error::IoError(
+                                        io::ErrorKind::UnexpectedEof,
+                                        "eof".to_owned(),
+                                    )
+                                    .into()));
+                                }
+                                size
                             }
-                            Poll::Ready(Ok(size)) => size,
                             Poll::Ready(Err(err)) => return Poll::Ready(Err(err.into())),
                             Poll::Pending => return Poll::Pending,
                         };
 
-                        let byte = buf[0];
+                        let byte = readbuf.filled()[0];
                         if control_byte.is_none() {
                             *control_byte = Some(byte);
                         } else {
@@ -139,15 +143,19 @@ where
                     total,
                 }) => loop {
                     let buf_refmut: &mut [u8] = unsafe { mem::transmute(&mut buf[*idx..]) };
-                    let size = match Pin::new(&mut *reader).poll_read(cx, buf_refmut) {
-                        Poll::Ready(Ok(0)) => {
-                            return Poll::Ready(Err(Error::IoError(
-                                io::ErrorKind::UnexpectedEof,
-                                "eof".to_owned(),
-                            )
-                            .into()));
+                    let mut readbuf_refmut = ReadBuf::new(buf_refmut);
+                    let size = match Pin::new(&mut *reader).poll_read(cx, &mut readbuf_refmut) {
+                        Poll::Ready(Ok(())) => {
+                            let size = readbuf_refmut.filled().len();
+                            if size == 0 {
+                                return Poll::Ready(Err(Error::IoError(
+                                    io::ErrorKind::UnexpectedEof,
+                                    "eof".to_owned(),
+                                )
+                                .into()));
+                            }
+                            size
                         }
-                        Poll::Ready(Ok(size)) => size,
                         Poll::Ready(Err(err)) => return Poll::Ready(Err(err.into())),
                         Poll::Pending => return Poll::Pending,
                     };

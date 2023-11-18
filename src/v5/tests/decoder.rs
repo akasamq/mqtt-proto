@@ -94,9 +94,9 @@ fn test_v5_non_utf8_string() {
     let mut data: &[u8] = &[
         0b00110000, // type=Publish
         11,         // remaining length
-        0x00, 0x03, 'a' as u8, '/' as u8, 0xc0 as u8, // Topic with Invalid utf8
-        0x00,       // properties
-        'h' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8, // payload
+        0x00, 0x03, b'a', b'/', 0xc0_u8, // Topic with Invalid utf8
+        0x00,    // properties
+        b'h', b'e', b'l', b'l', b'o', // payload
     ];
     assert!(matches!(
         Packet::decode(data).unwrap_err(),
@@ -112,11 +112,11 @@ fn test_v5_non_utf8_string() {
 fn test_v5_decode_connect() {
     let mut data: &[u8] = &[
         0b00010000, 22, // Connect packet, remaining length
-        0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x05, 0b01000000, // +password
+        0x00, 0x04, b'M', b'Q', b'T', b'T', 0x05, 0b01000000, // +password
         0x00, 0x0a, // keepalive 10 sec
         0x00, // properties
-        0x00, 0x04, 't' as u8, 'e' as u8, 's' as u8, 't' as u8, // client_id
-        0x00, 0x03, 'm' as u8, 'q' as u8, 't' as u8, // password
+        0x00, 0x04, b't', b'e', b's', b't', // client_id
+        0x00, 0x03, b'm', b'q', b't', // password
     ];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
@@ -128,7 +128,7 @@ fn test_v5_decode_connect() {
             client_id: Arc::new("test".to_string()),
             last_will: None,
             username: None,
-            password: Some(Bytes::from(vec!['m' as u8, 'q' as u8, 't' as u8])),
+            password: Some(Bytes::from(vec![b'm', b'q', b't'])),
         })
     );
     assert_eq!(
@@ -140,11 +140,11 @@ fn test_v5_decode_connect() {
 
     let mut data: &[u8] = &[
         0b00010000, 21, // Connect packet, remaining length
-        0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x05, 0b01000000, // +password
+        0x00, 0x04, b'M', b'Q', b'T', b'T', 0x05, 0b01000000, // +password
         0x00, 0x0a, // keepalive 10 sec
         0x00, // properties
-        0x00, 0x04, 't' as u8, 'e' as u8, 's' as u8, 't' as u8, // client_id
-        0x00, 0x03, 'm' as u8, 'q' as u8, // password with invalid length
+        0x00, 0x04, b't', b'e', b's', b't', // client_id
+        0x00, 0x03, b'm', b'q', // password with invalid length
     ];
     assert_eq!(Ok(None), Packet::decode(data));
     assert_eq!(
@@ -153,7 +153,7 @@ fn test_v5_decode_connect() {
     );
 
     let mut data: &[u8] = &[
-        0b00010000, 11, 0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x05,
+        0b00010000, 11, 0x00, 0x04, b'M', b'Q', b'T', b'T', 0x05,
         0b11001110, // +username, +password, -will retain, will qos=1, +last_will, +clean_session
         0x00, 0x0a, // 10 sec
     ];
@@ -165,7 +165,7 @@ fn test_v5_decode_connect() {
     );
 
     let mut data: &[u8] = &[
-        0b00010000, 11, 0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x01,
+        0b00010000, 11, 0x00, 0x04, b'M', b'Q', b'T', b'T', 0x01,
         0b11001110, // +username, +password, -will retain, will qos=1, +last_will, +clean_session
         0x00, 0x0a, // 10 sec
         0x00, // properties
@@ -180,7 +180,7 @@ fn test_v5_decode_connect() {
     );
 
     let mut data: &[u8] = &[
-        0b00010000, 11, 0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x04,
+        0b00010000, 11, 0x00, 0x04, b'M', b'Q', b'T', b'T', 0x04,
         0b11001110, // +username, +password, -will retain, will qos=1, +last_will, +clean_session
         0x00, 0x0a, // 10 sec
         0x00, // properties
@@ -195,7 +195,7 @@ fn test_v5_decode_connect() {
     );
 
     let mut data: &[u8] = &[
-        0b00010000, 10, 0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x05,
+        0b00010000, 10, 0x00, 0x04, b'M', b'Q', b'T', b'T', 0x05,
         0b11001111, // +username, +password, -will retain, will qos=1, +last_will, +clean_session
         0x00, 0x0a, // 10 sec
     ];
@@ -211,13 +211,13 @@ fn test_v5_decode_connect() {
     let mut data: &[u8] = &[
         0b00010000, // packet type
         24,         // remaining length
-        0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 0x05,       // protocol (size=7)
+        0x00, 0x04, b'M', b'Q', b'T', b'T', 0x05,       // protocol (size=7)
         0b00000100, // connect flags +will
         0x00, 0x0a, // keepalive 10 sec
         0x00, // properties.len = 0
-        0x00, 0x01, 't' as u8, // client_id = "t"
-        0x02,      // WillProperties.len = 1
-        0x01,      // PayloadFormatIndicator = true
+        0x00, 0x01, b't', // client_id = "t"
+        0x02, // WillProperties.len = 1
+        0x01, // PayloadFormatIndicator = true
         0x01, 0x00, // topic name = "t"
         0x01, b't', 0x00, // payload = "0xff,0xfc"
         0x02, 0xff, 0xfc,
@@ -424,8 +424,8 @@ fn test_v5_decode_auth() {
         0x1F,    // reason string = "xy"
         0x00,
         0x02,
-        'x' as u8,
-        'y' as u8,
+        b'x',
+        b'y',
     ];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
@@ -505,8 +505,8 @@ fn test_v5_decode_publish() {
         7,      // remaining length
         0x00,   // topic name = "xy"
         0x02,
-        'x' as u8,
-        'y' as u8,
+        b'x',
+        b'y',
         0x00, // properties.len = 0
         0xaa, // payload = "0xaa,0xbb"
         0xbb,
@@ -534,8 +534,8 @@ fn test_v5_decode_publish() {
         10,              // remaining length
         0x00,            // topic name = "xy"
         0x02,
-        'x' as u8,
-        'y' as u8,
+        b'x',
+        b'y',
         0x03, // properties.len = 3
         0x23, // topic alias = 0x33
         0x11,
@@ -569,8 +569,8 @@ fn test_v5_decode_publish() {
         11,              // remaining length
         0x00,            // topic name = "xy"
         0x02,
-        'x' as u8,
-        'y' as u8,
+        b'x',
+        b'y',
         0x22, // pid = 0x2244
         0x44,
         0x02, // properties.len = 2
@@ -605,8 +605,8 @@ fn test_v5_decode_publish() {
         5,               // remaining length
         0x00,            // topic name = "xy"
         0x02,
-        'x' as u8,
-        'y' as u8,
+        b'x',
+        b'y',
         0x00, // properties.len = 0
     ];
     assert_eq!(
@@ -632,8 +632,8 @@ fn test_v5_decode_publish() {
         7,               // remaining length
         0x00,            // topic name = "xy"
         0x02,
-        'x' as u8,
-        'y' as u8,
+        b'x',
+        b'y',
         0x11, // pid = 0x1122
         0x22,
         0x00, // properties.len = 0
@@ -661,7 +661,7 @@ fn test_v5_decode_publish() {
         6,      // remaining length
         0x00,   // topic name = "t"
         0x01,
-        't' as u8,
+        b't',
         0x01, // properties.len = 1
         0x24, // maximum qos = 1
         0x01,
@@ -680,7 +680,7 @@ fn test_v5_decode_publish() {
         2,
         0x00, // topic name = "t"
         0x01,
-        't' as u8,
+        b't',
     ];
     assert_eq!(
         Packet::decode(data).unwrap_err(),
@@ -696,7 +696,7 @@ fn test_v5_decode_publish() {
         8,
         0x00, // topic name = "t"
         0x01,
-        't' as u8,
+        b't',
         0x02, // properties.len = 2
         0x01, // PayloadFormatIndicator = true
         0x01,
@@ -717,12 +717,12 @@ fn test_v5_decode_publish() {
         10,
         0x00, // topic name = "t"
         0x01,
-        't' as u8,
+        b't',
         0x04, // properties.len = 4
         0x08, // ResponseTopic = "+"
         0x00,
         0x01,
-        '+' as u8,
+        b'+',
         0xff, // payload = "0xff,0xfc"
         0xfc,
     ];
@@ -748,7 +748,7 @@ fn test_v5_decode_puback() {
         0x1F, // reason string = "e"
         0x00,
         0x01,
-        'e' as u8,
+        b'e',
     ];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
@@ -824,7 +824,7 @@ fn test_v5_decode_pubrec() {
         0x1F, // reason string = "e"
         0x00,
         0x01,
-        'e' as u8,
+        b'e',
     ];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
@@ -899,7 +899,7 @@ fn test_v5_decode_pubrel() {
         0x1F, // reason string = "e"
         0x00,
         0x01,
-        'e' as u8,
+        b'e',
     ];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
@@ -974,7 +974,7 @@ fn test_v5_decode_pubcomp() {
         0x1F, // reason string = "e"
         0x00,
         0x01,
-        'e' as u8,
+        b'e',
     ];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
@@ -1051,8 +1051,8 @@ fn test_v5_decode_subscribe() {
         0x7F,
         0x00, // topic filter = "/+"
         0x02,
-        '/' as u8,
-        '+' as u8,
+        b'/',
+        b'+',
         0x00, // options = max_qos=0, no_local=false, retain_as_published=false, retain_handling=SendAtSubscribe
     ];
     assert_eq!(
@@ -1089,8 +1089,8 @@ fn test_v5_decode_subscribe() {
         0x00, // properties.len = 0
         0x00, // topic filter = "/+"
         0x02,
-        '/' as u8,
-        '+' as u8,
+        b'/',
+        b'+',
         0b00101110, // options = max_qos=2, no_local=true, retain_as_published=true, retain_handling=DoNotSend
     ];
     assert_eq!(
@@ -1129,8 +1129,8 @@ fn test_v5_decode_subscribe() {
             0x00, // properties.len = 0
             0x00, // topic filter = "/+"
             0x02,
-            '/' as u8,
-            '+' as u8,
+            b'/',
+            b'+',
             opt_byte,
         ];
         assert_eq!(
@@ -1171,7 +1171,7 @@ fn test_v5_decode_suback() {
         0x1F, // reason string = "e"
         0x00,
         0x01,
-        'e' as u8,
+        b'e',
         0x83, // SubscribeReasonCode = ImplementationSpecificError
         0x97, // SubscribeReasonCode = QuotaExceeded
     ];
@@ -1224,28 +1224,28 @@ fn test_v5_decode_unsubscribe() {
         0x26, // UserProperty { name: "k1", value: "v1" }
         0x00,
         0x02,
-        'k' as u8,
-        '1' as u8,
+        b'k',
+        b'1',
         0x00,
         0x02,
-        'v' as u8,
-        '1' as u8,
+        b'v',
+        b'1',
         0x26, // UserProperty { name: "k2", value: "v2" }
         0x00,
         0x02,
-        'k' as u8,
-        '2' as u8,
+        b'k',
+        b'2',
         0x00,
         0x02,
-        'v' as u8,
-        '2' as u8,
+        b'v',
+        b'2',
         0x00, // topic filter = "/+"
         0x02,
-        '/' as u8,
-        '+' as u8,
+        b'/',
+        b'+',
         0x00, // topic filter = "/"
         0x01,
-        '/' as u8,
+        b'/',
     ];
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
@@ -1265,8 +1265,7 @@ fn test_v5_decode_unsubscribe() {
             topics: vec![
                 TopicFilter::try_from("/+".to_string()).unwrap(),
                 TopicFilter::try_from("/".to_string()).unwrap(),
-            ]
-            .into(),
+            ],
         })
     );
     assert_eq!(
@@ -1322,7 +1321,7 @@ fn test_v5_decode_unsuback() {
         0x1F, // reason string = "e"
         0x00,
         0x01,
-        'e' as u8,
+        b'e',
         0x00, // SubscribeReasonCode = Success
         0x8F, // SubscribeReasonCode = TopicFilterInvalid
     ];

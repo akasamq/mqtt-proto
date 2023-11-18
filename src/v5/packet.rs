@@ -2,10 +2,8 @@ use std::convert::AsRef;
 use std::fmt;
 use std::io;
 
-use futures_lite::{
-    future::block_on,
-    io::{AsyncRead, AsyncWrite, AsyncWriteExt},
-};
+use futures_lite::future::block_on;
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
 use super::{
     Auth, Connack, Connect, Disconnect, ErrorV5, Puback, Pubcomp, Publish, Pubrec, Pubrel, Suback,
