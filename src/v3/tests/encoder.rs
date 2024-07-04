@@ -41,6 +41,22 @@ fn test_encode_connect() {
     assert_encode(packet.into(), 20);
 
     let packet = Connect {
+        protocol: Protocol::V311,
+        keep_alive: 120,
+        client_id: Arc::new("sample".to_owned()),
+        clean_session: true,
+        last_will: Some(LastWill {
+            qos: QoS::Level1,
+            retain: true,
+            topic_name: TopicName::try_from("abc".to_owned()).unwrap(),
+            message: Bytes::from("msg-content"),
+        }),
+        username: Some(Arc::new("username".to_owned())),
+        password: Some(Bytes::from("password")),
+    };
+    assert_encode(packet.into(), 58);
+
+    let packet = Connect {
         protocol: Protocol::V310,
         keep_alive: 120,
         client_id: Arc::new("sample".to_owned()),
