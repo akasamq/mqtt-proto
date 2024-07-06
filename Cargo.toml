@@ -1,6 +1,6 @@
 [package]
 name = "mqtt-proto"
-version = "0.1.0"
+version = "0.2.0"
 license = "MIT"
 description = "MQTT v3.1/v3.1.1/v5.0 protocol sync/async codec."
 authors = ["LinFeng <thewawar@gmail.com>"]
@@ -19,7 +19,7 @@ std = []
 [dependencies]
 bytes = "1.3.0"
 futures-lite = "1.12.0"
-tokio = "1.23.0"
+tokio = { version = "1.23.0", features = ["io-util"] }
 thiserror = "1.0.38"
 simdutf8 = "0.1.4"
 
