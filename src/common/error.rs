@@ -1,6 +1,6 @@
-use std::io;
-
 use thiserror::Error;
+
+use alloc::string::String;
 
 use crate::Protocol;
 
@@ -63,28 +63,54 @@ pub enum Error {
     #[error("invalid string")]
     InvalidString,
 
-    /// Catch-all error when converting from `std::io::Error`.
-    #[error("io error: {0}, {1}")]
-    IoError(io::ErrorKind, String),
+    /// Catch-all error when converting from `io::Error`.
+    #[error("io error: {0:?}")]
+    IoError(IoErrorKind),
+}
+
+/// IoErrorKind for both std and no-std environments
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum IoErrorKind {
+    UnexpectedEof,
+    InvalidData,
+    WriteZero,
+    Other,
 }
 
 impl Error {
     pub fn is_eof(&self) -> bool {
-        matches!(self, Error::IoError(kind, _) if *kind == io::ErrorKind::UnexpectedEof)
+        matches!(self, Error::IoError(IoErrorKind::UnexpectedEof))
     }
 }
 
-impl From<io::Error> for Error {
-    fn from(err: io::Error) -> Error {
-        Error::IoError(err.kind(), err.to_string())
+impl<E: embedded_io::Error> From<E> for Error {
+    fn from(err: E) -> Error {
+        let kind = match err.kind() {
+            embedded_io::ErrorKind::InvalidData => IoErrorKind::InvalidData,
+            embedded_io::ErrorKind::WriteZero => IoErrorKind::WriteZero,
+            _ => IoErrorKind::Other,
+        };
+        Error::IoError(kind)
     }
 }
 
-impl From<Error> for io::Error {
-    fn from(err: Error) -> io::Error {
+#[cfg(feature = "std")]
+impl From<Error> for std::io::Error {
+    fn from(err: Error) -> std::io::Error {
         match err {
-            Error::IoError(kind, _info) => kind.into(),
-            _ => io::ErrorKind::InvalidData.into(),
+            Error::IoError(IoErrorKind::UnexpectedEof) => {
+                std::io::Error::new(std::io::ErrorKind::UnexpectedEof, "unexpected eof")
+            }
+            Error::IoError(IoErrorKind::InvalidData) => {
+                std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid data")
+            }
+            Error::IoError(IoErrorKind::WriteZero) => {
+                std::io::Error::new(std::io::ErrorKind::WriteZero, "write zero")
+            }
+            Error::IoError(IoErrorKind::Other) => {
+                std::io::Error::new(std::io::ErrorKind::Other, "other error")
+            }
+            _ => std::io::Error::new(std::io::ErrorKind::InvalidData, "mqtt protocol error"),
         }
     }
 }

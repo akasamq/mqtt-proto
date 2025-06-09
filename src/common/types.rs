@@ -1,25 +1,28 @@
-use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
-use std::convert::TryFrom;
-use std::fmt;
-use std::hash::{Hash, Hasher};
-use std::io;
-use std::ops::Deref;
-use std::slice;
-use std::sync::Arc;
+use core::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
+use core::convert::TryFrom;
+use core::fmt;
+use core::hash::{Hash, Hasher};
+use core::ops::Deref;
+use core::slice;
 
+use alloc::string::String;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+
+use crate::{
+    AsyncRead, Error, LEVEL_SEP, MATCH_ALL_CHAR, MATCH_ONE_CHAR, SHARED_PREFIX, SYS_PREFIX,
+};
 use simdutf8::basic::from_utf8;
-use tokio::io::AsyncRead;
 
 use super::{read_bytes, read_u8};
-use crate::{Error, LEVEL_SEP, MATCH_ALL_CHAR, MATCH_ONE_CHAR, SHARED_PREFIX, SYS_PREFIX};
 
 pub const MQISDP: &[u8] = b"MQIsdp";
 pub const MQTT: &[u8] = b"MQTT";
 
-/// The ability of encoding type into `io::Write`, and calculating encoded size.
+/// The ability of encoding type into write trait, and calculating encoded size.
 pub trait Encodable {
-    /// Encode type into `io::Write`
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()>;
+    /// Encode type into writer
+    fn encode<W: crate::common::utils::WriteAll>(&self, writer: &mut W) -> Result<(), Error>;
     /// Calculate the encoded size.
     fn encode_len(&self) -> usize;
 }
@@ -84,9 +87,9 @@ impl fmt::Display for Protocol {
 }
 
 impl Encodable for Protocol {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    fn encode<W: crate::common::utils::WriteAll>(&self, writer: &mut W) -> Result<(), Error> {
         let (name, level) = self.to_pair();
-        writer.write_all(&(name.len() as u16).to_be_bytes())?;
+        crate::write_u16(writer, name.len() as u16)?;
         writer.write_all(name)?;
         writer.write_all(slice::from_ref(&level))?;
         Ok(())
@@ -515,7 +518,7 @@ mod tests {
 
     #[test]
     fn pid_add_sub() {
-        let t: Vec<(u16, u16, u16, u16)> = vec![
+        let t: Vec<(u16, u16, u16, u16)> = alloc::vec![
             (2, 1, 1, 3),
             (100, 1, 99, 101),
             (1, 1, core::u16::MAX, 2),
@@ -657,7 +660,7 @@ mod tests {
             let result = if is_invalid { (true, 0) } else { (false, 10) };
             assert_eq!(
                 result,
-                TopicFilter::is_invalid(format!("$share/xyz/{}", topic).as_str()),
+                TopicFilter::is_invalid(alloc::format!("$share/xyz/{}", topic).as_str()),
             );
         }
 

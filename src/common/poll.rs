@@ -1,12 +1,12 @@
-use std::future::Future;
-use std::io;
-use std::mem::{self, MaybeUninit};
-use std::pin::Pin;
-use std::task::{Context, Poll};
+use core::future::Future;
+use core::mem::{self, MaybeUninit};
+use core::pin::Pin;
+use core::task::{Context, Poll};
 
-use tokio::io::{AsyncRead, ReadBuf};
+use alloc::boxed::Box;
+use alloc::vec::Vec;
 
-use crate::Error;
+use crate::{AsyncRead, Error, IoErrorKind};
 
 #[derive(Debug, Clone)]
 pub enum GenericPollPacketState<H> {
@@ -65,7 +65,8 @@ impl<'a, T, H> Future for GenericPollPacket<'a, T, H>
 where
     T: AsyncRead + Unpin,
     H: PollHeader + Copy + Unpin,
-    H::Error: From<io::Error> + From<Error>,
+    H::Error: From<Error>,
+    H::Error: From<T::Error>,
 {
     type Output = Result<(usize, Vec<MaybeUninit<u8>>, H::Packet), H::Error>;
 
@@ -74,110 +75,113 @@ where
             ref mut state,
             ref mut reader,
         } = self.get_mut();
-        loop {
-            match state {
-                GenericPollPacketState::Header(PollHeaderState {
-                    control_byte,
-                    var_idx,
-                    var_int,
-                }) => {
-                    let mut buf = [0u8; 1];
-                    loop {
-                        let mut readbuf = ReadBuf::new(&mut buf);
-                        let _size = match Pin::new(&mut *reader).poll_read(cx, &mut readbuf) {
-                            Poll::Ready(Ok(())) => {
-                                let size = readbuf.filled().len();
-                                if size == 0 {
-                                    return Poll::Ready(Err(Error::IoError(
-                                        io::ErrorKind::UnexpectedEof,
-                                        "eof".to_owned(),
-                                    )
-                                    .into()));
-                                }
-                                size
-                            }
-                            Poll::Ready(Err(err)) => return Poll::Ready(Err(err.into())),
-                            Poll::Pending => return Poll::Pending,
-                        };
 
-                        let byte = readbuf.filled()[0];
+        let future = async move {
+            loop {
+                match state {
+                    GenericPollPacketState::Header(PollHeaderState {
+                        control_byte,
+                        var_idx,
+                        var_int,
+                    }) => {
                         if control_byte.is_none() {
-                            *control_byte = Some(byte);
-                        } else {
+                            let mut buf = [0u8; 1];
+                            reader.read_exact(&mut buf).await.map_err(|e| match e {
+                                embedded_io_async::ReadExactError::UnexpectedEof => {
+                                    Error::IoError(IoErrorKind::UnexpectedEof)
+                                }
+                                embedded_io_async::ReadExactError::Other(e) => e.into(),
+                            })?;
+                            *control_byte = Some(buf[0]);
+                        }
+
+                        loop {
+                            let mut buf = [0u8; 1];
+                            reader.read_exact(&mut buf).await.map_err(|e| match e {
+                                embedded_io_async::ReadExactError::UnexpectedEof => {
+                                    Error::IoError(IoErrorKind::UnexpectedEof)
+                                }
+                                embedded_io_async::ReadExactError::Other(e) => e.into(),
+                            })?;
+
+                            let byte = buf[0];
                             *var_int |= (u32::from(byte) & 0x7F) << (7 * u32::from(*var_idx));
                             if byte & 0x80 == 0 {
                                 break;
                             } else if *var_idx < 3 {
                                 *var_idx += 1;
                             } else {
-                                return Poll::Ready(Err(Error::InvalidVarByteInt.into()));
+                                return Err(Error::InvalidVarByteInt.into());
                             }
                         }
-                    }
 
-                    let header = match H::new_with(control_byte.unwrap(), *var_int) {
-                        Ok(header) => header,
-                        Err(err) => return Poll::Ready(Err(err)),
-                    };
-                    if let Some(empty_packet) = header.build_empty_packet() {
-                        return Poll::Ready(Ok((2, Vec::new(), empty_packet)));
+                        let header = match H::new_with(control_byte.unwrap(), *var_int) {
+                            Ok(header) => header,
+                            Err(err) => return Err(err),
+                        };
+
+                        if let Some(empty_packet) = header.build_empty_packet() {
+                            return Ok((2, Vec::new(), empty_packet));
+                        }
+
+                        if header.remaining_len() == 0 {
+                            return Err(Error::InvalidRemainingLength.into());
+                        }
+
+                        let mut buf: Vec<MaybeUninit<u8>> =
+                            Vec::with_capacity(header.remaining_len());
+                        unsafe {
+                            buf.set_len(header.remaining_len());
+                        }
+
+                        **state = GenericPollPacketState::Body(GenericPollBodyState {
+                            header,
+                            total: 1 + 1 + *var_idx as usize + header.remaining_len(),
+                            idx: 0,
+                            buf,
+                        });
                     }
-                    if header.remaining_len() == 0 {
-                        return Poll::Ready(Err(Error::InvalidRemainingLength.into()));
-                    }
-                    let mut buf: Vec<MaybeUninit<u8>> = Vec::with_capacity(header.remaining_len());
-                    unsafe {
-                        buf.set_len(header.remaining_len());
-                    }
-                    **state = GenericPollPacketState::Body(GenericPollBodyState {
+                    GenericPollPacketState::Body(GenericPollBodyState {
                         header,
-                        total: 1 + 1 + *var_idx as usize + header.remaining_len(),
-                        idx: 0,
+                        idx,
                         buf,
-                    });
-                }
-                GenericPollPacketState::Body(GenericPollBodyState {
-                    header,
-                    idx,
-                    buf,
-                    total,
-                }) => loop {
-                    let buf_refmut: &mut [u8] = unsafe { mem::transmute(&mut buf[*idx..]) };
-                    let mut readbuf_refmut = ReadBuf::new(buf_refmut);
-                    let size = match Pin::new(&mut *reader).poll_read(cx, &mut readbuf_refmut) {
-                        Poll::Ready(Ok(())) => {
-                            let size = readbuf_refmut.filled().len();
-                            if size == 0 {
-                                return Poll::Ready(Err(Error::IoError(
-                                    io::ErrorKind::UnexpectedEof,
-                                    "eof".to_owned(),
+                        total,
+                    }) => {
+                        while *idx < buf.len() {
+                            let remaining = buf.len() - *idx;
+                            let buf_slice: &mut [u8] = unsafe {
+                                core::slice::from_raw_parts_mut(
+                                    buf[*idx..].as_mut_ptr() as *mut u8,
+                                    remaining,
                                 )
-                                .into()));
+                            };
+
+                            match reader.read(buf_slice).await {
+                                Ok(0) => {
+                                    return Err(Error::IoError(IoErrorKind::UnexpectedEof).into())
+                                }
+                                Ok(n) => *idx += n,
+                                Err(e) => return Err(e.into()),
                             }
-                            size
                         }
-                        Poll::Ready(Err(err)) => return Poll::Ready(Err(err.into())),
-                        Poll::Pending => return Poll::Pending,
-                    };
 
-                    *idx += size;
-                    debug_assert!(*idx <= buf.len());
-
-                    if *idx == buf.len() {
                         let mut buf_ref: &[u8] = unsafe { mem::transmute(&buf[..]) };
                         let result = header.block_decode(&mut buf_ref);
                         if result.is_ok() && !buf_ref.is_empty() {
-                            return Poll::Ready(Err(Error::InvalidRemainingLength.into()));
+                            return Err(Error::InvalidRemainingLength.into());
                         }
                         if let Err(err) = &result {
                             if H::is_eof_error(err) {
-                                return Poll::Ready(Err(Error::InvalidRemainingLength.into()));
+                                return Err(Error::InvalidRemainingLength.into());
                             }
                         }
-                        return Poll::Ready(result.map(|packet| (*total, mem::take(buf), packet)));
+                        return result.map(|packet| (*total, mem::take(buf), packet));
                     }
-                },
+                }
             }
-        }
+        };
+
+        let mut pinned_future = Box::pin(future);
+        pinned_future.as_mut().poll(cx)
     }
 }

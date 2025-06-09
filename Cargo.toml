@@ -10,22 +10,25 @@ keywords = ["mqtt", "codec", "network", "async"]
 categories = ["network-programming", "asynchronous"]
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[features]
-default = ["std"]
-std = []
-
 [dependencies]
-bytes = "1.3.0"
-futures-lite = "1.12.0"
-tokio = { version = "1.23.0", features = ["io-util"] }
-thiserror = "1.0.38"
-simdutf8 = "0.1.4"
+bytes = { version = "1", default-features = false }
+embedded-io = { version = "0.6", default-features = false }
+embedded-io-adapters = { version = "0.6", features = ["std", "tokio-1"], optional = true }
+embedded-io-async = { version = "0.6", default-features = false }
+thiserror = { version = "2", default-features = false }
+simdutf8 = { version = "0.1", default-features = false }
+
+# Future impls
+embassy-futures = { version = "0.1" }
+futures-lite = { version = "2", optional = true }
 
 # Only for fuzz testing
-arbitrary = { version = "1.2.3", optional = true, features = ["derive"] }
+arbitrary = { version = "1", features = ["derive"], optional = true }
 
 [dev-dependencies]
 proptest = "1.0.0"
-tokio = { version = "1.23.0", features = ["full"] }
+tokio = { version = "1", features = ["full"] }
+
+[features]
+default = ["std"]
+std = ["dep:embedded-io-adapters", "dep:futures-lite", "thiserror/std"]
