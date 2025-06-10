@@ -3,12 +3,8 @@ use std::io;
 use std::sync::Arc;
 
 use bytes::Bytes;
-use tokio::io::{AsyncRead, AsyncReadExt};
 
-use crate::{
-    read_bytes, read_string, read_u16, read_u8, write_bytes, write_u16, write_u8, Encodable, Error,
-    Protocol, QoS, TopicName,
-};
+use crate::*;
 
 /// Connect packet body type.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -109,7 +105,7 @@ impl Connect {
 }
 
 impl Encodable for Connect {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    fn encode<W: WriteAll>(&self, writer: &mut W) -> Result<(), Error> {
         let mut connect_flags: u8 = 0b00000000;
         if self.clean_session {
             connect_flags |= 0b10;
@@ -181,7 +177,10 @@ impl Connack {
 
     pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
         let mut payload = [0u8; 2];
-        reader.read_exact(&mut payload).await?;
+        reader.read_exact(&mut payload).await.map_err(|e| match e {
+            embedded_io_async::ReadExactError::UnexpectedEof => Error::IoError(IoErrorKind::UnexpectedEof),
+            embedded_io_async::ReadExactError::Other(e) => e.into(),
+        })?;
         let session_present = match payload[0] {
             0 => false,
             1 => true,
@@ -233,7 +232,7 @@ impl LastWill {
 }
 
 impl Encodable for LastWill {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    fn encode<W: WriteAll>(&self, writer: &mut W) -> Result<(), Error> {
         write_bytes(writer, self.topic_name.as_bytes())?;
         write_bytes(writer, self.message.as_ref())?;
         Ok(())

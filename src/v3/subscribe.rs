@@ -1,11 +1,6 @@
 use std::io;
 
-use tokio::io::AsyncRead;
-
-use crate::{
-    read_string, read_u16, read_u8, write_bytes, write_u16, write_u8, Encodable, Error, Pid, QoS,
-    TopicFilter,
-};
+use crate::*;
 
 /// Subscribe packet body type.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -61,7 +56,7 @@ impl Subscribe {
 }
 
 impl Encodable for Subscribe {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    fn encode<W: WriteAll>(&self, writer: &mut W) -> Result<(), Error> {
         write_u16(writer, self.pid.value())?;
         for (topic_filter, max_qos) in &self.topics {
             write_bytes(writer, topic_filter.as_bytes())?;
@@ -104,7 +99,7 @@ impl Suback {
 }
 
 impl Encodable for Suback {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    fn encode<W: WriteAll>(&self, writer: &mut W) -> Result<(), Error> {
         write_u16(writer, self.pid.value())?;
         for code in &self.topics {
             write_u8(writer, *code as u8)?;
@@ -145,7 +140,7 @@ impl Unsubscribe {
 }
 
 impl Encodable for Unsubscribe {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    fn encode<W: WriteAll>(&self, writer: &mut W) -> Result<(), Error> {
         write_u16(writer, self.pid.value())?;
         for topic_filter in &self.topics {
             write_bytes(writer, topic_filter.as_bytes())?;

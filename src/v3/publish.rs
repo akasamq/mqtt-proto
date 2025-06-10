@@ -1,12 +1,11 @@
 use std::io;
 
 use bytes::Bytes;
-use tokio::io::{AsyncRead, AsyncReadExt};
+use alloc::vec;
 
 use super::Header;
-use crate::{
-    read_string, read_u16, write_bytes, write_u16, Encodable, Error, Pid, QoS, QosPid, TopicName,
-};
+
+use crate::*;
 
 /// Publish packet body type.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -68,7 +67,10 @@ impl Publish {
         };
         let payload = if remaining_len > 0 {
             let mut data = vec![0u8; remaining_len];
-            reader.read_exact(&mut data).await?;
+            reader.read_exact(&mut data).await.map_err(|e| match e {
+                embedded_io_async::ReadExactError::UnexpectedEof => Error::IoError(IoErrorKind::UnexpectedEof),
+                embedded_io_async::ReadExactError::Other(e) => e.into(),
+            })?;
             data
         } else {
             Vec::new()
@@ -84,7 +86,7 @@ impl Publish {
 }
 
 impl Encodable for Publish {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    fn encode<W: WriteAll>(&self, writer: &mut W) -> Result<(), Error> {
         write_bytes(writer, self.topic_name.as_bytes())?;
         match self.qos_pid {
             QosPid::Level0 => {}
