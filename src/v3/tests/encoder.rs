@@ -1,8 +1,8 @@
-use std::mem;
-use std::sync::Arc;
+use core::mem;
+
+use alloc::sync::Arc;
 
 use bytes::Bytes;
-use futures_lite::future::block_on;
 
 use crate::v3::*;
 use crate::*;

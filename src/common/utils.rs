@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 
 use simdutf8::basic::from_utf8;
 
-use crate::{AsyncRead, Encodable, Error, IoErrorKind};
+use crate::{AsyncRead, AsyncWrite, Encodable, Error, IoErrorKind};
 
 /// Read first byte(packet type and flags) and decode remaining length
 #[inline]
@@ -81,60 +81,48 @@ pub(crate) async fn read_u8<T: AsyncRead + Unpin>(reader: &mut T) -> Result<u8, 
     Ok(byte[0])
 }
 
-// Write functions that work with both std::io::Write and embedded_io::Write
 #[inline]
-pub(crate) fn write_bytes<W>(writer: &mut W, data: &[u8]) -> Result<(), Error>
-where
-    W: WriteAll,
-{
-    write_u16(writer, data.len() as u16)?;
-    writer.write_all(data)
+pub(crate) async fn write_string<W: AsyncWrite>(writer: &mut W, data: &str) -> Result<(), Error> {
+    write_bytes(writer, data.as_bytes()).await
 }
 
 #[inline]
-pub(crate) fn write_u32<W>(writer: &mut W, value: u32) -> Result<(), Error>
-where
-    W: WriteAll,
-{
-    writer.write_all(&value.to_be_bytes())
+pub(crate) async fn write_bytes<W: AsyncWrite>(writer: &mut W, data: &[u8]) -> Result<(), Error> {
+    write_u16(writer, data.len() as u16).await?;
+    writer.write_all(data).await?;
+    Ok(())
 }
 
 #[inline]
-pub(crate) fn write_u16<W>(writer: &mut W, value: u16) -> Result<(), Error>
-where
-    W: WriteAll,
-{
-    writer.write_all(&value.to_be_bytes())
+pub(crate) async fn write_u32<W: AsyncWrite>(writer: &mut W, value: u32) -> Result<(), Error> {
+    writer.write_all(&value.to_be_bytes()).await?;
+    Ok(())
 }
 
 #[inline]
-pub(crate) fn write_u8<W>(writer: &mut W, value: u8) -> Result<(), Error>
-where
-    W: WriteAll,
-{
-    writer.write_all(slice::from_ref(&value))
-}
-
-pub trait WriteAll {
-    fn write_all(&mut self, data: &[u8]) -> Result<(), Error>;
-}
-
-impl WriteAll for Vec<u8> {
-    fn write_all(&mut self, data: &[u8]) -> Result<(), Error> {
-        self.extend_from_slice(data);
-        Ok(())
-    }
+pub(crate) async fn write_u16<W: AsyncWrite>(writer: &mut W, value: u16) -> Result<(), Error> {
+    writer.write_all(&value.to_be_bytes()).await?;
+    Ok(())
 }
 
 #[inline]
-pub(crate) fn write_var_int<W: WriteAll>(writer: &mut W, mut len: usize) -> Result<(), Error> {
+pub(crate) async fn write_u8<W: AsyncWrite>(writer: &mut W, value: u8) -> Result<(), Error> {
+    writer.write_all(slice::from_ref(&value)).await?;
+    Ok(())
+}
+
+#[inline]
+pub(crate) async fn write_var_int<W: AsyncWrite>(
+    writer: &mut W,
+    mut len: usize,
+) -> Result<(), Error> {
     loop {
         let mut byte = (len % 128) as u8;
         len /= 128;
         if len > 0 {
             byte |= 128;
         }
-        write_u8(writer, byte)?;
+        write_u8(writer, byte).await?;
         if len == 0 {
             break;
         }
@@ -229,16 +217,19 @@ pub fn header_len(total_len: usize) -> usize {
 
 /// Encode packet use control byte and body type
 #[inline]
-pub(crate) fn encode_packet<E: Encodable>(control_byte: u8, body: &E) -> Result<Vec<u8>, Error> {
+pub(crate) async fn encode_packet<E: Encodable>(
+    control_byte: u8,
+    body: &E,
+) -> Result<Vec<u8>, Error> {
     let remaining_len = body.encode_len();
     let total = total_len(remaining_len)?;
     let mut buf = Vec::with_capacity(total);
 
     // encode header
     buf.push(control_byte);
-    write_var_int(&mut buf, remaining_len)?;
+    write_var_int(&mut buf, remaining_len).await?;
 
-    body.encode(&mut buf)?;
+    body.encode(&mut buf).await?;
     debug_assert_eq!(buf.len(), total);
     Ok(buf)
 }
@@ -259,8 +250,9 @@ pub(crate) use packet_from;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::block_on;
+
+    use super::*;
 
     #[test]
     fn test_decode_var_int() {

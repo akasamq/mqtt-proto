@@ -1,6 +1,6 @@
-use thiserror::Error;
-
 use alloc::string::String;
+
+use thiserror::Error;
 
 use crate::Protocol;
 

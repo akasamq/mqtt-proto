@@ -1,7 +1,6 @@
-use std::io;
+use alloc::vec;
 
 use bytes::Bytes;
-use alloc::vec;
 
 use super::Header;
 
@@ -68,7 +67,9 @@ impl Publish {
         let payload = if remaining_len > 0 {
             let mut data = vec![0u8; remaining_len];
             reader.read_exact(&mut data).await.map_err(|e| match e {
-                embedded_io_async::ReadExactError::UnexpectedEof => Error::IoError(IoErrorKind::UnexpectedEof),
+                embedded_io_async::ReadExactError::UnexpectedEof => {
+                    Error::IoError(IoErrorKind::UnexpectedEof)
+                }
                 embedded_io_async::ReadExactError::Other(e) => e.into(),
             })?;
             data
@@ -86,15 +87,15 @@ impl Publish {
 }
 
 impl Encodable for Publish {
-    fn encode<W: WriteAll>(&self, writer: &mut W) -> Result<(), Error> {
-        write_bytes(writer, self.topic_name.as_bytes())?;
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_string(writer, &self.topic_name).await?;
         match self.qos_pid {
             QosPid::Level0 => {}
             QosPid::Level1(pid) | QosPid::Level2(pid) => {
-                write_u16(writer, pid.value())?;
+                write_u16(writer, pid.value()).await?;
             }
         }
-        writer.write_all(self.payload.as_ref())?;
+        writer.write_all(self.payload.as_ref()).await?;
         Ok(())
     }
 

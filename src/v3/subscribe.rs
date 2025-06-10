@@ -1,5 +1,3 @@
-use std::io;
-
 use crate::*;
 
 /// Subscribe packet body type.
@@ -56,11 +54,11 @@ impl Subscribe {
 }
 
 impl Encodable for Subscribe {
-    fn encode<W: WriteAll>(&self, writer: &mut W) -> Result<(), Error> {
-        write_u16(writer, self.pid.value())?;
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_u16(writer, self.pid.value()).await?;
         for (topic_filter, max_qos) in &self.topics {
-            write_bytes(writer, topic_filter.as_bytes())?;
-            write_u8(writer, *max_qos as u8)?;
+            write_string(writer, topic_filter).await?;
+            write_u8(writer, *max_qos as u8).await?;
         }
         Ok(())
     }
@@ -99,10 +97,10 @@ impl Suback {
 }
 
 impl Encodable for Suback {
-    fn encode<W: WriteAll>(&self, writer: &mut W) -> Result<(), Error> {
-        write_u16(writer, self.pid.value())?;
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_u16(writer, self.pid.value()).await?;
         for code in &self.topics {
-            write_u8(writer, *code as u8)?;
+            write_u8(writer, *code as u8).await?;
         }
         Ok(())
     }
@@ -140,10 +138,10 @@ impl Unsubscribe {
 }
 
 impl Encodable for Unsubscribe {
-    fn encode<W: WriteAll>(&self, writer: &mut W) -> Result<(), Error> {
-        write_u16(writer, self.pid.value())?;
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_u16(writer, self.pid.value()).await?;
         for topic_filter in &self.topics {
-            write_bytes(writer, topic_filter.as_bytes())?;
+            write_string(writer, topic_filter).await?;
         }
         Ok(())
     }

@@ -9,10 +9,12 @@ use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
-use crate::{
-    AsyncRead, Error, LEVEL_SEP, MATCH_ALL_CHAR, MATCH_ONE_CHAR, SHARED_PREFIX, SYS_PREFIX,
-};
 use simdutf8::basic::from_utf8;
+
+use crate::{
+    AsyncRead, AsyncWrite, Error, LEVEL_SEP, MATCH_ALL_CHAR, MATCH_ONE_CHAR, SHARED_PREFIX,
+    SYS_PREFIX,
+};
 
 use super::{read_bytes, read_u8};
 
@@ -22,7 +24,7 @@ pub const MQTT: &[u8] = b"MQTT";
 /// The ability of encoding type into write trait, and calculating encoded size.
 pub trait Encodable {
     /// Encode type into writer
-    fn encode<W: crate::common::utils::WriteAll>(&self, writer: &mut W) -> Result<(), Error>;
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error>;
     /// Calculate the encoded size.
     fn encode_len(&self) -> usize;
 }
@@ -87,11 +89,11 @@ impl fmt::Display for Protocol {
 }
 
 impl Encodable for Protocol {
-    fn encode<W: crate::common::utils::WriteAll>(&self, writer: &mut W) -> Result<(), Error> {
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         let (name, level) = self.to_pair();
-        crate::write_u16(writer, name.len() as u16)?;
-        writer.write_all(name)?;
-        writer.write_all(slice::from_ref(&level))?;
+        crate::write_u16(writer, name.len() as u16).await?;
+        writer.write_all(name).await?;
+        writer.write_all(slice::from_ref(&level)).await?;
         Ok(())
     }
 
