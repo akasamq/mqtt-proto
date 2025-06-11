@@ -1,18 +1,18 @@
-use std::convert::TryFrom;
-use std::io;
-use std::sync::Arc;
+use core::convert::TryFrom;
+
+use alloc::sync::Arc;
 
 use bytes::Bytes;
 use simdutf8::basic::from_utf8;
-use tokio::io::{AsyncRead, AsyncReadExt};
+
+use crate::{
+    read_string, read_u16, read_u8, write_bytes, write_u16, write_u8, AsyncRead, AsyncWrite,
+    Encodable, Error, IoErrorKind, Pid, QoS, QosPid, TopicName,
+};
 
 use super::{
     decode_properties, encode_properties, encode_properties_len, ErrorV5, Header, PacketType,
     UserProperty, VarByteInt,
-};
-use crate::{
-    read_string, read_u16, read_u8, write_bytes, write_u16, write_u8, Encodable, Error, Pid, QoS,
-    QosPid, TopicName,
 };
 
 /// Body type of PUBLISH packet.
@@ -82,10 +82,12 @@ impl Publish {
             .ok_or(Error::InvalidRemainingLength)?;
         let payload = if remaining_len > 0 {
             let mut data = vec![0u8; remaining_len];
-            reader
-                .read_exact(&mut data)
-                .await
-                .map_err(|err| Error::IoError(err.kind(), err.to_string()))?;
+            reader.read_exact(&mut data).await.map_err(|e| match e {
+                embedded_io_async::ReadExactError::UnexpectedEof => {
+                    Error::IoError(IoErrorKind::UnexpectedEof)
+                }
+                embedded_io_async::ReadExactError::Other(e) => e.into(),
+            })?;
             if properties.payload_is_utf8 == Some(true) && from_utf8(&data).is_err() {
                 return Err(ErrorV5::InvalidPayloadFormat);
             }
@@ -105,16 +107,16 @@ impl Publish {
 }
 
 impl Encodable for Publish {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        write_bytes(writer, self.topic_name.as_bytes())?;
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_bytes(writer, self.topic_name.as_bytes()).await?;
         match self.qos_pid {
             QosPid::Level0 => {}
             QosPid::Level1(pid) | QosPid::Level2(pid) => {
-                write_u16(writer, pid.value())?;
+                write_u16(writer, pid.value()).await?;
             }
         }
-        self.properties.encode(writer)?;
-        writer.write_all(self.payload.as_ref())?;
+        self.properties.encode(writer).await?;
+        writer.write_all(self.payload.as_ref()).await?;
         Ok(())
     }
 
@@ -185,7 +187,7 @@ impl PublishProperties {
 }
 
 impl Encodable for PublishProperties {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         encode_properties!(
             self,
             writer,
@@ -266,12 +268,12 @@ impl Puback {
 }
 
 impl Encodable for Puback {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        write_u16(writer, self.pid.value())?;
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_u16(writer, self.pid.value()).await?;
         if self.reason_code != PubackReasonCode::Success {
-            write_u8(writer, self.reason_code as u8)?;
+            write_u8(writer, self.reason_code as u8).await?;
             if self.properties != PubackProperties::default() {
-                self.properties.encode(writer)?;
+                self.properties.encode(writer).await?;
             }
         }
         Ok(())
@@ -310,7 +312,7 @@ impl PubackProperties {
 }
 
 impl Encodable for PubackProperties {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         encode_properties!(self, writer, ReasonString,);
         Ok(())
     }
@@ -420,12 +422,12 @@ impl Pubrec {
 }
 
 impl Encodable for Pubrec {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        write_u16(writer, self.pid.value())?;
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_u16(writer, self.pid.value()).await?;
         if self.reason_code != PubrecReasonCode::Success {
-            write_u8(writer, self.reason_code as u8)?;
+            write_u8(writer, self.reason_code as u8).await?;
             if self.properties != PubrecProperties::default() {
-                self.properties.encode(writer)?;
+                self.properties.encode(writer).await?;
             }
         }
         Ok(())
@@ -464,7 +466,7 @@ impl PubrecProperties {
 }
 
 impl Encodable for PubrecProperties {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         encode_properties!(self, writer, ReasonString,);
         Ok(())
     }
@@ -574,12 +576,12 @@ impl Pubrel {
 }
 
 impl Encodable for Pubrel {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        write_u16(writer, self.pid.value())?;
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_u16(writer, self.pid.value()).await?;
         if self.reason_code != PubrelReasonCode::Success {
-            write_u8(writer, self.reason_code as u8)?;
+            write_u8(writer, self.reason_code as u8).await?;
             if self.properties != PubrelProperties::default() {
-                self.properties.encode(writer)?;
+                self.properties.encode(writer).await?;
             }
         }
         Ok(())
@@ -618,7 +620,7 @@ impl PubrelProperties {
 }
 
 impl Encodable for PubrelProperties {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         encode_properties!(self, writer, ReasonString,);
         Ok(())
     }
@@ -705,12 +707,12 @@ impl Pubcomp {
 }
 
 impl Encodable for Pubcomp {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        write_u16(writer, self.pid.value())?;
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_u16(writer, self.pid.value()).await?;
         if self.reason_code != PubcompReasonCode::Success {
-            write_u8(writer, self.reason_code as u8)?;
+            write_u8(writer, self.reason_code as u8).await?;
             if self.properties != PubcompProperties::default() {
-                self.properties.encode(writer)?;
+                self.properties.encode(writer).await?;
             }
         }
         Ok(())
@@ -749,7 +751,7 @@ impl PubcompProperties {
 }
 
 impl Encodable for PubcompProperties {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         encode_properties!(self, writer, ReasonString,);
         Ok(())
     }

@@ -1,12 +1,12 @@
-use std::convert::TryFrom;
-use std::fmt;
-use std::sync::Arc;
+use core::convert::TryFrom;
+
+use alloc::sync::Arc;
 
 use bytes::Bytes;
-use tokio::io::AsyncRead;
+
+use crate::{read_bytes, read_string, read_u16, read_u32, read_u8, AsyncRead, Error, TopicName};
 
 use super::ErrorV5;
-use crate::{read_bytes, read_string, read_u16, read_u32, read_u8, Error, TopicName};
 
 /// [Property identifier](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901027)
 ///
@@ -110,8 +110,8 @@ impl PropertyId {
     }
 }
 
-impl fmt::Display for PropertyId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl core::fmt::Display for PropertyId {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{self:?}")
     }
 }
@@ -524,44 +524,44 @@ pub(crate) use decode_property;
 macro_rules! encode_property {
     (PayloadFormatIndicator, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.payload_is_utf8 {
-            crate::write_u8($writer, crate::v5::PropertyId::PayloadFormatIndicator as u8)?;
-            crate::write_u8($writer, u8::from(value))?;
+            crate::write_u8($writer, crate::v5::PropertyId::PayloadFormatIndicator as u8).await?;
+            crate::write_u8($writer, u8::from(value)).await?;
         }
     };
     (MessageExpiryInterval, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.message_expiry_interval {
-            crate::write_u8($writer, crate::v5::PropertyId::MessageExpiryInterval as u8)?;
-            crate::write_u32($writer, value)?;
+            crate::write_u8($writer, crate::v5::PropertyId::MessageExpiryInterval as u8).await?;
+            crate::write_u32($writer, value).await?;
         }
     };
     (ContentType, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.content_type.as_ref() {
-            crate::write_u8($writer, crate::v5::PropertyId::ContentType as u8)?;
-            crate::write_bytes($writer, value.as_bytes())?;
+            crate::write_u8($writer, crate::v5::PropertyId::ContentType as u8).await?;
+            crate::write_bytes($writer, value.as_bytes()).await?;
         }
     };
     (ResponseTopic, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.response_topic.as_ref() {
-            crate::write_u8($writer, crate::v5::PropertyId::ResponseTopic as u8)?;
-            crate::write_bytes($writer, value.as_bytes())?;
+            crate::write_u8($writer, crate::v5::PropertyId::ResponseTopic as u8).await?;
+            crate::write_bytes($writer, value.as_bytes()).await?;
         }
     };
     (CorrelationData, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.correlation_data.as_ref() {
-            crate::write_u8($writer, crate::v5::PropertyId::CorrelationData as u8)?;
-            crate::write_bytes($writer, value.as_ref())?;
+            crate::write_u8($writer, crate::v5::PropertyId::CorrelationData as u8).await?;
+            crate::write_bytes($writer, value.as_ref()).await?;
         }
     };
     (SubscriptionIdentifier, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.subscription_id {
-            crate::write_u8($writer, crate::v5::PropertyId::SubscriptionIdentifier as u8)?;
-            crate::write_var_int($writer, value.value() as usize)?;
+            crate::write_u8($writer, crate::v5::PropertyId::SubscriptionIdentifier as u8).await?;
+            crate::write_var_int($writer, value.value() as usize).await?;
         }
     };
     (SessionExpiryInterval, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.session_expiry_interval {
-            crate::write_u8($writer, crate::v5::PropertyId::SessionExpiryInterval as u8)?;
-            crate::write_u32($writer, value)?;
+            crate::write_u8($writer, crate::v5::PropertyId::SessionExpiryInterval as u8).await?;
+            crate::write_u32($writer, value).await?;
         }
     };
     (AssignedClientIdentifier, $properties:expr, $writer: expr) => {
@@ -569,26 +569,27 @@ macro_rules! encode_property {
             crate::write_u8(
                 $writer,
                 crate::v5::PropertyId::AssignedClientIdentifier as u8,
-            )?;
-            crate::write_bytes($writer, value.as_bytes())?;
+            )
+            .await?;
+            crate::write_bytes($writer, value.as_bytes()).await?;
         }
     };
     (ServerKeepAlive, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.server_keep_alive {
-            crate::write_u8($writer, crate::v5::PropertyId::ServerKeepAlive as u8)?;
-            crate::write_u16($writer, value)?;
+            crate::write_u8($writer, crate::v5::PropertyId::ServerKeepAlive as u8).await?;
+            crate::write_u16($writer, value).await?;
         }
     };
     (AuthenticationMethod, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.auth_method.as_ref() {
-            crate::write_u8($writer, crate::v5::PropertyId::AuthenticationMethod as u8)?;
-            crate::write_bytes($writer, value.as_bytes())?;
+            crate::write_u8($writer, crate::v5::PropertyId::AuthenticationMethod as u8).await?;
+            crate::write_bytes($writer, value.as_bytes()).await?;
         }
     };
     (AuthenticationData, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.auth_data.as_ref() {
-            crate::write_u8($writer, crate::v5::PropertyId::AuthenticationData as u8)?;
-            crate::write_bytes($writer, value.as_ref())?;
+            crate::write_u8($writer, crate::v5::PropertyId::AuthenticationData as u8).await?;
+            crate::write_bytes($writer, value.as_ref()).await?;
         }
     };
     (RequestProblemInformation, $properties:expr, $writer: expr) => {
@@ -596,14 +597,15 @@ macro_rules! encode_property {
             crate::write_u8(
                 $writer,
                 crate::v5::PropertyId::RequestProblemInformation as u8,
-            )?;
-            crate::write_u8($writer, u8::from(value))?;
+            )
+            .await?;
+            crate::write_u8($writer, u8::from(value)).await?;
         }
     };
     (WillDelayInterval, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.delay_interval {
-            crate::write_u8($writer, crate::v5::PropertyId::WillDelayInterval as u8)?;
-            crate::write_u32($writer, value)?;
+            crate::write_u8($writer, crate::v5::PropertyId::WillDelayInterval as u8).await?;
+            crate::write_u32($writer, value).await?;
         }
     };
     (RequestResponseInformation, $properties:expr, $writer: expr) => {
@@ -611,62 +613,63 @@ macro_rules! encode_property {
             crate::write_u8(
                 $writer,
                 crate::v5::PropertyId::RequestResponseInformation as u8,
-            )?;
-            crate::write_u8($writer, u8::from(value))?;
+            )
+            .await?;
+            crate::write_u8($writer, u8::from(value)).await?;
         }
     };
     (ResponseInformation, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.response_info.as_ref() {
-            crate::write_u8($writer, crate::v5::PropertyId::ResponseInformation as u8)?;
-            crate::write_bytes($writer, value.as_bytes())?;
+            crate::write_u8($writer, crate::v5::PropertyId::ResponseInformation as u8).await?;
+            crate::write_bytes($writer, value.as_bytes()).await?;
         }
     };
     (ServerReference, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.server_reference.as_ref() {
-            crate::write_u8($writer, crate::v5::PropertyId::ServerReference as u8)?;
-            crate::write_bytes($writer, value.as_bytes())?;
+            crate::write_u8($writer, crate::v5::PropertyId::ServerReference as u8).await?;
+            crate::write_bytes($writer, value.as_bytes()).await?;
         }
     };
     (ReasonString, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.reason_string.as_ref() {
-            crate::write_u8($writer, crate::v5::PropertyId::ReasonString as u8)?;
-            crate::write_bytes($writer, value.as_bytes())?;
+            crate::write_u8($writer, crate::v5::PropertyId::ReasonString as u8).await?;
+            crate::write_bytes($writer, value.as_bytes()).await?;
         }
     };
     (ReceiveMaximum, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.receive_max {
-            crate::write_u8($writer, crate::v5::PropertyId::ReceiveMaximum as u8)?;
-            crate::write_u16($writer, value)?;
+            crate::write_u8($writer, crate::v5::PropertyId::ReceiveMaximum as u8).await?;
+            crate::write_u16($writer, value).await?;
         }
     };
     (TopicAliasMaximum, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.topic_alias_max {
-            crate::write_u8($writer, crate::v5::PropertyId::TopicAliasMaximum as u8)?;
-            crate::write_u16($writer, value)?;
+            crate::write_u8($writer, crate::v5::PropertyId::TopicAliasMaximum as u8).await?;
+            crate::write_u16($writer, value).await?;
         }
     };
     (TopicAlias, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.topic_alias {
-            crate::write_u8($writer, crate::v5::PropertyId::TopicAlias as u8)?;
-            crate::write_u16($writer, value)?;
+            crate::write_u8($writer, crate::v5::PropertyId::TopicAlias as u8).await?;
+            crate::write_u16($writer, value).await?;
         }
     };
     (MaximumQoS, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.max_qos {
-            crate::write_u8($writer, crate::v5::PropertyId::MaximumQoS as u8)?;
-            crate::write_u8($writer, value as u8)?;
+            crate::write_u8($writer, crate::v5::PropertyId::MaximumQoS as u8).await?;
+            crate::write_u8($writer, value as u8).await?;
         }
     };
     (RetainAvailable, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.retain_available {
-            crate::write_u8($writer, crate::v5::PropertyId::RetainAvailable as u8)?;
-            crate::write_u8($writer, u8::from(value))?;
+            crate::write_u8($writer, crate::v5::PropertyId::RetainAvailable as u8).await?;
+            crate::write_u8($writer, u8::from(value)).await?;
         }
     };
     (MaximumPacketSize, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.max_packet_size {
-            crate::write_u8($writer, crate::v5::PropertyId::MaximumPacketSize as u8)?;
-            crate::write_u32($writer, value)?;
+            crate::write_u8($writer, crate::v5::PropertyId::MaximumPacketSize as u8).await?;
+            crate::write_u32($writer, value).await?;
         }
     };
     (WildcardSubscriptionAvailable, $properties:expr, $writer: expr) => {
@@ -674,8 +677,9 @@ macro_rules! encode_property {
             crate::write_u8(
                 $writer,
                 crate::v5::PropertyId::WildcardSubscriptionAvailable as u8,
-            )?;
-            crate::write_u8($writer, u8::from(value))?;
+            )
+            .await?;
+            crate::write_u8($writer, u8::from(value)).await?;
         }
     };
     (SubscriptionIdentifierAvailable, $properties:expr, $writer: expr) => {
@@ -683,8 +687,9 @@ macro_rules! encode_property {
             crate::write_u8(
                 $writer,
                 crate::v5::PropertyId::SubscriptionIdentifierAvailable as u8,
-            )?;
-            crate::write_u8($writer, u8::from(value))?;
+            )
+            .await?;
+            crate::write_u8($writer, u8::from(value)).await?;
         }
     };
     (SharedSubscriptionAvailable, $properties:expr, $writer: expr) => {
@@ -692,8 +697,9 @@ macro_rules! encode_property {
             crate::write_u8(
                 $writer,
                 crate::v5::PropertyId::SharedSubscriptionAvailable as u8,
-            )?;
-            crate::write_u8($writer, u8::from(value))?;
+            )
+            .await?;
+            crate::write_u8($writer, u8::from(value)).await?;
         }
     };
 }
@@ -705,11 +711,11 @@ macro_rules! encode_properties {
             .iter()
             .map(|property| 4 + property.name.len() + property.value.len())
             .sum::<usize>();
-        crate::write_var_int($writer, property_len)?;
+        crate::write_var_int($writer, property_len).await?;
         for UserProperty { name, value } in $properties.user_properties.iter() {
-            crate::write_u8($writer, crate::v5::PropertyId::UserProperty as u8)?;
-            crate::write_bytes($writer, name.as_bytes())?;
-            crate::write_bytes($writer, value.as_bytes())?;
+            crate::write_u8($writer, crate::v5::PropertyId::UserProperty as u8).await?;
+            crate::write_bytes($writer, name.as_bytes()).await?;
+            crate::write_bytes($writer, value.as_bytes()).await?;
         }
     };
     ($properties:expr, $writer:expr, $($t:ident,)+) => {
@@ -722,15 +728,15 @@ macro_rules! encode_properties {
             crate::v5::encode_property_len!($t, $properties, property_len);
         )+
 
-            crate::write_var_int($writer, property_len)?;
+            crate::write_var_int($writer, property_len).await?;
         $(
             crate::v5::encode_property!($t, $properties, $writer);
         )*
 
             for UserProperty { name, value } in $properties.user_properties.iter() {
-                crate::write_u8($writer, crate::v5::PropertyId::UserProperty as u8)?;
-                crate::write_bytes($writer, name.as_bytes())?;
-                crate::write_bytes($writer, value.as_bytes())?;
+                crate::write_u8($writer, crate::v5::PropertyId::UserProperty as u8).await?;
+                crate::write_bytes($writer, name.as_bytes()).await?;
+                crate::write_bytes($writer, value.as_bytes()).await?;
             }
     };
 }

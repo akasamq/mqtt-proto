@@ -1,18 +1,18 @@
-use std::convert::TryFrom;
-use std::io;
-use std::sync::Arc;
+use core::convert::TryFrom;
+
+use alloc::sync::Arc;
 
 use bytes::Bytes;
 use simdutf8::basic::from_utf8;
-use tokio::io::{AsyncRead, AsyncReadExt};
+
+use crate::{
+    read_bytes, read_string, read_u16, read_u8, write_bytes, write_u16, write_u8, AsyncRead,
+    AsyncWrite, Encodable, Error, IoErrorKind, Protocol, QoS, TopicName,
+};
 
 use super::{
     decode_properties, encode_properties, encode_properties_len, ErrorV5, Header, PacketType,
     UserProperty,
-};
-use crate::{
-    read_bytes, read_string, read_u16, read_u8, write_bytes, write_u16, write_u8, Encodable, Error,
-    Protocol, QoS, TopicName,
 };
 
 /// Body type of CONNECT packet.
@@ -145,7 +145,7 @@ impl Connect {
 }
 
 impl Encodable for Connect {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         let mut connect_flags: u8 = 0b00000000;
         if self.clean_start {
             connect_flags |= 0b10;
@@ -164,19 +164,19 @@ impl Encodable for Connect {
             }
         }
 
-        self.protocol.encode(writer)?;
-        write_u8(writer, connect_flags)?;
-        write_u16(writer, self.keep_alive)?;
-        self.properties.encode(writer)?;
-        write_bytes(writer, self.client_id.as_bytes())?;
+        self.protocol.encode(writer).await?;
+        write_u8(writer, connect_flags).await?;
+        write_u16(writer, self.keep_alive).await?;
+        self.properties.encode(writer).await?;
+        write_bytes(writer, self.client_id.as_bytes()).await?;
         if let Some(last_will) = self.last_will.as_ref() {
-            last_will.encode(writer)?;
+            last_will.encode(writer).await?;
         }
         if let Some(username) = self.username.as_ref() {
-            write_bytes(writer, username.as_bytes())?;
+            write_bytes(writer, username.as_bytes()).await?;
         }
         if let Some(password) = self.password.as_ref() {
-            write_bytes(writer, password.as_ref())?;
+            write_bytes(writer, password.as_ref()).await?;
         }
         Ok(())
     }
@@ -266,7 +266,7 @@ impl ConnectProperties {
 }
 
 impl Encodable for ConnectProperties {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         encode_properties!(
             self,
             writer,
@@ -356,10 +356,10 @@ impl LastWill {
 }
 
 impl Encodable for LastWill {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        self.properties.encode(writer)?;
-        write_bytes(writer, self.topic_name.as_bytes())?;
-        write_bytes(writer, self.payload.as_ref())?;
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        self.properties.encode(writer).await?;
+        write_bytes(writer, self.topic_name.as_bytes()).await?;
+        write_bytes(writer, self.payload.as_ref()).await?;
         Ok(())
     }
 
@@ -417,7 +417,7 @@ impl WillProperties {
 }
 
 impl Encodable for WillProperties {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         encode_properties!(
             self,
             writer,
@@ -469,10 +469,12 @@ impl Connack {
         header: Header,
     ) -> Result<Self, ErrorV5> {
         let mut payload = [0u8; 2];
-        reader
-            .read_exact(&mut payload)
-            .await
-            .map_err(|err| Error::IoError(err.kind(), err.to_string()))?;
+        reader.read_exact(&mut payload).await.map_err(|e| match e {
+            embedded_io_async::ReadExactError::UnexpectedEof => {
+                Error::IoError(IoErrorKind::UnexpectedEof)
+            }
+            embedded_io_async::ReadExactError::Other(e) => e.into(),
+        })?;
         let session_present = match payload[0] {
             0 => false,
             1 => true,
@@ -490,10 +492,10 @@ impl Connack {
 }
 
 impl Encodable for Connack {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        write_u8(writer, u8::from(self.session_present))?;
-        write_u8(writer, self.reason_code as u8)?;
-        self.properties.encode(writer)?;
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_u8(writer, u8::from(self.session_present)).await?;
+        write_u8(writer, self.reason_code as u8).await?;
+        self.properties.encode(writer).await?;
         Ok(())
     }
 
@@ -666,7 +668,7 @@ impl ConnackProperties {
 }
 
 impl Encodable for ConnackProperties {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         encode_properties!(
             self,
             writer,
@@ -762,14 +764,14 @@ impl Disconnect {
 }
 
 impl Encodable for Disconnect {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         if self.properties == DisconnectProperties::default() {
             if self.reason_code != DisconnectReasonCode::NormalDisconnect {
-                write_u8(writer, self.reason_code as u8)?;
+                write_u8(writer, self.reason_code as u8).await?;
             }
         } else {
-            write_u8(writer, self.reason_code as u8)?;
-            self.properties.encode(writer)?;
+            write_u8(writer, self.reason_code as u8).await?;
+            self.properties.encode(writer).await?;
         }
         Ok(())
     }
@@ -925,7 +927,7 @@ impl DisconnectProperties {
 }
 
 impl Encodable for DisconnectProperties {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         encode_properties!(
             self,
             writer,
@@ -993,12 +995,12 @@ impl Auth {
 }
 
 impl Encodable for Auth {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         if self.reason_code != AuthReasonCode::Success
             || self.properties != AuthProperties::default()
         {
-            write_u8(writer, self.reason_code as u8)?;
-            self.properties.encode(writer)?;
+            write_u8(writer, self.reason_code as u8).await?;
+            self.properties.encode(writer).await?;
         }
         Ok(())
     }
@@ -1082,7 +1084,7 @@ impl AuthProperties {
 }
 
 impl Encodable for AuthProperties {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         encode_properties!(
             self,
             writer,

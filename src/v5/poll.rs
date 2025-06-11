@@ -1,10 +1,11 @@
 use futures_lite::future::block_on;
 
+use crate::{GenericPollBodyState, GenericPollPacket, GenericPollPacketState, PollHeader};
+
 use super::{
     Auth, Connack, Connect, Disconnect, ErrorV5, Header, Packet, PacketType, Puback, Pubcomp,
     Publish, Pubrec, Pubrel, Suback, Subscribe, Unsuback, Unsubscribe,
 };
-use crate::{GenericPollBodyState, GenericPollPacket, GenericPollPacketState, PollHeader};
 
 impl PollHeader for Header {
     type Error = ErrorV5;

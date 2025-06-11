@@ -1,16 +1,15 @@
-use std::convert::TryFrom;
-use std::io;
-use std::sync::Arc;
+use core::convert::TryFrom;
 
-use tokio::io::AsyncRead;
+use alloc::sync::Arc;
+
+use crate::{
+    decode_var_int, read_string, read_u16, read_u8, write_bytes, write_u16, write_u8, AsyncRead,
+    AsyncWrite, Encodable, Error, Pid, QoS, TopicFilter,
+};
 
 use super::{
     decode_properties, encode_properties, encode_properties_len, ErrorV5, Header, PacketType,
     PropertyId, PropertyValue, UserProperty, VarByteInt,
-};
-use crate::{
-    decode_var_int, read_string, read_u16, read_u8, write_bytes, write_u16, write_u8, Encodable,
-    Error, Pid, QoS, TopicFilter,
 };
 
 /// Body type for SUBSCRIBE packet.
@@ -79,12 +78,12 @@ impl Subscribe {
 }
 
 impl Encodable for Subscribe {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        write_u16(writer, self.pid.value())?;
-        self.properties.encode(writer)?;
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_u16(writer, self.pid.value()).await?;
+        self.properties.encode(writer).await?;
         for (topic_filter, options) in &self.topics {
-            write_bytes(writer, topic_filter.as_bytes())?;
-            write_u8(writer, options.to_u8())?;
+            write_bytes(writer, topic_filter.as_bytes()).await?;
+            write_u8(writer, options.to_u8()).await?;
         }
         Ok(())
     }
@@ -119,7 +118,7 @@ impl SubscribeProperties {
 }
 
 impl Encodable for SubscribeProperties {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         encode_properties!(self, writer, SubscriptionIdentifier,);
         Ok(())
     }
@@ -230,11 +229,11 @@ impl Suback {
 }
 
 impl Encodable for Suback {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        write_u16(writer, self.pid.value())?;
-        self.properties.encode(writer)?;
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_u16(writer, self.pid.value()).await?;
+        self.properties.encode(writer).await?;
         for reason_code in &self.topics {
-            write_u8(writer, *reason_code as u8)?;
+            write_u8(writer, *reason_code as u8).await?;
         }
         Ok(())
     }
@@ -264,7 +263,7 @@ impl SubackProperties {
 }
 
 impl Encodable for SubackProperties {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         encode_properties!(self, writer, ReasonString,);
         Ok(())
     }
@@ -395,11 +394,11 @@ impl Unsubscribe {
 }
 
 impl Encodable for Unsubscribe {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        write_u16(writer, self.pid.value())?;
-        self.properties.encode(writer)?;
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_u16(writer, self.pid.value()).await?;
+        self.properties.encode(writer).await?;
         for topic_filter in &self.topics {
-            write_bytes(writer, topic_filter.as_bytes())?;
+            write_bytes(writer, topic_filter.as_bytes()).await?;
         }
         Ok(())
     }
@@ -435,7 +434,7 @@ impl UnsubscribeProperties {
 }
 
 impl Encodable for UnsubscribeProperties {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         encode_properties!(self, writer);
         Ok(())
     }
@@ -497,11 +496,11 @@ impl Unsuback {
 }
 
 impl Encodable for Unsuback {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        write_u16(writer, self.pid.value())?;
-        self.properties.encode(writer)?;
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_u16(writer, self.pid.value()).await?;
+        self.properties.encode(writer).await?;
         for reason_code in &self.topics {
-            write_u8(writer, *reason_code as u8)?;
+            write_u8(writer, *reason_code as u8).await?;
         }
         Ok(())
     }
@@ -531,7 +530,7 @@ impl UnsubackProperties {
 }
 
 impl Encodable for UnsubackProperties {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         encode_properties!(self, writer, ReasonString,);
         Ok(())
     }

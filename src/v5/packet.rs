@@ -1,17 +1,12 @@
-use std::convert::AsRef;
-use std::fmt;
-use std::io;
-
-use futures_lite::future::block_on;
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+use core::convert::AsRef;
 
 use super::{
     Auth, Connack, Connect, Disconnect, ErrorV5, Puback, Pubcomp, Publish, Pubrec, Pubrel, Suback,
     Subscribe, Unsuback, Unsubscribe,
 };
 use crate::{
-    decode_raw_header, encode_packet, packet_from, total_len, Encodable, Error, QoS, QosPid,
-    VarBytes,
+    block_on, decode_raw_header, encode_packet, packet_from, total_len, AsyncRead, AsyncWrite,
+    Encodable, Error, QoS, QosPid, VarBytes,
 };
 
 /// MQTT v5.0 packet types.
@@ -99,11 +94,8 @@ impl Packet {
 
     /// Asynchronously encode the packet to an async writer.
     pub async fn encode_async<T: AsyncWrite + Unpin>(&self, writer: &mut T) -> Result<(), ErrorV5> {
-        let data = self.encode()?;
-        writer
-            .write_all(data.as_ref())
-            .await
-            .map_err(|err| Error::IoError(err.kind(), err.to_string()))?;
+        let data = self.encode_async_impl().await.map_err(ErrorV5::Common)?;
+        writer.write_all(data.as_ref()).await?;
         Ok(())
     }
 
@@ -112,28 +104,33 @@ impl Packet {
     pub fn decode(mut bytes: &[u8]) -> Result<Option<Self>, ErrorV5> {
         match block_on(Self::decode_async(&mut bytes)) {
             Ok(pkt) => Ok(Some(pkt)),
-            Err(ErrorV5::Common(Error::IoError(kind, info))) => {
-                if kind == io::ErrorKind::UnexpectedEof {
-                    Ok(None)
-                } else {
-                    Err(Error::IoError(kind, info).into())
+            Err(err) => {
+                if let ErrorV5::Common(e) = &err {
+                    if e.is_eof() {
+                        return Ok(None);
+                    }
                 }
+                Err(err)
             }
-            Err(err) => Err(err),
         }
     }
 
     /// Encode the packet to a dynamic vector or fixed array.
     pub fn encode(&self) -> Result<VarBytes, Error> {
+        block_on(self.encode_async_impl())
+    }
+
+    /// Encode the packet to a dynamic vector or fixed array.
+    async fn encode_async_impl(&self) -> Result<VarBytes, Error> {
         const VOID_PACKET_REMAINING_LEN: u8 = 0;
         let data = match self {
             Packet::Pingreq => {
                 const CONTROL_BYTE: u8 = 0b11000000;
-                return Ok(VarBytes::Fixed2([CONTROL_BYTE, VOID_PACKET_REMAINING_LEN]));
+                VarBytes::Fixed2([CONTROL_BYTE, VOID_PACKET_REMAINING_LEN])
             }
             Packet::Pingresp => {
                 const CONTROL_BYTE: u8 = 0b11010000;
-                return Ok(VarBytes::Fixed2([CONTROL_BYTE, VOID_PACKET_REMAINING_LEN]));
+                VarBytes::Fixed2([CONTROL_BYTE, VOID_PACKET_REMAINING_LEN])
             }
             Packet::Publish(publish) => {
                 let mut control_byte: u8 = match publish.qos_pid {
@@ -147,58 +144,58 @@ impl Packet {
                 if publish.retain {
                     control_byte |= 0b00000001;
                 }
-                encode_packet(control_byte, publish)?
+                VarBytes::Dynamic(encode_packet(control_byte, publish).await?)
             }
             Packet::Connect(inner) => {
                 const CONTROL_BYTE: u8 = 0b00010000;
-                encode_packet(CONTROL_BYTE, inner)?
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner).await?)
             }
             Packet::Connack(inner) => {
                 const CONTROL_BYTE: u8 = 0b00100000;
-                encode_packet(CONTROL_BYTE, inner)?
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner).await?)
             }
             Packet::Puback(inner) => {
                 const CONTROL_BYTE: u8 = 0b01000000;
-                encode_packet(CONTROL_BYTE, inner)?
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner).await?)
             }
             Packet::Pubrec(inner) => {
                 const CONTROL_BYTE: u8 = 0b01010000;
-                encode_packet(CONTROL_BYTE, inner)?
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner).await?)
             }
             Packet::Pubrel(inner) => {
                 const CONTROL_BYTE: u8 = 0b01100010;
-                encode_packet(CONTROL_BYTE, inner)?
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner).await?)
             }
             Packet::Pubcomp(inner) => {
                 const CONTROL_BYTE: u8 = 0b01110000;
-                encode_packet(CONTROL_BYTE, inner)?
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner).await?)
             }
             Packet::Subscribe(inner) => {
                 const CONTROL_BYTE: u8 = 0b10000010;
-                encode_packet(CONTROL_BYTE, inner)?
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner).await?)
             }
             Packet::Suback(inner) => {
                 const CONTROL_BYTE: u8 = 0b10010000;
-                encode_packet(CONTROL_BYTE, inner)?
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner).await?)
             }
             Packet::Unsubscribe(inner) => {
                 const CONTROL_BYTE: u8 = 0b10100010;
-                encode_packet(CONTROL_BYTE, inner)?
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner).await?)
             }
             Packet::Unsuback(inner) => {
                 const CONTROL_BYTE: u8 = 0b10110000;
-                encode_packet(CONTROL_BYTE, inner)?
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner).await?)
             }
             Packet::Disconnect(inner) => {
                 const CONTROL_BYTE: u8 = 0b11100000;
-                encode_packet(CONTROL_BYTE, inner)?
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner).await?)
             }
             Packet::Auth(inner) => {
                 const CONTROL_BYTE: u8 = 0b11110000;
-                encode_packet(CONTROL_BYTE, inner)?
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner).await?)
             }
         };
-        Ok(VarBytes::Dynamic(data))
+        Ok(data)
     }
 
     /// Return the total length of bytes the packet encoded into.
@@ -244,8 +241,8 @@ pub enum PacketType {
     Auth,
 }
 
-impl fmt::Display for PacketType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl core::fmt::Display for PacketType {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{self:?}")
     }
 }
