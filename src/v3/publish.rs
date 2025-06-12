@@ -1,4 +1,4 @@
-use alloc::vec;
+use alloc::vec::Vec;
 
 use bytes::Bytes;
 
@@ -65,7 +65,7 @@ impl Publish {
             }
         };
         let payload = if remaining_len > 0 {
-            let mut data = vec![0u8; remaining_len];
+            let mut data = alloc::vec![0u8; remaining_len];
             reader.read_exact(&mut data).await.map_err(|e| match e {
                 embedded_io_async::ReadExactError::UnexpectedEof => {
                     Error::IoError(IoErrorKind::UnexpectedEof)

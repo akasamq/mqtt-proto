@@ -1,6 +1,8 @@
 use core::convert::TryFrom;
 
+use alloc::string::String;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 
 use bytes::Bytes;
 use simdutf8::basic::from_utf8;
@@ -81,7 +83,7 @@ impl Publish {
             .checked_sub(properties.encode_len())
             .ok_or(Error::InvalidRemainingLength)?;
         let payload = if remaining_len > 0 {
-            let mut data = vec![0u8; remaining_len];
+            let mut data = alloc::vec![0u8; remaining_len];
             reader.read_exact(&mut data).await.map_err(|e| match e {
                 embedded_io_async::ReadExactError::UnexpectedEof => {
                     Error::IoError(IoErrorKind::UnexpectedEof)

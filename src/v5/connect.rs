@@ -1,6 +1,8 @@
 use core::convert::TryFrom;
 
+use alloc::string::String;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 
 use bytes::Bytes;
 use simdutf8::basic::from_utf8;

@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use crate::*;
 
 /// Subscribe packet body type.

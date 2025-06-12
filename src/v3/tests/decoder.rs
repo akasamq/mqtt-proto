@@ -1,5 +1,6 @@
 use core::ops::Deref;
 
+use alloc::borrow::ToOwned;
 use alloc::sync::Arc;
 
 use bytes::Bytes;
@@ -10,7 +11,7 @@ use crate::*;
 #[test]
 fn test_header_firstbyte() {
     use PacketType::*;
-    let valid = vec![
+    let valid = alloc::vec![
         (
             0b0001_0000,
             Header::new(Connect, false, QoS::Level0, false, 0),
@@ -126,29 +127,29 @@ fn test_header_firstbyte() {
 #[test]
 fn test_header_len() {
     use PacketType::*;
-    for (bytes, res) in vec![
+    for (bytes, res) in alloc::vec![
         (
-            vec![1 << 4, 0],
+            alloc::vec![1 << 4, 0],
             Ok(Header::new(Connect, false, QoS::Level0, false, 0)),
         ),
         (
-            vec![1 << 4, 127],
+            alloc::vec![1 << 4, 127],
             Ok(Header::new(Connect, false, QoS::Level0, false, 127)),
         ),
         (
-            vec![1 << 4, 0x80, 0],
+            alloc::vec![1 << 4, 0x80, 0],
             Ok(Header::new(Connect, false, QoS::Level0, false, 0)),
         ), //Weird encoding for "0" buf matches spec
         (
-            vec![1 << 4, 0x80, 1],
+            alloc::vec![1 << 4, 0x80, 1],
             Ok(Header::new(Connect, false, QoS::Level0, false, 128)),
         ),
         (
-            vec![1 << 4, 0x80 + 16, 78],
+            alloc::vec![1 << 4, 0x80 + 16, 78],
             Ok(Header::new(Connect, false, QoS::Level0, false, 10000)),
         ),
         (
-            vec![1 << 4, 0x80, 0x80, 0x80, 0x80],
+            alloc::vec![1 << 4, 0x80, 0x80, 0x80, 0x80],
             Err(Error::InvalidVarByteInt),
         ),
     ] {
@@ -514,7 +515,7 @@ fn test_decode_subscribe() {
         Packet::decode(data).unwrap().unwrap(),
         Packet::Subscribe(v3::Subscribe {
             pid: Pid::try_from(10).unwrap(),
-            topics: vec![(
+            topics: alloc::vec![(
                 TopicFilter::try_from("a/b".to_owned()).unwrap(),
                 QoS::Level0
             )],
@@ -535,7 +536,7 @@ fn test_decode_suback() {
         Packet::decode(data).unwrap().unwrap(),
         Packet::Suback(v3::Suback {
             pid: Pid::try_from(10).unwrap(),
-            topics: vec![SubscribeReturnCode::MaxLevel2],
+            topics: alloc::vec![SubscribeReturnCode::MaxLevel2],
         })
     );
     assert_eq!(
@@ -553,7 +554,7 @@ fn test_decode_unsubscribe() {
         Packet::decode(data).unwrap().unwrap(),
         Packet::Unsubscribe(v3::Unsubscribe {
             pid: Pid::try_from(10).unwrap(),
-            topics: vec![TopicFilter::try_from("a".to_owned()).unwrap(),],
+            topics: alloc::vec![TopicFilter::try_from("a".to_owned()).unwrap(),],
         })
     );
     assert_eq!(

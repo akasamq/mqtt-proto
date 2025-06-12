@@ -516,6 +516,8 @@ impl AsRef<[u8]> for VarBytes {
 
 #[cfg(test)]
 mod tests {
+    use alloc::borrow::ToOwned;
+
     use super::*;
 
     #[test]

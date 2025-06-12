@@ -25,7 +25,7 @@ pub(crate) async fn read_string<T: AsyncRead + Unpin>(reader: &mut T) -> Result<
 #[inline]
 pub(crate) async fn read_bytes<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Vec<u8>, Error> {
     let data_len = read_u16(reader).await?;
-    let mut data_buf = vec![0u8; data_len as usize];
+    let mut data_buf = alloc::vec![0u8; data_len as usize];
     reader
         .read_exact(&mut data_buf)
         .await

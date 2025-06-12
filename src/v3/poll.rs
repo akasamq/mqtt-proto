@@ -1,8 +1,6 @@
-use futures_lite::future::block_on;
-
 use crate::{
-    read_u16, Error, GenericPollBodyState, GenericPollPacket, GenericPollPacketState, Pid,
-    PollHeader,
+    block_on, read_u16, Error, GenericPollBodyState, GenericPollPacket, GenericPollPacketState,
+    Pid, PollHeader,
 };
 
 use super::{

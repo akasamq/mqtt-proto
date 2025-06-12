@@ -1,5 +1,6 @@
 use core::convert::TryFrom;
 
+use alloc::string::String;
 use alloc::sync::Arc;
 
 use bytes::Bytes;
