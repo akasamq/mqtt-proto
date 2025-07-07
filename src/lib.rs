@@ -28,3 +28,7 @@ pub use common::{
     PollHeaderState, Protocol, QoS, QosPid, TopicFilter, TopicName, VarBytes, LEVEL_SEP,
     MATCH_ALL_CHAR, MATCH_ALL_STR, MATCH_ONE_CHAR, MATCH_ONE_STR, SHARED_PREFIX, SYS_PREFIX,
 };
+
+// Re-export std & tokio adapter
+pub use embedded_io_adapters::tokio_1::FromTokio;
+pub use embedded_io_adapters::std::{FromStd, ToStd};
