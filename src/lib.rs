@@ -30,5 +30,5 @@ pub use common::{
 };
 
 // Re-export std & tokio adapter
-pub use embedded_io_adapters::tokio_1::FromTokio;
 pub use embedded_io_adapters::std::{FromStd, ToStd};
+pub use embedded_io_adapters::tokio_1::FromTokio;
