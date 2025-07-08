@@ -9,6 +9,7 @@ mod common;
 pub mod v3;
 pub mod v5;
 
+pub(crate) use embedded_io::{Read as SyncRead, Write as SyncWrite};
 pub(crate) use embedded_io_async::{Read as AsyncRead, Write as AsyncWrite};
 
 #[cfg(feature = "std")]

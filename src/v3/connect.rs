@@ -7,7 +7,7 @@ use bytes::Bytes;
 
 use crate::{
     read_bytes, read_string, read_u16, read_u8, write_bytes, write_string, write_u16, write_u8,
-    AsyncRead, AsyncWrite, Encodable, Error, IoErrorKind, Protocol, QoS, TopicName,
+    AsyncRead, Encodable, Error, IoErrorKind, Protocol, QoS, SyncWrite, TopicName,
 };
 
 /// Connect packet body type.
@@ -109,7 +109,7 @@ impl Connect {
 }
 
 impl Encodable for Connect {
-    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         let mut connect_flags: u8 = 0b00000000;
         if self.clean_session {
             connect_flags |= 0b10;
@@ -128,18 +128,18 @@ impl Encodable for Connect {
             }
         }
 
-        self.protocol.encode(writer).await?;
-        write_u8(writer, connect_flags).await?;
-        write_u16(writer, self.keep_alive).await?;
-        write_string(writer, &self.client_id).await?;
+        self.protocol.encode(writer)?;
+        write_u8(writer, connect_flags)?;
+        write_u16(writer, self.keep_alive)?;
+        write_string(writer, &self.client_id)?;
         if let Some(last_will) = self.last_will.as_ref() {
-            last_will.encode(writer).await?;
+            last_will.encode(writer)?;
         }
         if let Some(username) = self.username.as_ref() {
-            write_string(writer, username).await?;
+            write_string(writer, username)?;
         }
         if let Some(password) = self.password.as_ref() {
-            write_bytes(writer, password.as_ref()).await?;
+            write_bytes(writer, password.as_ref())?;
         }
         Ok(())
     }
@@ -238,9 +238,9 @@ impl LastWill {
 }
 
 impl Encodable for LastWill {
-    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
-        write_string(writer, &self.topic_name).await?;
-        write_bytes(writer, self.message.as_ref()).await?;
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_string(writer, &self.topic_name)?;
+        write_bytes(writer, self.message.as_ref())?;
         Ok(())
     }
 

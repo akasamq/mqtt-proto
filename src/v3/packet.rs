@@ -97,7 +97,7 @@ impl Packet {
 
     /// Asynchronously encode the packet to an async writer.
     pub async fn encode_async<T: AsyncWrite + Unpin>(&self, writer: &mut T) -> Result<(), Error> {
-        let data = self.encode_async_impl().await?;
+        let data = self.encode()?;
         writer.write_all(data.as_ref()).await?;
         Ok(())
     }
@@ -119,11 +119,6 @@ impl Packet {
 
     /// Encode the packet to a dynamic vector or fixed array.
     pub fn encode(&self) -> Result<VarBytes, Error> {
-        block_on(self.encode_async_impl())
-    }
-
-    /// Encode the packet to a dynamic vector or fixed array.
-    async fn encode_async_impl(&self) -> Result<VarBytes, Error> {
         const VOID_PACKET_REMAINING_LEN: u8 = 0;
         let data = match self {
             Packet::Pingreq => {
@@ -136,7 +131,7 @@ impl Packet {
             }
             Packet::Connect(connect) => {
                 const CONTROL_BYTE: u8 = 0b00010000;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, connect).await?)
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, connect)?)
             }
             Packet::Connack(connack) => {
                 const CONTROL_BYTE: u8 = 0b00100000;
@@ -157,7 +152,7 @@ impl Packet {
                 if publish.retain {
                     control_byte |= 0b00000001;
                 }
-                VarBytes::Dynamic(encode_packet(control_byte, publish).await?)
+                VarBytes::Dynamic(encode_packet(control_byte, publish)?)
             }
             Packet::Puback(pid) => {
                 const CONTROL_BYTE: u8 = 0b01000000;
@@ -177,15 +172,15 @@ impl Packet {
             }
             Packet::Subscribe(subscribe) => {
                 const CONTROL_BYTE: u8 = 0b10000010;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, subscribe).await?)
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, subscribe)?)
             }
             Packet::Suback(suback) => {
                 const CONTROL_BYTE: u8 = 0b10010000;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, suback).await?)
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, suback)?)
             }
             Packet::Unsubscribe(unsubscribe) => {
                 const CONTROL_BYTE: u8 = 0b10100010;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, unsubscribe).await?)
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, unsubscribe)?)
             }
             Packet::Unsuback(pid) => {
                 const CONTROL_BYTE: u8 = 0b10110000;

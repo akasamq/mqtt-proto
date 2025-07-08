@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 
 use crate::{
     decode_var_int, read_string, read_u16, read_u8, write_bytes, write_u16, write_u8, AsyncRead,
-    AsyncWrite, Encodable, Error, Pid, QoS, TopicFilter,
+    Encodable, Error, Pid, QoS, SyncWrite, TopicFilter,
 };
 
 use super::{
@@ -80,12 +80,12 @@ impl Subscribe {
 }
 
 impl Encodable for Subscribe {
-    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
-        write_u16(writer, self.pid.value()).await?;
-        self.properties.encode(writer).await?;
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_u16(writer, self.pid.value())?;
+        self.properties.encode(writer)?;
         for (topic_filter, options) in &self.topics {
-            write_bytes(writer, topic_filter.as_bytes()).await?;
-            write_u8(writer, options.to_u8()).await?;
+            write_bytes(writer, topic_filter.as_bytes())?;
+            write_u8(writer, options.to_u8())?;
         }
         Ok(())
     }
@@ -120,7 +120,7 @@ impl SubscribeProperties {
 }
 
 impl Encodable for SubscribeProperties {
-    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         encode_properties!(self, writer, SubscriptionIdentifier,);
         Ok(())
     }
@@ -231,11 +231,11 @@ impl Suback {
 }
 
 impl Encodable for Suback {
-    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
-        write_u16(writer, self.pid.value()).await?;
-        self.properties.encode(writer).await?;
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_u16(writer, self.pid.value())?;
+        self.properties.encode(writer)?;
         for reason_code in &self.topics {
-            write_u8(writer, *reason_code as u8).await?;
+            write_u8(writer, *reason_code as u8)?;
         }
         Ok(())
     }
@@ -265,7 +265,7 @@ impl SubackProperties {
 }
 
 impl Encodable for SubackProperties {
-    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         encode_properties!(self, writer, ReasonString,);
         Ok(())
     }
@@ -396,11 +396,11 @@ impl Unsubscribe {
 }
 
 impl Encodable for Unsubscribe {
-    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
-        write_u16(writer, self.pid.value()).await?;
-        self.properties.encode(writer).await?;
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_u16(writer, self.pid.value())?;
+        self.properties.encode(writer)?;
         for topic_filter in &self.topics {
-            write_bytes(writer, topic_filter.as_bytes()).await?;
+            write_bytes(writer, topic_filter.as_bytes())?;
         }
         Ok(())
     }
@@ -436,7 +436,7 @@ impl UnsubscribeProperties {
 }
 
 impl Encodable for UnsubscribeProperties {
-    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         encode_properties!(self, writer);
         Ok(())
     }
@@ -498,11 +498,11 @@ impl Unsuback {
 }
 
 impl Encodable for Unsuback {
-    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
-        write_u16(writer, self.pid.value()).await?;
-        self.properties.encode(writer).await?;
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_u16(writer, self.pid.value())?;
+        self.properties.encode(writer)?;
         for reason_code in &self.topics {
-            write_u8(writer, *reason_code as u8).await?;
+            write_u8(writer, *reason_code as u8)?;
         }
         Ok(())
     }
@@ -532,7 +532,7 @@ impl UnsubackProperties {
 }
 
 impl Encodable for UnsubackProperties {
-    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         encode_properties!(self, writer, ReasonString,);
         Ok(())
     }

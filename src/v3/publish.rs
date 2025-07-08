@@ -3,8 +3,8 @@ use alloc::vec::Vec;
 use bytes::Bytes;
 
 use crate::{
-    read_string, read_u16, write_string, write_u16, AsyncRead, AsyncWrite, Encodable, Error,
-    IoErrorKind, Pid, QoS, QosPid, TopicName,
+    read_string, read_u16, write_string, write_u16, AsyncRead, Encodable, Error, IoErrorKind, Pid,
+    QoS, QosPid, SyncWrite, TopicName,
 };
 
 use super::Header;
@@ -90,15 +90,15 @@ impl Publish {
 }
 
 impl Encodable for Publish {
-    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
-        write_string(writer, &self.topic_name).await?;
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_string(writer, &self.topic_name)?;
         match self.qos_pid {
             QosPid::Level0 => {}
             QosPid::Level1(pid) | QosPid::Level2(pid) => {
-                write_u16(writer, pid.value()).await?;
+                write_u16(writer, pid.value())?;
             }
         }
-        writer.write_all(self.payload.as_ref()).await?;
+        writer.write_all(self.payload.as_ref())?;
         Ok(())
     }
 

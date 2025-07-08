@@ -1,8 +1,8 @@
 use alloc::vec::Vec;
 
 use crate::{
-    read_string, read_u16, read_u8, write_string, write_u16, write_u8, AsyncRead, AsyncWrite,
-    Encodable, Error, Pid, QoS, TopicFilter,
+    read_string, read_u16, read_u8, write_string, write_u16, write_u8, AsyncRead, Encodable, Error,
+    Pid, QoS, SyncWrite, TopicFilter,
 };
 
 /// Subscribe packet body type.
@@ -59,11 +59,11 @@ impl Subscribe {
 }
 
 impl Encodable for Subscribe {
-    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
-        write_u16(writer, self.pid.value()).await?;
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_u16(writer, self.pid.value())?;
         for (topic_filter, max_qos) in &self.topics {
-            write_string(writer, topic_filter).await?;
-            write_u8(writer, *max_qos as u8).await?;
+            write_string(writer, topic_filter)?;
+            write_u8(writer, *max_qos as u8)?;
         }
         Ok(())
     }
@@ -102,10 +102,10 @@ impl Suback {
 }
 
 impl Encodable for Suback {
-    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
-        write_u16(writer, self.pid.value()).await?;
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_u16(writer, self.pid.value())?;
         for code in &self.topics {
-            write_u8(writer, *code as u8).await?;
+            write_u8(writer, *code as u8)?;
         }
         Ok(())
     }
@@ -143,10 +143,10 @@ impl Unsubscribe {
 }
 
 impl Encodable for Unsubscribe {
-    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
-        write_u16(writer, self.pid.value()).await?;
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_u16(writer, self.pid.value())?;
         for topic_filter in &self.topics {
-            write_string(writer, topic_filter).await?;
+            write_string(writer, topic_filter)?;
         }
         Ok(())
     }

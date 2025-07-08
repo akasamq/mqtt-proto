@@ -95,7 +95,7 @@ impl Packet {
 
     /// Asynchronously encode the packet to an async writer.
     pub async fn encode_async<T: AsyncWrite + Unpin>(&self, writer: &mut T) -> Result<(), ErrorV5> {
-        let data = self.encode_async_impl().await.map_err(ErrorV5::Common)?;
+        let data = self.encode().map_err(ErrorV5::Common)?;
         writer.write_all(data.as_ref()).await?;
         Ok(())
     }
@@ -118,11 +118,6 @@ impl Packet {
 
     /// Encode the packet to a dynamic vector or fixed array.
     pub fn encode(&self) -> Result<VarBytes, Error> {
-        block_on(self.encode_async_impl())
-    }
-
-    /// Encode the packet to a dynamic vector or fixed array.
-    async fn encode_async_impl(&self) -> Result<VarBytes, Error> {
         const VOID_PACKET_REMAINING_LEN: u8 = 0;
         let data = match self {
             Packet::Pingreq => {
@@ -145,55 +140,55 @@ impl Packet {
                 if publish.retain {
                     control_byte |= 0b00000001;
                 }
-                VarBytes::Dynamic(encode_packet(control_byte, publish).await?)
+                VarBytes::Dynamic(encode_packet(control_byte, publish)?)
             }
             Packet::Connect(inner) => {
                 const CONTROL_BYTE: u8 = 0b00010000;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner).await?)
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner)?)
             }
             Packet::Connack(inner) => {
                 const CONTROL_BYTE: u8 = 0b00100000;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner).await?)
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner)?)
             }
             Packet::Puback(inner) => {
                 const CONTROL_BYTE: u8 = 0b01000000;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner).await?)
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner)?)
             }
             Packet::Pubrec(inner) => {
                 const CONTROL_BYTE: u8 = 0b01010000;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner).await?)
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner)?)
             }
             Packet::Pubrel(inner) => {
                 const CONTROL_BYTE: u8 = 0b01100010;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner).await?)
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner)?)
             }
             Packet::Pubcomp(inner) => {
                 const CONTROL_BYTE: u8 = 0b01110000;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner).await?)
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner)?)
             }
             Packet::Subscribe(inner) => {
                 const CONTROL_BYTE: u8 = 0b10000010;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner).await?)
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner)?)
             }
             Packet::Suback(inner) => {
                 const CONTROL_BYTE: u8 = 0b10010000;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner).await?)
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner)?)
             }
             Packet::Unsubscribe(inner) => {
                 const CONTROL_BYTE: u8 = 0b10100010;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner).await?)
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner)?)
             }
             Packet::Unsuback(inner) => {
                 const CONTROL_BYTE: u8 = 0b10110000;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner).await?)
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner)?)
             }
             Packet::Disconnect(inner) => {
                 const CONTROL_BYTE: u8 = 0b11100000;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner).await?)
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner)?)
             }
             Packet::Auth(inner) => {
                 const CONTROL_BYTE: u8 = 0b11110000;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner).await?)
+                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner)?)
             }
         };
         Ok(data)

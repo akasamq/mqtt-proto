@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 
 use simdutf8::basic::from_utf8;
 
-use crate::{AsyncRead, AsyncWrite, Encodable, Error, IoErrorKind};
+use crate::{AsyncRead, Encodable, Error, IoErrorKind, SyncWrite};
 
 /// Read first byte(packet type and flags) and decode remaining length
 #[inline]
@@ -81,48 +81,46 @@ pub(crate) async fn read_u8<T: AsyncRead + Unpin>(reader: &mut T) -> Result<u8, 
     Ok(byte[0])
 }
 
-#[inline]
-pub(crate) async fn write_string<W: AsyncWrite>(writer: &mut W, data: &str) -> Result<(), Error> {
-    write_bytes(writer, data.as_bytes()).await
-}
-
-#[inline]
-pub(crate) async fn write_bytes<W: AsyncWrite>(writer: &mut W, data: &[u8]) -> Result<(), Error> {
-    write_u16(writer, data.len() as u16).await?;
-    writer.write_all(data).await?;
+pub(crate) fn write_string<W: SyncWrite>(writer: &mut W, value: &str) -> Result<(), Error> {
+    write_u16(writer, value.len() as u16)?;
+    writer.write_all(value.as_bytes())?;
     Ok(())
 }
 
 #[inline]
-pub(crate) async fn write_u32<W: AsyncWrite>(writer: &mut W, value: u32) -> Result<(), Error> {
-    writer.write_all(&value.to_be_bytes()).await?;
+pub(crate) fn write_bytes<W: SyncWrite>(writer: &mut W, data: &[u8]) -> Result<(), Error> {
+    write_u16(writer, data.len() as u16)?;
+    writer.write_all(data)?;
     Ok(())
 }
 
 #[inline]
-pub(crate) async fn write_u16<W: AsyncWrite>(writer: &mut W, value: u16) -> Result<(), Error> {
-    writer.write_all(&value.to_be_bytes()).await?;
+pub(crate) fn write_u32<W: SyncWrite>(writer: &mut W, value: u32) -> Result<(), Error> {
+    writer.write_all(&value.to_be_bytes())?;
     Ok(())
 }
 
 #[inline]
-pub(crate) async fn write_u8<W: AsyncWrite>(writer: &mut W, value: u8) -> Result<(), Error> {
-    writer.write_all(slice::from_ref(&value)).await?;
+pub(crate) fn write_u16<W: SyncWrite>(writer: &mut W, value: u16) -> Result<(), Error> {
+    writer.write_all(&value.to_be_bytes())?;
     Ok(())
 }
 
 #[inline]
-pub(crate) async fn write_var_int<W: AsyncWrite>(
-    writer: &mut W,
-    mut len: usize,
-) -> Result<(), Error> {
+pub(crate) fn write_u8<W: SyncWrite>(writer: &mut W, value: u8) -> Result<(), Error> {
+    writer.write_all(slice::from_ref(&value))?;
+    Ok(())
+}
+
+#[inline]
+pub(crate) fn write_var_int<W: SyncWrite>(writer: &mut W, mut len: usize) -> Result<(), Error> {
     loop {
         let mut byte = (len % 128) as u8;
         len /= 128;
         if len > 0 {
             byte |= 128;
         }
-        write_u8(writer, byte).await?;
+        write_u8(writer, byte)?;
         if len == 0 {
             break;
         }
@@ -217,19 +215,16 @@ pub fn header_len(total_len: usize) -> usize {
 
 /// Encode packet use control byte and body type
 #[inline]
-pub(crate) async fn encode_packet<E: Encodable>(
-    control_byte: u8,
-    body: &E,
-) -> Result<Vec<u8>, Error> {
+pub(crate) fn encode_packet<E: Encodable>(control_byte: u8, body: &E) -> Result<Vec<u8>, Error> {
     let remaining_len = body.encode_len();
     let total = total_len(remaining_len)?;
     let mut buf = Vec::with_capacity(total);
 
     // encode header
     buf.push(control_byte);
-    write_var_int(&mut buf, remaining_len).await?;
+    write_var_int(&mut buf, remaining_len)?;
 
-    body.encode(&mut buf).await?;
+    body.encode(&mut buf)?;
     debug_assert_eq!(buf.len(), total);
     Ok(buf)
 }

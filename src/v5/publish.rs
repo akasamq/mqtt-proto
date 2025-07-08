@@ -8,8 +8,8 @@ use bytes::Bytes;
 use simdutf8::basic::from_utf8;
 
 use crate::{
-    read_string, read_u16, read_u8, write_bytes, write_u16, write_u8, AsyncRead, AsyncWrite,
-    Encodable, Error, IoErrorKind, Pid, QoS, QosPid, TopicName,
+    read_string, read_u16, read_u8, write_bytes, write_u16, write_u8, AsyncRead, Encodable, Error,
+    IoErrorKind, Pid, QoS, QosPid, SyncWrite, TopicName,
 };
 
 use super::{
@@ -109,16 +109,16 @@ impl Publish {
 }
 
 impl Encodable for Publish {
-    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
-        write_bytes(writer, self.topic_name.as_bytes()).await?;
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_bytes(writer, self.topic_name.as_bytes())?;
         match self.qos_pid {
             QosPid::Level0 => {}
             QosPid::Level1(pid) | QosPid::Level2(pid) => {
-                write_u16(writer, pid.value()).await?;
+                write_u16(writer, pid.value())?;
             }
         }
-        self.properties.encode(writer).await?;
-        writer.write_all(self.payload.as_ref()).await?;
+        self.properties.encode(writer)?;
+        writer.write_all(self.payload.as_ref())?;
         Ok(())
     }
 
@@ -189,7 +189,7 @@ impl PublishProperties {
 }
 
 impl Encodable for PublishProperties {
-    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         encode_properties!(
             self,
             writer,
@@ -270,12 +270,12 @@ impl Puback {
 }
 
 impl Encodable for Puback {
-    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
-        write_u16(writer, self.pid.value()).await?;
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_u16(writer, self.pid.value())?;
         if self.reason_code != PubackReasonCode::Success {
-            write_u8(writer, self.reason_code as u8).await?;
+            write_u8(writer, self.reason_code as u8)?;
             if self.properties != PubackProperties::default() {
-                self.properties.encode(writer).await?;
+                self.properties.encode(writer)?;
             }
         }
         Ok(())
@@ -314,7 +314,7 @@ impl PubackProperties {
 }
 
 impl Encodable for PubackProperties {
-    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         encode_properties!(self, writer, ReasonString,);
         Ok(())
     }
@@ -424,12 +424,12 @@ impl Pubrec {
 }
 
 impl Encodable for Pubrec {
-    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
-        write_u16(writer, self.pid.value()).await?;
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_u16(writer, self.pid.value())?;
         if self.reason_code != PubrecReasonCode::Success {
-            write_u8(writer, self.reason_code as u8).await?;
+            write_u8(writer, self.reason_code as u8)?;
             if self.properties != PubrecProperties::default() {
-                self.properties.encode(writer).await?;
+                self.properties.encode(writer)?;
             }
         }
         Ok(())
@@ -468,7 +468,7 @@ impl PubrecProperties {
 }
 
 impl Encodable for PubrecProperties {
-    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         encode_properties!(self, writer, ReasonString,);
         Ok(())
     }
@@ -578,12 +578,12 @@ impl Pubrel {
 }
 
 impl Encodable for Pubrel {
-    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
-        write_u16(writer, self.pid.value()).await?;
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_u16(writer, self.pid.value())?;
         if self.reason_code != PubrelReasonCode::Success {
-            write_u8(writer, self.reason_code as u8).await?;
+            write_u8(writer, self.reason_code as u8)?;
             if self.properties != PubrelProperties::default() {
-                self.properties.encode(writer).await?;
+                self.properties.encode(writer)?;
             }
         }
         Ok(())
@@ -622,7 +622,7 @@ impl PubrelProperties {
 }
 
 impl Encodable for PubrelProperties {
-    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         encode_properties!(self, writer, ReasonString,);
         Ok(())
     }
@@ -709,12 +709,12 @@ impl Pubcomp {
 }
 
 impl Encodable for Pubcomp {
-    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
-        write_u16(writer, self.pid.value()).await?;
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_u16(writer, self.pid.value())?;
         if self.reason_code != PubcompReasonCode::Success {
-            write_u8(writer, self.reason_code as u8).await?;
+            write_u8(writer, self.reason_code as u8)?;
             if self.properties != PubcompProperties::default() {
-                self.properties.encode(writer).await?;
+                self.properties.encode(writer)?;
             }
         }
         Ok(())
@@ -753,7 +753,7 @@ impl PubcompProperties {
 }
 
 impl Encodable for PubcompProperties {
-    async fn encode<W: AsyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         encode_properties!(self, writer, ReasonString,);
         Ok(())
     }
