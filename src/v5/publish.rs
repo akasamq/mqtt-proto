@@ -268,9 +268,11 @@ impl Puback {
 impl Encodable for Puback {
     fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
         write_u16(writer, self.pid.value())?;
-        if self.reason_code != PubackReasonCode::Success
-            || self.properties != PubackProperties::default()
-        {
+        if self.properties == PubackProperties::default() {
+            if self.reason_code != PubackReasonCode::Success {
+                write_u8(writer, self.reason_code as u8)?;
+            }
+        } else {
             write_u8(writer, self.reason_code as u8)?;
             self.properties.encode(writer)?;
         }
@@ -278,10 +280,12 @@ impl Encodable for Puback {
     }
 
     fn encode_len(&self) -> usize {
-        if self.properties == PubackProperties::default()
-            && self.reason_code == PubackReasonCode::Success
-        {
-            2
+        if self.properties == PubackProperties::default() {
+            if self.reason_code == PubackReasonCode::Success {
+                2
+            } else {
+                3
+            }
         } else {
             3 + self.properties.encode_len()
         }
@@ -420,9 +424,11 @@ impl Pubrec {
 impl Encodable for Pubrec {
     fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
         write_u16(writer, self.pid.value())?;
-        if self.reason_code != PubrecReasonCode::Success
-            || self.properties != PubrecProperties::default()
-        {
+        if self.properties == PubrecProperties::default() {
+            if self.reason_code != PubrecReasonCode::Success {
+                write_u8(writer, self.reason_code as u8)?;
+            }
+        } else {
             write_u8(writer, self.reason_code as u8)?;
             self.properties.encode(writer)?;
         }
@@ -430,10 +436,12 @@ impl Encodable for Pubrec {
     }
 
     fn encode_len(&self) -> usize {
-        if self.properties == PubrecProperties::default()
-            && self.reason_code == PubrecReasonCode::Success
-        {
-            2
+        if self.properties == PubrecProperties::default() {
+            if self.reason_code == PubrecReasonCode::Success {
+                2
+            } else {
+                3
+            }
         } else {
             3 + self.properties.encode_len()
         }
@@ -572,9 +580,11 @@ impl Pubrel {
 impl Encodable for Pubrel {
     fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
         write_u16(writer, self.pid.value())?;
-        if self.reason_code != PubrelReasonCode::Success
-            || self.properties != PubrelProperties::default()
-        {
+        if self.properties == PubrelProperties::default() {
+            if self.reason_code != PubrelReasonCode::Success {
+                write_u8(writer, self.reason_code as u8)?;
+            }
+        } else {
             write_u8(writer, self.reason_code as u8)?;
             self.properties.encode(writer)?;
         }
@@ -582,10 +592,12 @@ impl Encodable for Pubrel {
     }
 
     fn encode_len(&self) -> usize {
-        if self.properties == PubrelProperties::default()
-            && self.reason_code == PubrelReasonCode::Success
-        {
-            2
+        if self.properties == PubrelProperties::default() {
+            if self.reason_code == PubrelReasonCode::Success {
+                2
+            } else {
+                3
+            }
         } else {
             3 + self.properties.encode_len()
         }
@@ -701,9 +713,11 @@ impl Pubcomp {
 impl Encodable for Pubcomp {
     fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
         write_u16(writer, self.pid.value())?;
-        if self.reason_code != PubcompReasonCode::Success
-            || self.properties != PubcompProperties::default()
-        {
+        if self.properties == PubcompProperties::default() {
+            if self.reason_code != PubcompReasonCode::Success {
+                write_u8(writer, self.reason_code as u8)?;
+            }
+        } else {
             write_u8(writer, self.reason_code as u8)?;
             self.properties.encode(writer)?;
         }
@@ -711,10 +725,12 @@ impl Encodable for Pubcomp {
     }
 
     fn encode_len(&self) -> usize {
-        if self.properties == PubcompProperties::default()
-            && self.reason_code == PubcompReasonCode::Success
-        {
-            2
+        if self.properties == PubcompProperties::default() {
+            if self.reason_code == PubcompReasonCode::Success {
+                2
+            } else {
+                3
+            }
         } else {
             3 + self.properties.encode_len()
         }
