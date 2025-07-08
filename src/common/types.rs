@@ -3,7 +3,6 @@ use core::convert::TryFrom;
 use core::fmt;
 use core::hash::{Hash, Hasher};
 use core::ops::Deref;
-use core::slice;
 
 use alloc::string::String;
 use alloc::sync::Arc;
@@ -12,8 +11,8 @@ use alloc::vec::Vec;
 use simdutf8::basic::from_utf8;
 
 use crate::{
-    AsyncRead, Error, SyncWrite, LEVEL_SEP, MATCH_ALL_CHAR, MATCH_ONE_CHAR, SHARED_PREFIX,
-    SYS_PREFIX,
+    write_bytes, write_u8, AsyncRead, Error, SyncWrite, LEVEL_SEP, MATCH_ALL_CHAR, MATCH_ONE_CHAR,
+    SHARED_PREFIX, SYS_PREFIX,
 };
 
 use super::{read_bytes, read_u8};
@@ -91,9 +90,8 @@ impl fmt::Display for Protocol {
 impl Encodable for Protocol {
     fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         let (name, level) = self.to_pair();
-        crate::write_u16(writer, name.len() as u16)?;
-        writer.write_all(name)?;
-        writer.write_all(slice::from_ref(&level))?;
+        write_bytes(writer, name)?;
+        write_u8(writer, level)?;
         Ok(())
     }
 
@@ -160,7 +158,7 @@ impl core::ops::Sub<u16> for Pid {
     /// Subing a `u16` to a `Pid` will wrap around and avoid 0.
     fn sub(self, u: u16) -> Pid {
         let n = match self.0.overflowing_sub(u) {
-            (0, _) => core::u16::MAX,
+            (0, _) => u16::MAX,
             (n, false) => n,
             (n, true) => n - 1,
         };
@@ -251,10 +249,10 @@ pub struct TopicName(Arc<String>);
 impl TopicName {
     /// Check if the topic name is invalid.
     pub fn is_invalid(value: &str) -> bool {
-        if value.len() > u16::max_value() as usize {
+        if value.len() > u16::MAX as usize {
             return true;
         }
-        value.contains(|c| c == MATCH_ONE_CHAR || c == MATCH_ALL_CHAR || c == '\0')
+        value.contains([MATCH_ONE_CHAR, MATCH_ALL_CHAR, '\0'])
     }
 
     pub fn is_shared(&self) -> bool {
@@ -309,7 +307,7 @@ impl TopicFilter {
     ///
     ///   * The u16 returned is where the bytes index of '/' char before shared topic filter
     pub fn is_invalid(value: &str) -> (bool, u16) {
-        if value.len() > u16::max_value() as usize {
+        if value.len() > u16::MAX as usize {
             return (true, 0);
         }
 

@@ -107,9 +107,7 @@ impl From<Error> for std::io::Error {
             Error::IoError(IoErrorKind::WriteZero) => {
                 std::io::Error::new(std::io::ErrorKind::WriteZero, "write zero")
             }
-            Error::IoError(IoErrorKind::Other) => {
-                std::io::Error::new(std::io::ErrorKind::Other, "other error")
-            }
+            Error::IoError(IoErrorKind::Other) => std::io::Error::other("other error"),
             _ => std::io::Error::new(std::io::ErrorKind::InvalidData, "mqtt protocol error"),
         }
     }

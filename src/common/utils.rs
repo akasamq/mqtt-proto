@@ -82,8 +82,7 @@ pub(crate) async fn read_u8<T: AsyncRead + Unpin>(reader: &mut T) -> Result<u8, 
 }
 
 pub(crate) fn write_string<W: SyncWrite>(writer: &mut W, value: &str) -> Result<(), Error> {
-    write_u16(writer, value.len() as u16)?;
-    writer.write_all(value.as_bytes())?;
+    write_bytes(writer, value.as_bytes())?;
     Ok(())
 }
 
@@ -133,7 +132,6 @@ pub(crate) fn write_var_int<W: SyncWrite>(writer: &mut W, mut len: usize) -> Res
 pub(crate) async fn decode_var_int<T: AsyncRead + Unpin>(
     reader: &mut T,
 ) -> Result<(u32, usize), Error> {
-    let mut byte = 0u8;
     let mut var_int: u32 = 0;
     let mut i = 0;
     loop {
@@ -144,7 +142,7 @@ pub(crate) async fn decode_var_int<T: AsyncRead + Unpin>(
             }
             embedded_io_async::ReadExactError::Other(e) => e.into(),
         })?;
-        byte = buf[0];
+        let byte = buf[0];
         var_int |= (u32::from(byte) & 0x7F) << (7 * i);
         if byte & 0x80 == 0 {
             break;
