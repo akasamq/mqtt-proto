@@ -348,6 +348,24 @@ fn test_v5_encode_puback() {
     .into_iter()
     .sum();
     assert_encode(packet2.into(), len);
+
+    let packet3 = Puback {
+        pid: Pid::try_from(10).unwrap(),
+        reason_code: PubackReasonCode::Success,
+        properties: PubackProperties {
+            reason_string: Some(Arc::new("".to_string())),
+            user_properties: vec![],
+        },
+    };
+    let len = [
+        2, // header
+        2, // packet identifier
+        1, // reason code
+        4, // properties
+    ]
+    .into_iter()
+    .sum();
+    assert_encode(packet3.into(), len);
 }
 
 #[test]
@@ -412,6 +430,24 @@ fn test_v5_encode_pubrec() {
     .into_iter()
     .sum();
     assert_encode(packet2.into(), len);
+
+    let packet3 = Pubrec {
+        pid: Pid::try_from(10).unwrap(),
+        reason_code: PubrecReasonCode::Success,
+        properties: PubrecProperties {
+            reason_string: Some(Arc::new("".to_string())),
+            user_properties: vec![],
+        },
+    };
+    let len = [
+        2, // header
+        2, // packet identifier
+        1, // reason code
+        4, // properties
+    ]
+    .into_iter()
+    .sum();
+    assert_encode(packet3.into(), len);
 }
 
 #[test]
@@ -476,6 +512,24 @@ fn test_v5_encode_pubrel() {
     .into_iter()
     .sum();
     assert_encode(packet2.into(), len);
+
+    let packet3 = Pubrel {
+        pid: Pid::try_from(10).unwrap(),
+        reason_code: PubrelReasonCode::Success,
+        properties: PubrelProperties {
+            reason_string: Some(Arc::new("".to_string())),
+            user_properties: vec![],
+        },
+    };
+    let len = [
+        2, // header
+        2, // packet identifier
+        1, // reason code
+        4, // properties
+    ]
+    .into_iter()
+    .sum();
+    assert_encode(packet3.into(), len);
 }
 
 #[test]
@@ -540,6 +594,24 @@ fn test_v5_encode_pubcomp() {
     .into_iter()
     .sum();
     assert_encode(packet2.into(), len);
+
+    let packet3 = Pubcomp {
+        pid: Pid::try_from(10).unwrap(),
+        reason_code: PubcompReasonCode::Success,
+        properties: PubcompProperties {
+            reason_string: Some(Arc::new("".to_string())),
+            user_properties: vec![],
+        },
+    };
+    let len = [
+        2, // header
+        2, // packet identifier
+        1, // reason code
+        4, // properties
+    ]
+    .into_iter()
+    .sum();
+    assert_encode(packet3.into(), len);
 }
 
 #[test]
