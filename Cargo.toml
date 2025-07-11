@@ -29,3 +29,8 @@ arbitrary = { version = "1.2.3", optional = true, features = ["derive"] }
 [dev-dependencies]
 proptest = "1.0.0"
 tokio = { version = "1.23.0", features = ["full"] }
+criterion = { version = "0.6", features = ["html_reports"] }
+
+[[bench]]
+name = "codec"
+harness = false
