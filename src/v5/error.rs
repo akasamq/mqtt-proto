@@ -1,4 +1,3 @@
-use std::io;
 use thiserror::Error;
 
 use super::{PacketType, PropertyId};
@@ -53,15 +52,16 @@ pub enum ErrorV5 {
 
 impl ErrorV5 {
     pub fn is_eof(&self) -> bool {
-        match self {
-            ErrorV5::Common(err) => err.is_eof(),
-            _ => false,
+        if let ErrorV5::Common(e) = self {
+            e.is_eof()
+        } else {
+            false
         }
     }
 }
 
-impl From<io::Error> for ErrorV5 {
-    fn from(err: io::Error) -> ErrorV5 {
+impl<E: embedded_io::Error> From<E> for ErrorV5 {
+    fn from(err: E) -> ErrorV5 {
         ErrorV5::Common(err.into())
     }
 }

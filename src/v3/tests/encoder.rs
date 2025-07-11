@@ -1,8 +1,10 @@
-use std::mem;
-use std::sync::Arc;
+use core::mem;
+
+use alloc::borrow::ToOwned;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
 
 use bytes::Bytes;
-use futures_lite::future::block_on;
 
 use crate::v3::*;
 use crate::*;
@@ -117,7 +119,7 @@ fn test_encode_pubcomp() {
 fn test_encode_subscribe() {
     let packet = Subscribe::new(
         Pid::try_from(345).unwrap(),
-        vec![(
+        alloc::vec![(
             TopicFilter::try_from("a/b".to_owned()).unwrap(),
             QoS::Level2,
         )],
@@ -129,7 +131,7 @@ fn test_encode_subscribe() {
 fn test_encode_suback() {
     let packet = Suback::new(
         Pid::try_from(12321).unwrap(),
-        vec![SubscribeReturnCode::MaxLevel2],
+        alloc::vec![SubscribeReturnCode::MaxLevel2],
     );
     assert_encode(packet.into(), 5);
 }
@@ -138,7 +140,7 @@ fn test_encode_suback() {
 fn test_encode_unsubscribe() {
     let packet = Unsubscribe::new(
         Pid::try_from(12321).unwrap(),
-        vec![(TopicFilter::try_from("a/b".to_owned()).unwrap())],
+        alloc::vec![(TopicFilter::try_from("a/b".to_owned()).unwrap())],
     );
     assert_encode(packet.into(), 9);
 }
