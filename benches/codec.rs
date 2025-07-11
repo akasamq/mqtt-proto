@@ -4,6 +4,7 @@ extern crate test;
 
 use std::convert::TryFrom;
 use std::sync::Arc;
+
 use test::{black_box, Bencher};
 
 use mqtt_proto::{

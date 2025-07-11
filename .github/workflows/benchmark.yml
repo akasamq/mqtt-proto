@@ -19,6 +19,9 @@ jobs:
           rustup toolchain install nightly
           rustup default nightly
 
+      - name: Run memory test
+        run: cargo test --features dhat-heap -- --nocapture --test-threads 1
+
       - name: Run benchmark
         run: cargo bench | tee output.txt
 
@@ -36,3 +39,4 @@ jobs:
           output-file-path: output.txt
           external-data-json-path: ./cache/benchmark-data.json
           fail-on-alert: true
+          summary-always: true
