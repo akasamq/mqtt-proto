@@ -1,0 +1,18 @@
+name: Benchmark Codec
+
+on:
+  pull_request:
+    types: [review_requested]
+
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    name: Run benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run benchmark
+        run: cargo bench
