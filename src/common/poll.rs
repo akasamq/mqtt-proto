@@ -3,7 +3,6 @@ use core::mem::{self, MaybeUninit};
 use core::pin::Pin;
 use core::task::{Context, Poll};
 
-use alloc::boxed::Box;
 use alloc::vec::Vec;
 
 use crate::{AsyncRead, Error, IoErrorKind};
@@ -181,7 +180,7 @@ where
             }
         };
 
-        let mut pinned_future = Box::pin(future);
-        pinned_future.as_mut().poll(cx)
+        futures_lite::pin!(future);
+        future.as_mut().poll(cx)
     }
 }

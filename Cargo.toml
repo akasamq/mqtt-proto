@@ -12,15 +12,13 @@ edition = "2021"
 
 [dependencies]
 bytes = { version = "1", default-features = false }
+embassy-futures = { version = "0.1", default-features = false }
 embedded-io = { version = "0.6", default-features = false, features = ["alloc"] }
 embedded-io-adapters = { version = "0.6", features = ["std", "tokio-1"], optional = true }
 embedded-io-async = { version = "0.6", default-features = false, features = ["alloc"] }
+futures-lite = { version = "2", default-features = false }
 thiserror = { version = "2", default-features = false }
 simdutf8 = { version = "0.1", default-features = false }
-
-# Future impls
-embassy-futures = { version = "0.1" }
-futures-lite = { version = "2", optional = true }
 
 # Only for fuzz testing
 arbitrary = { version = "1", features = ["derive"], optional = true }
@@ -31,4 +29,4 @@ tokio = { version = "1", features = ["full"] }
 
 [features]
 default = ["std"]
-std = ["dep:embedded-io-adapters", "dep:futures-lite", "thiserror/std"]
+std = ["dep:embedded-io-adapters", "futures-lite/std", "thiserror/std"]
