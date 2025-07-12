@@ -1,4 +1,5 @@
 use std::pin::Pin;
+use std::sync::Arc;
 
 use futures_lite::future::{block_on, poll_fn};
 use futures_lite::Future;
@@ -50,7 +51,11 @@ struct MockPublishData {
     expected_packet: MockPacket,
 }
 
-fn prepare_mock_publish_data(topic_str: &str, payload_size: usize, mock_pid: u16) -> MockPublishData {
+fn prepare_mock_publish_data(
+    topic_str: &str,
+    payload_size: usize,
+    mock_pid: u16,
+) -> MockPublishData {
     let control_byte = 0x30; // Publish packet type
 
     let mut topic_buf = Vec::new();
@@ -152,7 +157,7 @@ async fn poll_stream_simulation() {
     let mock_data = prepare_mock_publish_data(TOPIC, PAYLOAD_SIZE, MOCK_PID);
 
     println!(
-        "\n--- `common::poll` Memory Report (1KB Payload, {} rounds) ---",
+        "\n--- `common::poll` Stream Simulation ({} rounds) ---",
         NUM_ROUNDS
     );
 
@@ -221,14 +226,14 @@ async fn poll_actor_model_simulation() {
 
     const PAYLOAD_SIZE: usize = 1024;
     const MOCK_PID: u16 = 42;
-    const NUM_ACTORS: usize = 5;
+    const NUM_TASKS: usize = 100_000;
     const TOPIC: &str = "a/b/c";
 
-    let mock_data = prepare_mock_publish_data(TOPIC, PAYLOAD_SIZE, MOCK_PID);
+    let data = Arc::new(prepare_mock_publish_data(TOPIC, PAYLOAD_SIZE, MOCK_PID));
 
     println!(
-        "\n--- `common::poll` Actor Model Simulation ({} actors) ---",
-        NUM_ACTORS
+        "\n--- `common::poll` Actor Model Simulation ({} jobs) ---",
+        NUM_TASKS
     );
 
     let stats_start = dhat::HeapStats::get();
@@ -237,18 +242,19 @@ async fn poll_actor_model_simulation() {
         stats_start.curr_bytes, stats_start.curr_blocks
     );
 
-    let mut handles = Vec::with_capacity(NUM_ACTORS);
-    for _ in 0..NUM_ACTORS {
-        let remaining_len_buf = mock_data.remaining_len_buf.clone();
-        let body = mock_data.body.clone();
-        let expected_packet = mock_data.expected_packet.clone();
-        let control_byte = mock_data.control_byte;
+    let simulation_start = std::time::Instant::now();
+    let mut handles = Vec::with_capacity(NUM_TASKS);
 
-        let handle = tokio::spawn(async move {
+    for _ in 0..NUM_TASKS {
+        let data = data.clone();
+
+        handles.push(tokio::spawn(async move {
+            let mock_data = &*data;
+
             let mut reader = Builder::new()
-                .read(&[control_byte])
-                .read(&remaining_len_buf)
-                .read(&body)
+                .read(&[mock_data.control_byte])
+                .read(&mock_data.remaining_len_buf)
+                .read(&mock_data.body)
                 .build();
 
             let mut state = GenericPollPacketState::<MockHeader>::default();
@@ -258,17 +264,24 @@ async fn poll_actor_model_simulation() {
             assert!(result.is_ok());
 
             let (_total_len, buf, packet) = result.unwrap();
-            assert_eq!(packet, expected_packet);
+            assert_eq!(packet, mock_data.expected_packet);
 
             drop(buf);
             drop(packet);
-        });
-        handles.push(handle);
+        }));
     }
 
     for handle in handles {
         handle.await.unwrap();
     }
+
+    let total_simulation_time = simulation_start.elapsed();
+    let total_data_size = (PAYLOAD_SIZE + data.remaining_len_buf.len() + 1) * NUM_TASKS;
+    let throughput_mbps =
+        (total_data_size as f64 * 8.0) / (total_simulation_time.as_secs_f64() * 1_000_000.0);
+    let actors_per_second = NUM_TASKS as f64 / total_simulation_time.as_secs_f64();
+
+    drop(data);
 
     let stats_end = dhat::HeapStats::get();
     println!(
@@ -283,8 +296,17 @@ async fn poll_actor_model_simulation() {
         stats_end.max_bytes, stats_end.max_blocks
     );
 
-    if stats_start.curr_bytes != stats_end.curr_bytes {
-        println!("Note: Memory leak detected. Final byte count does not match the start.");
-    }
+    let summary = super::MemorySummary {
+        test: "common::poll",
+        bytes: (stats_start.curr_bytes as u64, stats_end.curr_bytes as u64),
+        blocks: (stats_start.curr_blocks as u64, stats_end.curr_blocks as u64),
+        peak_bytes: stats_end.max_bytes as u64,
+        peak_blocks: stats_end.max_blocks as u64,
+        throughput_mbps,
+        jobs_per_sec: actors_per_second,
+        avg_time_per_job_us: total_simulation_time.as_micros() as f64 / NUM_TASKS as f64,
+    };
+    println!("{}", serde_json::to_string(&summary).unwrap());
+
     println!("--- End Report ---");
 }

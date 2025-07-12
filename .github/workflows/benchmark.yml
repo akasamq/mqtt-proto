@@ -20,23 +20,55 @@ jobs:
           rustup default nightly
 
       - name: Run memory test
-        run: cargo test --features dhat-heap -- --nocapture --test-threads 1
+        run: |
+          set -o pipefail
+
+          # Create temporary file
+          temp_file=$(mktemp)
+
+          # Run test and capture output
+          cargo test --features dhat-heap -- --nocapture --test-threads 1 | tee "$temp_file"
+
+          # Process output
+          echo "## Memory Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Test | Start Bytes | End Bytes | Peak Bytes | Peak Blocks | Throughput (Mbps) | Jobs/sec | Avg Time/job (us) |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------------|-----------|------------|-------------|-------------------|----------|-------------------|" >> $GITHUB_STEP_SUMMARY
+
+          grep '^{.*"test":' "$temp_file" | jq -r '
+            [
+              .test,
+              .bytes[0],
+              .bytes[1],
+              .peak_bytes,
+              .peak_blocks,
+              (.throughput_mbps | @sprintf("%.2f")),
+              (.jobs_per_sec | @sprintf("%.2f")),
+              (.avg_time_per_job_us | @sprintf("%.2f"))
+            ] | @tsv
+          ' | while IFS=$'\t' read -r test start end peak_bytes peak_blocks throughput jobs_per_sec avg_time; do
+            echo "| $test | $start | $end | $peak_bytes | $peak_blocks | $throughput | $jobs_per_sec | $avg_time |" >> $GITHUB_STEP_SUMMARY
+          done
+
+          # Clean up temporary file
+          rm -f "$temp_file"
 
       - name: Run benchmark
-        run: cargo bench | tee output.txt
+        run: |
+          set -o pipefail
 
-      - name: Download previous benchmark data
-        uses: actions/cache@v4
-        with:
-          path: ./cache
-          key: ${{ runner.os }}-benchmark
+          # Create temporary file
+          temp_file=$(mktemp)
 
-      - name: Store benchmark result
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          name: Rust Benchmark Results
-          tool: 'cargo'
-          output-file-path: output.txt
-          external-data-json-path: ./cache/benchmark-data.json
-          fail-on-alert: true
-          summary-always: true
+          # Run test and capture output
+          cargo bench | tee "$temp_file"
+
+          # Process output
+          echo "## Benchmark Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Name | Time (ns/iter) | Stddev |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|----------------|--------|" >> $GITHUB_STEP_SUMMARY
+
+          grep "bench:" "$temp_file" | sed -E 's/test ([^ ]+) \.\.\. bench: *([0-9,.]+) ns\/iter \(\+\/- ([0-9,.]+)\)/| \1 | \2 | \3 |/' \
+          >> $GITHUB_STEP_SUMMARY
+
+          # Clean up temporary file
+          rm -f "$temp_file"

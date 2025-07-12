@@ -510,3 +510,80 @@ fn test_decode_unsub_ack() {
             .2
     );
 }
+
+#[tokio::test(flavor = "current_thread")]
+#[cfg(feature = "dhat-heap")]
+async fn poll_actor_model_simulation_v3() {
+    let _profiler = dhat::Profiler::builder().testing().build();
+
+    const NUM_TASKS: usize = 100_000;
+
+    let data: Arc<Vec<u8>> = Arc::new(vec![
+        0b00010000, 39, 0x00, 0x04, b'M', b'Q', b'T', b'T', 0x04, 0b11001110, 0x00, 0x0a, 0x00,
+        0x04, b't', b'e', b's', b't', 0x00, 0x02, b'/', b'a', 0x00, 0x07, b'o', b'f', b'f', b'l',
+        b'i', b'n', b'e', 0x00, 0x04, b'r', b'u', b's', b't', 0x00, 0x02, b'm', b'q',
+    ]);
+
+    println!(
+        "\n--- `v3::decoder` Actor Model Simulation ({} jobs) ---",
+        NUM_TASKS
+    );
+
+    let stats_start = dhat::HeapStats::get();
+    println!(
+        "Start:               {:>5} bytes in {:>2} blocks",
+        stats_start.curr_bytes, stats_start.curr_blocks
+    );
+
+    let simulation_start = std::time::Instant::now();
+    let mut handles = Vec::with_capacity(NUM_TASKS);
+
+    for _ in 0..NUM_TASKS {
+        let data = data.clone();
+
+        handles.push(tokio::spawn(async move {
+            let mut buf: &[u8] = &data;
+            let _ =
+                futures_lite::future::block_on(PollPacket::new(&mut Default::default(), &mut buf));
+        }));
+    }
+
+    for handle in handles {
+        handle.await.unwrap();
+    }
+
+    let total_simulation_time = simulation_start.elapsed();
+    let total_data_size = data.len() * NUM_TASKS;
+    let throughput_mbps =
+        (total_data_size as f64 * 8.0) / (total_simulation_time.as_secs_f64() * 1_000_000.0);
+    let jobs_per_sec = NUM_TASKS as f64 / total_simulation_time.as_secs_f64();
+
+    drop(data);
+
+    let stats_end = dhat::HeapStats::get();
+    println!(
+        "End:                 {:>5} bytes in {:>2} blocks. Change: {:>+5} bytes, {:>+3} blocks",
+        stats_end.curr_bytes,
+        stats_end.curr_blocks,
+        stats_end.curr_bytes as i64 - stats_start.curr_bytes as i64,
+        stats_end.curr_blocks as i64 - stats_start.curr_blocks as i64
+    );
+    println!(
+        "Peak memory usage:   {:>5} bytes in {:>2} blocks",
+        stats_end.max_bytes, stats_end.max_blocks
+    );
+
+    let summary = common::MemorySummary {
+        test: "v3::decoder",
+        bytes: (stats_start.curr_bytes as u64, stats_end.curr_bytes as u64),
+        blocks: (stats_start.curr_blocks as u64, stats_end.curr_blocks as u64),
+        peak_bytes: stats_end.max_bytes as u64,
+        peak_blocks: stats_end.max_blocks as u64,
+        throughput_mbps,
+        jobs_per_sec,
+        avg_time_per_job_us: total_simulation_time.as_micros() as f64 / NUM_TASKS as f64,
+    };
+    println!("{}", serde_json::to_string(&summary).unwrap());
+
+    println!("--- End Report ---");
+}

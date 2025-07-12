@@ -18,6 +18,9 @@ pub use poll::{
 pub use types::{Encodable, Pid, Protocol, QoS, QosPid, TopicFilter, TopicName, VarBytes};
 pub use utils::{decode_raw_header, header_len, remaining_len, total_len, var_int_len};
 
+#[cfg(test)]
+pub use tests::MemorySummary;
+
 /// Character used to separate each level within a topic tree and provide a hierarchical structure.
 pub const LEVEL_SEP: char = '/';
 /// Wildcard character that matches only one topic level.
