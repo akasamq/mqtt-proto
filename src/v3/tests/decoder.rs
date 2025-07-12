@@ -518,11 +518,53 @@ async fn poll_actor_model_simulation_v3() {
 
     const NUM_TASKS: usize = 100_000;
 
-    let data: Arc<Vec<u8>> = Arc::new(vec![
-        0b00010000, 39, 0x00, 0x04, b'M', b'Q', b'T', b'T', 0x04, 0b11001110, 0x00, 0x0a, 0x00,
-        0x04, b't', b'e', b's', b't', 0x00, 0x02, b'/', b'a', 0x00, 0x07, b'o', b'f', b'f', b'l',
-        b'i', b'n', b'e', 0x00, 0x04, b'r', b'u', b's', b't', 0x00, 0x02, b'm', b'q',
-    ]);
+    let mut packets = Vec::new();
+
+    for len in [1, 8, 32, 128, 512] {
+        let client_id = "a".repeat(len);
+        let pkt = Packet::Connect(Connect {
+            protocol: Protocol::V311,
+            keep_alive: 60,
+            client_id: Arc::new(client_id),
+            clean_session: true,
+            last_will: None,
+            username: None,
+            password: None,
+        });
+        packets.push(pkt.encode().unwrap());
+    }
+
+    for size in [0, 2, 16, 128, 1024, 4096] {
+        let payload = vec![b'x'; size];
+        let pkt = Packet::Publish(Publish {
+            dup: false,
+            qos_pid: QosPid::Level1(Pid::try_from(1).unwrap()),
+            retain: false,
+            topic_name: TopicName::try_from("topic/test".to_owned()).unwrap(),
+            payload: Bytes::from(payload),
+        });
+        packets.push(pkt.encode().unwrap());
+    }
+
+    for qos in [QoS::Level0, QoS::Level1, QoS::Level2] {
+        let pkt = Packet::Subscribe(Subscribe::new(
+            Pid::try_from(10).unwrap(),
+            vec![(TopicFilter::try_from("a/+".to_owned()).unwrap(), qos)],
+        ));
+        packets.push(pkt.encode().unwrap());
+    }
+    for _ in 0..3 {
+        let pkt = Packet::Unsubscribe(Unsubscribe::new(
+            Pid::try_from(20).unwrap(),
+            vec![TopicFilter::try_from("b/#".to_owned()).unwrap()],
+        ));
+        packets.push(pkt.encode().unwrap());
+    }
+    packets.push(Packet::Pingreq.encode().unwrap());
+    packets.push(Packet::Pingresp.encode().unwrap());
+    packets.push(Packet::Disconnect.encode().unwrap());
+
+    let data: Arc<Vec<VarBytes>> = Arc::new(packets);
 
     println!(
         "\n--- `v3::decoder` Actor Model Simulation ({} jobs) ---",
@@ -538,13 +580,14 @@ async fn poll_actor_model_simulation_v3() {
     let simulation_start = std::time::Instant::now();
     let mut handles = Vec::with_capacity(NUM_TASKS);
 
-    for _ in 0..NUM_TASKS {
-        let data = data.clone();
+    for i in 0..NUM_TASKS {
+        let packets = data.clone();
+        let idx = i % packets.len();
+        let data = packets[idx].clone();
 
         handles.push(tokio::spawn(async move {
-            let mut buf: &[u8] = &data;
-            let _ =
-                futures_lite::future::block_on(PollPacket::new(&mut Default::default(), &mut buf));
+            let mut buf: &[u8] = data.as_ref();
+            let _ = Packet::decode_async(&mut buf).await;
         }));
     }
 

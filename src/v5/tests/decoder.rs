@@ -1413,10 +1413,74 @@ async fn poll_actor_model_simulation_v5() {
 
     const NUM_TASKS: usize = 100_000;
 
-    let data: Arc<Vec<u8>> = Arc::new(vec![
-        0b00010000, 22, 0x00, 0x04, b'M', b'Q', b'T', b'T', 0x05, 0b01000000, 0x00, 0x0a, 0x00,
-        0x00, 0x04, b't', b'e', b's', b't', 0x00, 0x03, b'm', b'q', b't',
-    ]);
+    let mut packets = Vec::new();
+
+    for len in [1, 8, 32, 128, 512] {
+        let client_id = "a".repeat(len);
+        let pkt = Packet::Connect(Connect {
+            protocol: Protocol::V500,
+            clean_start: true,
+            keep_alive: 60,
+            properties: Default::default(),
+            client_id: Arc::new(client_id),
+            last_will: None,
+            username: None,
+            password: None,
+        });
+        packets.push(pkt.encode().unwrap());
+    }
+
+    for size in [0, 2, 16, 128, 1024, 4096] {
+        let payload = vec![b'x'; size];
+        let pkt = Packet::Publish(Publish {
+            dup: false,
+            qos_pid: QosPid::Level1(Pid::try_from(1).unwrap()),
+            retain: false,
+            topic_name: TopicName::try_from("topic/test".to_owned()).unwrap(),
+            properties: Default::default(),
+            payload: Bytes::from(payload),
+        });
+        packets.push(pkt.encode().unwrap());
+    }
+
+    for qos in [QoS::Level0, QoS::Level1, QoS::Level2] {
+        let pkt = Packet::Subscribe(Subscribe {
+            pid: Pid::try_from(10).unwrap(),
+            properties: Default::default(),
+            topics: vec![(
+                TopicFilter::try_from("a/+".to_owned()).unwrap(),
+                SubscriptionOptions {
+                    max_qos: qos,
+                    no_local: false,
+                    retain_as_published: false,
+                    retain_handling: RetainHandling::SendAtSubscribe,
+                },
+            )],
+        });
+        packets.push(pkt.encode().unwrap());
+    }
+
+    for _ in 0..3 {
+        let pkt = Packet::Unsubscribe(Unsubscribe {
+            pid: Pid::try_from(20).unwrap(),
+            properties: Default::default(),
+            topics: vec![TopicFilter::try_from("b/#".to_owned()).unwrap()],
+        });
+        packets.push(pkt.encode().unwrap());
+    }
+
+    packets.push(Packet::Pingreq.encode().unwrap());
+    packets.push(Packet::Pingresp.encode().unwrap());
+    packets.push(
+        Packet::Disconnect(Disconnect {
+            reason_code: DisconnectReasonCode::NormalDisconnect,
+            properties: Default::default(),
+        })
+        .encode()
+        .unwrap(),
+    );
+
+    let data: Arc<Vec<VarBytes>> = Arc::new(packets);
 
     println!(
         "\n--- `v5::decoder` Actor Model Simulation ({} jobs) ---",
@@ -1432,13 +1496,14 @@ async fn poll_actor_model_simulation_v5() {
     let simulation_start = std::time::Instant::now();
     let mut handles = Vec::with_capacity(NUM_TASKS);
 
-    for _ in 0..NUM_TASKS {
-        let data = data.clone();
+    for i in 0..NUM_TASKS {
+        let packets = data.clone();
+        let idx = i % packets.len();
+        let data = packets[idx].clone();
 
         handles.push(tokio::spawn(async move {
-            let mut buf: &[u8] = &data;
-            let _ =
-                futures_lite::future::block_on(PollPacket::new(&mut Default::default(), &mut buf));
+            let mut buf: &[u8] = data.as_ref();
+            let _ = Packet::decode_async(&mut buf).await;
         }));
     }
 
