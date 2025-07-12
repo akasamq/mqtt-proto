@@ -34,18 +34,9 @@ jobs:
           echo "| Test | Start Bytes | End Bytes | Peak Bytes | Peak Blocks | Throughput (Mbps) | Jobs/sec | Avg Time/job (us) |" >> $GITHUB_STEP_SUMMARY
           echo "|------|-------------|-----------|------------|-------------|-------------------|----------|-------------------|" >> $GITHUB_STEP_SUMMARY
 
-          grep '^{.*"test":' "$temp_file" | jq -r '
-            [
-              .test,
-              .bytes[0],
-              .bytes[1],
-              .peak_bytes,
-              .peak_blocks,
-              (.throughput_mbps | @sprintf("%.2f")),
-              (.jobs_per_sec | @sprintf("%.2f")),
-              (.avg_time_per_job_us | @sprintf("%.2f"))
-            ] | @tsv
-          ' | while IFS=$'\t' read -r test start end peak_bytes peak_blocks throughput jobs_per_sec avg_time; do
+          grep '^{.*"test":' "$temp_file" | while read -r line; do
+            echo "$line" | jq -e -r '[.test, .bytes[0], .bytes[1], .peak_bytes, .peak_blocks, .throughput_mbps, .jobs_per_sec, .avg_time_per_job_us] | @tsv' 2>/dev/null
+          done | while IFS=$'\t' read -r test start end peak_bytes peak_blocks throughput jobs_per_sec avg_time; do
             echo "| $test | $start | $end | $peak_bytes | $peak_blocks | $throughput | $jobs_per_sec | $avg_time |" >> $GITHUB_STEP_SUMMARY
           done
 
