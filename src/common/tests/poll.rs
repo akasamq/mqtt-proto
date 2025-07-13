@@ -177,7 +177,7 @@ async fn poll_stream_simulation() {
         for chunk in mock_data.body.chunks(256) {
             reader_builder.read(chunk);
         }
-        let mut reader = reader_builder.build();
+        let mut reader = FromTokio::new(reader_builder.build());
 
         let mut state = GenericPollPacketState::<MockHeader>::default();
         let mut poll_packet = GenericPollPacket::new(&mut state, &mut reader);
@@ -258,11 +258,13 @@ async fn poll_actor_model_simulation() {
         handles.push(tokio::spawn(async move {
             let mock_data = &*data;
 
-            let mut reader = tokio_test::io::Builder::new()
-                .read(&[mock_data.control_byte])
-                .read(&mock_data.remaining_len_buf)
-                .read(&mock_data.body)
-                .build();
+            let mut reader = FromTokio::new(
+                tokio_test::io::Builder::new()
+                    .read(&[mock_data.control_byte])
+                    .read(&mock_data.remaining_len_buf)
+                    .read(&mock_data.body)
+                    .build(),
+            );
 
             let mut state = GenericPollPacketState::<MockHeader>::default();
             let mut poll_packet = GenericPollPacket::new(&mut state, &mut reader);

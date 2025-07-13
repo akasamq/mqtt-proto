@@ -1,17 +1,13 @@
-use std::convert::AsRef;
-use std::fmt;
-use std::io;
+use core::convert::AsRef;
 
-use futures_lite::future::block_on;
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+use crate::{
+    block_on, decode_raw_header, encode_packet, packet_from, total_len, AsyncRead, AsyncWrite,
+    Encodable, Error, QoS, QosPid, VarBytes,
+};
 
 use super::{
     Auth, Connack, Connect, Disconnect, ErrorV5, Puback, Pubcomp, Publish, Pubrec, Pubrel, Suback,
     Subscribe, Unsuback, Unsubscribe,
-};
-use crate::{
-    decode_raw_header, encode_packet, packet_from, total_len, Encodable, Error, QoS, QosPid,
-    VarBytes,
 };
 
 /// MQTT v5.0 packet types.
@@ -99,11 +95,8 @@ impl Packet {
 
     /// Asynchronously encode the packet to an async writer.
     pub async fn encode_async<T: AsyncWrite + Unpin>(&self, writer: &mut T) -> Result<(), ErrorV5> {
-        let data = self.encode()?;
-        writer
-            .write_all(data.as_ref())
-            .await
-            .map_err(|err| Error::IoError(err.kind(), err.to_string()))?;
+        let data = self.encode().map_err(ErrorV5::Common)?;
+        writer.write_all(data.as_ref()).await?;
         Ok(())
     }
 
@@ -112,14 +105,14 @@ impl Packet {
     pub fn decode(mut bytes: &[u8]) -> Result<Option<Self>, ErrorV5> {
         match block_on(Self::decode_async(&mut bytes)) {
             Ok(pkt) => Ok(Some(pkt)),
-            Err(ErrorV5::Common(Error::IoError(kind, info))) => {
-                if kind == io::ErrorKind::UnexpectedEof {
-                    Ok(None)
-                } else {
-                    Err(Error::IoError(kind, info).into())
+            Err(err) => {
+                if let ErrorV5::Common(e) = &err {
+                    if e.is_eof() {
+                        return Ok(None);
+                    }
                 }
+                Err(err)
             }
-            Err(err) => Err(err),
         }
     }
 
@@ -244,8 +237,8 @@ pub enum PacketType {
     Auth,
 }
 
-impl fmt::Display for PacketType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl core::fmt::Display for PacketType {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{self:?}")
     }
 }

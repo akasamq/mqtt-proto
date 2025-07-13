@@ -1,12 +1,13 @@
-use std::convert::TryFrom;
-use std::fmt;
-use std::sync::Arc;
+use core::convert::TryFrom;
+
+use alloc::string::String;
+use alloc::sync::Arc;
 
 use bytes::Bytes;
-use tokio::io::AsyncRead;
+
+use crate::{read_bytes, read_string, read_u16, read_u32, read_u8, AsyncRead, Error, TopicName};
 
 use super::ErrorV5;
-use crate::{read_bytes, read_string, read_u16, read_u32, read_u8, Error, TopicName};
 
 /// [Property identifier](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901027)
 ///
@@ -110,8 +111,8 @@ impl PropertyId {
     }
 }
 
-impl fmt::Display for PropertyId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl core::fmt::Display for PropertyId {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{self:?}")
     }
 }

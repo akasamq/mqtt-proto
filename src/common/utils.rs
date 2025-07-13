@@ -1,10 +1,11 @@
-use std::io;
-use std::slice;
+use core::slice;
+
+use alloc::string::String;
+use alloc::vec::Vec;
 
 use simdutf8::basic::from_utf8;
-use tokio::io::{AsyncRead, AsyncReadExt};
 
-use crate::{Encodable, Error};
+use crate::{from_read_exact_error, AsyncRead, Encodable, Error, SyncWrite};
 
 /// Read first byte(packet type and flags) and decode remaining length
 #[inline]
@@ -24,8 +25,11 @@ pub(crate) async fn read_string<T: AsyncRead + Unpin>(reader: &mut T) -> Result<
 #[inline]
 pub(crate) async fn read_bytes<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Vec<u8>, Error> {
     let data_len = read_u16(reader).await?;
-    let mut data_buf = vec![0u8; data_len as usize];
-    reader.read_exact(&mut data_buf).await?;
+    let mut data_buf = alloc::vec![0u8; data_len as usize];
+    reader
+        .read_exact(&mut data_buf)
+        .await
+        .map_err(from_read_exact_error)?;
     Ok(data_buf)
 }
 
@@ -33,47 +37,65 @@ pub(crate) async fn read_bytes<T: AsyncRead + Unpin>(reader: &mut T) -> Result<V
 #[inline]
 pub(crate) async fn read_u32<T: AsyncRead + Unpin>(reader: &mut T) -> Result<u32, Error> {
     let mut len4_bytes = [0u8; 4];
-    reader.read_exact(&mut len4_bytes).await?;
+    reader
+        .read_exact(&mut len4_bytes)
+        .await
+        .map_err(from_read_exact_error)?;
     Ok(u32::from_be_bytes(len4_bytes))
 }
 
 #[inline]
 pub(crate) async fn read_u16<T: AsyncRead + Unpin>(reader: &mut T) -> Result<u16, Error> {
     let mut len2_bytes = [0u8; 2];
-    reader.read_exact(&mut len2_bytes).await?;
+    reader
+        .read_exact(&mut len2_bytes)
+        .await
+        .map_err(from_read_exact_error)?;
     Ok(u16::from_be_bytes(len2_bytes))
 }
 
 #[inline]
 pub(crate) async fn read_u8<T: AsyncRead + Unpin>(reader: &mut T) -> Result<u8, Error> {
-    let mut byte = 0u8;
-    reader.read_exact(slice::from_mut(&mut byte)).await?;
-    Ok(byte)
+    let mut byte = [0u8; 1];
+    reader
+        .read_exact(&mut byte)
+        .await
+        .map_err(from_read_exact_error)?;
+    Ok(byte[0])
+}
+
+pub(crate) fn write_string<W: SyncWrite>(writer: &mut W, value: &str) -> Result<(), Error> {
+    write_bytes(writer, value.as_bytes())?;
+    Ok(())
 }
 
 #[inline]
-pub(crate) fn write_bytes<W: io::Write>(writer: &mut W, data: &[u8]) -> io::Result<()> {
+pub(crate) fn write_bytes<W: SyncWrite>(writer: &mut W, data: &[u8]) -> Result<(), Error> {
     write_u16(writer, data.len() as u16)?;
-    writer.write_all(data)
+    writer.write_all(data)?;
+    Ok(())
 }
 
 #[inline]
-pub(crate) fn write_u32<W: io::Write>(writer: &mut W, value: u32) -> io::Result<()> {
-    writer.write_all(&value.to_be_bytes())
+pub(crate) fn write_u32<W: SyncWrite>(writer: &mut W, value: u32) -> Result<(), Error> {
+    writer.write_all(&value.to_be_bytes())?;
+    Ok(())
 }
 
 #[inline]
-pub(crate) fn write_u16<W: io::Write>(writer: &mut W, value: u16) -> io::Result<()> {
-    writer.write_all(&value.to_be_bytes())
+pub(crate) fn write_u16<W: SyncWrite>(writer: &mut W, value: u16) -> Result<(), Error> {
+    writer.write_all(&value.to_be_bytes())?;
+    Ok(())
 }
 
 #[inline]
-pub(crate) fn write_u8<W: io::Write>(writer: &mut W, value: u8) -> io::Result<()> {
-    writer.write_all(slice::from_ref(&value))
+pub(crate) fn write_u8<W: SyncWrite>(writer: &mut W, value: u8) -> Result<(), Error> {
+    writer.write_all(slice::from_ref(&value))?;
+    Ok(())
 }
 
 #[inline]
-pub(crate) fn write_var_int<W: io::Write>(writer: &mut W, mut len: usize) -> io::Result<()> {
+pub(crate) fn write_var_int<W: SyncWrite>(writer: &mut W, mut len: usize) -> Result<(), Error> {
     loop {
         let mut byte = (len % 128) as u8;
         len /= 128;
@@ -93,11 +115,15 @@ pub(crate) fn write_var_int<W: io::Write>(writer: &mut W, mut len: usize) -> io:
 pub(crate) async fn decode_var_int<T: AsyncRead + Unpin>(
     reader: &mut T,
 ) -> Result<(u32, usize), Error> {
-    let mut byte = 0u8;
     let mut var_int: u32 = 0;
     let mut i = 0;
     loop {
-        reader.read_exact(slice::from_mut(&mut byte)).await?;
+        let mut buf = [0u8; 1];
+        reader
+            .read_exact(&mut buf)
+            .await
+            .map_err(from_read_exact_error)?;
+        let byte = buf[0];
         var_int |= (u32::from(byte) & 0x7F) << (7 * i);
         if byte & 0x80 == 0 {
             break;
@@ -175,7 +201,7 @@ pub(crate) fn encode_packet<E: Encodable>(control_byte: u8, body: &E) -> Result<
 
     // encode header
     buf.push(control_byte);
-    write_var_int(&mut buf, remaining_len).expect("encode header write var int");
+    write_var_int(&mut buf, remaining_len)?;
 
     body.encode(&mut buf)?;
     debug_assert_eq!(buf.len(), total);
@@ -198,8 +224,9 @@ pub(crate) use packet_from;
 
 #[cfg(test)]
 mod tests {
+    use crate::block_on;
+
     use super::*;
-    use futures_lite::future::block_on;
 
     #[test]
     fn test_decode_var_int() {

@@ -1,25 +1,29 @@
-use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
-use std::convert::TryFrom;
-use std::fmt;
-use std::hash::{Hash, Hasher};
-use std::io;
-use std::ops::Deref;
-use std::slice;
-use std::sync::Arc;
+use core::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
+use core::convert::TryFrom;
+use core::fmt;
+use core::hash::{Hash, Hasher};
+use core::ops::Deref;
+
+use alloc::string::String;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
 
 use simdutf8::basic::from_utf8;
-use tokio::io::AsyncRead;
+
+use crate::{
+    write_bytes, write_u8, AsyncRead, Error, SyncWrite, LEVEL_SEP, MATCH_ALL_CHAR, MATCH_ONE_CHAR,
+    SHARED_PREFIX, SYS_PREFIX,
+};
 
 use super::{read_bytes, read_u8};
-use crate::{Error, LEVEL_SEP, MATCH_ALL_CHAR, MATCH_ONE_CHAR, SHARED_PREFIX, SYS_PREFIX};
 
 pub const MQISDP: &[u8] = b"MQIsdp";
 pub const MQTT: &[u8] = b"MQTT";
 
-/// The ability of encoding type into `io::Write`, and calculating encoded size.
+/// The ability of encoding type into write trait, and calculating encoded size.
 pub trait Encodable {
-    /// Encode type into `io::Write`
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()>;
+    /// Encode type into writer
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error>;
     /// Calculate the encoded size.
     fn encode_len(&self) -> usize;
 }
@@ -84,11 +88,10 @@ impl fmt::Display for Protocol {
 }
 
 impl Encodable for Protocol {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         let (name, level) = self.to_pair();
-        writer.write_all(&(name.len() as u16).to_be_bytes())?;
-        writer.write_all(name)?;
-        writer.write_all(slice::from_ref(&level))?;
+        write_bytes(writer, name)?;
+        write_u8(writer, level)?;
         Ok(())
     }
 
@@ -155,7 +158,7 @@ impl core::ops::Sub<u16> for Pid {
     /// Subing a `u16` to a `Pid` will wrap around and avoid 0.
     fn sub(self, u: u16) -> Pid {
         let n = match self.0.overflowing_sub(u) {
-            (0, _) => core::u16::MAX,
+            (0, _) => u16::MAX,
             (n, false) => n,
             (n, true) => n - 1,
         };
@@ -246,10 +249,10 @@ pub struct TopicName(Arc<String>);
 impl TopicName {
     /// Check if the topic name is invalid.
     pub fn is_invalid(value: &str) -> bool {
-        if value.len() > u16::max_value() as usize {
+        if value.len() > u16::MAX as usize {
             return true;
         }
-        value.contains(|c| c == MATCH_ONE_CHAR || c == MATCH_ALL_CHAR || c == '\0')
+        value.contains([MATCH_ONE_CHAR, MATCH_ALL_CHAR, '\0'])
     }
 
     pub fn is_shared(&self) -> bool {
@@ -304,7 +307,7 @@ impl TopicFilter {
     ///
     ///   * The u16 returned is where the bytes index of '/' char before shared topic filter
     pub fn is_invalid(value: &str) -> (bool, u16) {
-        if value.len() > u16::max_value() as usize {
+        if value.len() > u16::MAX as usize {
             return (true, 0);
         }
 
@@ -511,11 +514,13 @@ impl AsRef<[u8]> for VarBytes {
 
 #[cfg(test)]
 mod tests {
+    use alloc::borrow::ToOwned;
+
     use super::*;
 
     #[test]
     fn pid_add_sub() {
-        let t: Vec<(u16, u16, u16, u16)> = vec![
+        let t: Vec<(u16, u16, u16, u16)> = alloc::vec![
             (2, 1, 1, 3),
             (100, 1, 99, 101),
             (1, 1, core::u16::MAX, 2),
@@ -657,7 +662,7 @@ mod tests {
             let result = if is_invalid { (true, 0) } else { (false, 10) };
             assert_eq!(
                 result,
-                TopicFilter::is_invalid(format!("$share/xyz/{}", topic).as_str()),
+                TopicFilter::is_invalid(alloc::format!("$share/xyz/{}", topic).as_str()),
             );
         }
 

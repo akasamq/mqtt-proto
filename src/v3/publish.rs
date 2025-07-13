@@ -1,12 +1,13 @@
-use std::io;
+use alloc::vec::Vec;
 
 use bytes::Bytes;
-use tokio::io::{AsyncRead, AsyncReadExt};
+
+use crate::{
+    from_read_exact_error, read_string, read_u16, write_string, write_u16, AsyncRead, Encodable,
+    Error, Pid, QoS, QosPid, SyncWrite, TopicName,
+};
 
 use super::Header;
-use crate::{
-    read_string, read_u16, write_bytes, write_u16, Encodable, Error, Pid, QoS, QosPid, TopicName,
-};
 
 /// Publish packet body type.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -67,8 +68,11 @@ impl Publish {
             }
         };
         let payload = if remaining_len > 0 {
-            let mut data = vec![0u8; remaining_len];
-            reader.read_exact(&mut data).await?;
+            let mut data = alloc::vec![0u8; remaining_len];
+            reader
+                .read_exact(&mut data)
+                .await
+                .map_err(from_read_exact_error)?;
             data
         } else {
             Vec::new()
@@ -84,8 +88,8 @@ impl Publish {
 }
 
 impl Encodable for Publish {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        write_bytes(writer, self.topic_name.as_bytes())?;
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_string(writer, &self.topic_name)?;
         match self.qos_pid {
             QosPid::Level0 => {}
             QosPid::Level1(pid) | QosPid::Level2(pid) => {

@@ -1,13 +1,13 @@
-use std::convert::TryFrom;
-use std::io;
-use std::sync::Arc;
+use core::convert::TryFrom;
+
+use alloc::string::String;
+use alloc::sync::Arc;
 
 use bytes::Bytes;
-use tokio::io::{AsyncRead, AsyncReadExt};
 
 use crate::{
-    read_bytes, read_string, read_u16, read_u8, write_bytes, write_u16, write_u8, Encodable, Error,
-    Protocol, QoS, TopicName,
+    from_read_exact_error, read_bytes, read_string, read_u16, read_u8, write_bytes, write_string,
+    write_u16, write_u8, AsyncRead, Encodable, Error, Protocol, QoS, SyncWrite, TopicName,
 };
 
 /// Connect packet body type.
@@ -109,7 +109,7 @@ impl Connect {
 }
 
 impl Encodable for Connect {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         let mut connect_flags: u8 = 0b00000000;
         if self.clean_session {
             connect_flags |= 0b10;
@@ -131,12 +131,12 @@ impl Encodable for Connect {
         self.protocol.encode(writer)?;
         write_u8(writer, connect_flags)?;
         write_u16(writer, self.keep_alive)?;
-        write_bytes(writer, self.client_id.as_bytes())?;
+        write_string(writer, &self.client_id)?;
         if let Some(last_will) = self.last_will.as_ref() {
             last_will.encode(writer)?;
         }
         if let Some(username) = self.username.as_ref() {
-            write_bytes(writer, username.as_bytes())?;
+            write_string(writer, username)?;
         }
         if let Some(password) = self.password.as_ref() {
             write_bytes(writer, password.as_ref())?;
@@ -181,7 +181,10 @@ impl Connack {
 
     pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
         let mut payload = [0u8; 2];
-        reader.read_exact(&mut payload).await?;
+        reader
+            .read_exact(&mut payload)
+            .await
+            .map_err(from_read_exact_error)?;
         let session_present = match payload[0] {
             0 => false,
             1 => true,
@@ -233,8 +236,8 @@ impl LastWill {
 }
 
 impl Encodable for LastWill {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        write_bytes(writer, self.topic_name.as_bytes())?;
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
+        write_string(writer, &self.topic_name)?;
         write_bytes(writer, self.message.as_ref())?;
         Ok(())
     }

@@ -1,16 +1,20 @@
-use bytes::Bytes;
-use std::sync::Arc;
+use alloc::borrow::ToOwned;
+use alloc::string::ToString;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
 
-use futures_lite::future::block_on;
+use bytes::Bytes;
 
 use crate::v5::*;
 use crate::*;
-use QoS::*;
 
 #[test]
 fn test_v5_header_firstbyte() {
     use PacketType::*;
-    let valid = vec![
+    use QoS::*;
+
+    #[rustfmt::skip]
+    let valid = alloc::vec![
         (0b0001_0000, Header::new(Connect, false, Level0, false, 0)),
         (0b0010_0000, Header::new(Connack, false, Level0, false, 0)),
         (0b0011_0000, Header::new(Publish, false, Level0, false, 0)),
@@ -31,17 +35,11 @@ fn test_v5_header_firstbyte() {
         (0b0111_0000, Header::new(Pubcomp, false, Level0, false, 0)),
         (0b1000_0010, Header::new(Subscribe, false, Level0, false, 0)),
         (0b1001_0000, Header::new(Suback, false, Level0, false, 0)),
-        (
-            0b1010_0010,
-            Header::new(Unsubscribe, false, Level0, false, 0),
-        ),
+        (0b1010_0010, Header::new(Unsubscribe, false, Level0, false, 0)),
         (0b1011_0000, Header::new(Unsuback, false, Level0, false, 0)),
         (0b1100_0000, Header::new(Pingreq, false, Level0, false, 0)),
         (0b1101_0000, Header::new(Pingresp, false, Level0, false, 0)),
-        (
-            0b1110_0000,
-            Header::new(Disconnect, false, Level0, false, 0),
-        ),
+        (0b1110_0000, Header::new(Disconnect, false, Level0, false, 0)),
         (0b1111_0000, Header::new(Auth, false, Level0, false, 0)),
     ];
     for n in 0..=255 {
@@ -58,29 +56,31 @@ fn test_v5_header_firstbyte() {
 #[test]
 fn test_v5_header_len() {
     use PacketType::*;
-    for (bytes, res) in vec![
+    use QoS::*;
+
+    for (bytes, res) in alloc::vec![
         (
-            vec![1 << 4, 0],
+            alloc::vec![1 << 4, 0],
             Ok(Header::new(Connect, false, Level0, false, 0)),
         ),
         (
-            vec![1 << 4, 127],
+            alloc::vec![1 << 4, 127],
             Ok(Header::new(Connect, false, Level0, false, 127)),
         ),
         (
-            vec![1 << 4, 0x80, 0],
+            alloc::vec![1 << 4, 0x80, 0],
             Ok(Header::new(Connect, false, Level0, false, 0)),
         ), //Weird encoding for "0" buf matches spec
         (
-            vec![1 << 4, 0x80, 1],
+            alloc::vec![1 << 4, 0x80, 1],
             Ok(Header::new(Connect, false, Level0, false, 128)),
         ),
         (
-            vec![1 << 4, 0x80 + 16, 78],
+            alloc::vec![1 << 4, 0x80 + 16, 78],
             Ok(Header::new(Connect, false, Level0, false, 10000)),
         ),
         (
-            vec![1 << 4, 0x80, 0x80, 0x80, 0x80],
+            alloc::vec![1 << 4, 0x80, 0x80, 0x80, 0x80],
             Err(Error::InvalidVarByteInt.into()),
         ),
     ] {
@@ -128,7 +128,7 @@ fn test_v5_decode_connect() {
             client_id: Arc::new("test".to_string()),
             last_will: None,
             username: None,
-            password: Some(Bytes::from(vec![b'm', b'q', b't'])),
+            password: Some(Bytes::from(alloc::vec![b'm', b'q', b't'])),
         })
     );
     assert_eq!(
@@ -519,7 +519,7 @@ fn test_v5_decode_publish() {
             retain: false,
             topic_name: TopicName::try_from("xy".to_string()).unwrap(),
             properties: Default::default(),
-            payload: Bytes::from(vec![0xaa, 0xbb]),
+            payload: Bytes::from(alloc::vec![0xaa, 0xbb]),
         })
     );
     assert_eq!(
@@ -554,7 +554,7 @@ fn test_v5_decode_publish() {
                 topic_alias: Some(0x1133),
                 ..Default::default()
             },
-            payload: Bytes::from(vec![0xaa, 0xbb]),
+            payload: Bytes::from(alloc::vec![0xaa, 0xbb]),
         })
     );
     assert_eq!(
@@ -1063,7 +1063,7 @@ fn test_v5_decode_subscribe() {
                 subscription_id: Some(VarByteInt::try_from(16383).unwrap()),
                 user_properties: Vec::new(),
             },
-            topics: vec![(
+            topics: alloc::vec![(
                 TopicFilter::try_from("/+".to_string()).unwrap(),
                 SubscriptionOptions {
                     max_qos: QoS::Level0,
@@ -1098,7 +1098,7 @@ fn test_v5_decode_subscribe() {
         Packet::Subscribe(Subscribe {
             pid: Pid::try_from(0x1122).unwrap(),
             properties: Default::default(),
-            topics: vec![(
+            topics: alloc::vec![(
                 TopicFilter::try_from("/+".to_string()).unwrap(),
                 SubscriptionOptions {
                     max_qos: QoS::Level2,
@@ -1183,7 +1183,7 @@ fn test_v5_decode_suback() {
                 reason_string: Some(Arc::new("e".to_string())),
                 user_properties: Vec::new(),
             },
-            topics: vec![
+            topics: alloc::vec![
                 SubscribeReasonCode::ImplementationSpecificError,
                 SubscribeReasonCode::QuotaExceeded
             ]
@@ -1251,7 +1251,7 @@ fn test_v5_decode_unsubscribe() {
         Packet::decode(data).unwrap().unwrap(),
         Packet::Unsubscribe(Unsubscribe {
             pid: Pid::try_from(0x1122).unwrap(),
-            properties: vec![
+            properties: alloc::vec![
                 UserProperty {
                     name: Arc::new("k1".to_string()),
                     value: Arc::new("v1".to_string()),
@@ -1262,7 +1262,7 @@ fn test_v5_decode_unsubscribe() {
                 },
             ]
             .into(),
-            topics: vec![
+            topics: alloc::vec![
                 TopicFilter::try_from("/+".to_string()).unwrap(),
                 TopicFilter::try_from("/".to_string()).unwrap(),
             ],
@@ -1333,7 +1333,7 @@ fn test_v5_decode_unsuback() {
                 reason_string: Some(Arc::new("e".to_string())),
                 user_properties: Vec::new(),
             },
-            topics: vec![
+            topics: alloc::vec![
                 UnsubscribeReasonCode::Success,
                 UnsubscribeReasonCode::TopicFilterInvalid,
             ]

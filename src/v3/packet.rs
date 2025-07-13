@@ -1,12 +1,11 @@
-use futures_lite::future::block_on;
-use std::convert::AsRef;
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+use core::convert::AsRef;
+
+use crate::{
+    block_on, decode_raw_header, encode_packet, packet_from, read_u16, total_len, AsyncRead,
+    AsyncWrite, Encodable, Error, Pid, QoS, QosPid, VarBytes,
+};
 
 use super::{Connack, Connect, Publish, Suback, Subscribe, Unsubscribe};
-use crate::{
-    decode_raw_header, encode_packet, packet_from, read_u16, total_len, Encodable, Error, Pid, QoS,
-    QosPid, VarBytes,
-};
 
 /// MQTT v3.x packet types.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -124,22 +123,22 @@ impl Packet {
         let data = match self {
             Packet::Pingreq => {
                 const CONTROL_BYTE: u8 = 0b11000000;
-                VarBytes::Fixed2([CONTROL_BYTE, VOID_PACKET_REMAINING_LEN])
+                return Ok(VarBytes::Fixed2([CONTROL_BYTE, VOID_PACKET_REMAINING_LEN]));
             }
             Packet::Pingresp => {
                 const CONTROL_BYTE: u8 = 0b11010000;
-                VarBytes::Fixed2([CONTROL_BYTE, VOID_PACKET_REMAINING_LEN])
+                return Ok(VarBytes::Fixed2([CONTROL_BYTE, VOID_PACKET_REMAINING_LEN]));
             }
             Packet::Connect(connect) => {
                 const CONTROL_BYTE: u8 = 0b00010000;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, connect)?)
+                encode_packet(CONTROL_BYTE, connect)?
             }
             Packet::Connack(connack) => {
                 const CONTROL_BYTE: u8 = 0b00100000;
                 const REMAINING_LEN: u8 = 2;
                 let flags: u8 = connack.session_present.into();
                 let rc: u8 = connack.code as u8;
-                VarBytes::Fixed4([CONTROL_BYTE, REMAINING_LEN, flags, rc])
+                return Ok(VarBytes::Fixed4([CONTROL_BYTE, REMAINING_LEN, flags, rc]));
             }
             Packet::Publish(publish) => {
                 let mut control_byte: u8 = match publish.qos_pid {
@@ -153,46 +152,46 @@ impl Packet {
                 if publish.retain {
                     control_byte |= 0b00000001;
                 }
-                VarBytes::Dynamic(encode_packet(control_byte, publish)?)
+                encode_packet(control_byte, publish)?
             }
             Packet::Puback(pid) => {
                 const CONTROL_BYTE: u8 = 0b01000000;
-                VarBytes::Fixed4(encode_with_pid(CONTROL_BYTE, *pid))
+                return Ok(VarBytes::Fixed4(encode_with_pid(CONTROL_BYTE, *pid)));
             }
             Packet::Pubrec(pid) => {
                 const CONTROL_BYTE: u8 = 0b01010000;
-                VarBytes::Fixed4(encode_with_pid(CONTROL_BYTE, *pid))
+                return Ok(VarBytes::Fixed4(encode_with_pid(CONTROL_BYTE, *pid)));
             }
             Packet::Pubrel(pid) => {
                 const CONTROL_BYTE: u8 = 0b01100010;
-                VarBytes::Fixed4(encode_with_pid(CONTROL_BYTE, *pid))
+                return Ok(VarBytes::Fixed4(encode_with_pid(CONTROL_BYTE, *pid)));
             }
             Packet::Pubcomp(pid) => {
                 const CONTROL_BYTE: u8 = 0b01110000;
-                VarBytes::Fixed4(encode_with_pid(CONTROL_BYTE, *pid))
+                return Ok(VarBytes::Fixed4(encode_with_pid(CONTROL_BYTE, *pid)));
             }
             Packet::Subscribe(subscribe) => {
                 const CONTROL_BYTE: u8 = 0b10000010;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, subscribe)?)
+                encode_packet(CONTROL_BYTE, subscribe)?
             }
             Packet::Suback(suback) => {
                 const CONTROL_BYTE: u8 = 0b10010000;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, suback)?)
+                encode_packet(CONTROL_BYTE, suback)?
             }
             Packet::Unsubscribe(unsubscribe) => {
                 const CONTROL_BYTE: u8 = 0b10100010;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, unsubscribe)?)
+                encode_packet(CONTROL_BYTE, unsubscribe)?
             }
             Packet::Unsuback(pid) => {
                 const CONTROL_BYTE: u8 = 0b10110000;
-                VarBytes::Fixed4(encode_with_pid(CONTROL_BYTE, *pid))
+                return Ok(VarBytes::Fixed4(encode_with_pid(CONTROL_BYTE, *pid)));
             }
             Packet::Disconnect => {
                 const CONTROL_BYTE: u8 = 0b11100000;
-                VarBytes::Fixed2([CONTROL_BYTE, VOID_PACKET_REMAINING_LEN])
+                return Ok(VarBytes::Fixed2([CONTROL_BYTE, VOID_PACKET_REMAINING_LEN]));
             }
         };
-        Ok(data)
+        Ok(VarBytes::Dynamic(data))
     }
 
     /// Return the total length of bytes the packet encoded into.

@@ -1,10 +1,8 @@
-use std::io;
-
-use tokio::io::AsyncRead;
+use alloc::vec::Vec;
 
 use crate::{
-    read_string, read_u16, read_u8, write_bytes, write_u16, write_u8, Encodable, Error, Pid, QoS,
-    TopicFilter,
+    read_string, read_u16, read_u8, write_string, write_u16, write_u8, AsyncRead, Encodable, Error,
+    Pid, QoS, SyncWrite, TopicFilter,
 };
 
 /// Subscribe packet body type.
@@ -61,10 +59,10 @@ impl Subscribe {
 }
 
 impl Encodable for Subscribe {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         write_u16(writer, self.pid.value())?;
         for (topic_filter, max_qos) in &self.topics {
-            write_bytes(writer, topic_filter.as_bytes())?;
+            write_string(writer, topic_filter)?;
             write_u8(writer, *max_qos as u8)?;
         }
         Ok(())
@@ -104,7 +102,7 @@ impl Suback {
 }
 
 impl Encodable for Suback {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         write_u16(writer, self.pid.value())?;
         for code in &self.topics {
             write_u8(writer, *code as u8)?;
@@ -145,10 +143,10 @@ impl Unsubscribe {
 }
 
 impl Encodable for Unsubscribe {
-    fn encode<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+    fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         write_u16(writer, self.pid.value())?;
         for topic_filter in &self.topics {
-            write_bytes(writer, topic_filter.as_bytes())?;
+            write_string(writer, topic_filter)?;
         }
         Ok(())
     }

@@ -1,17 +1,20 @@
-use std::ops::Deref;
-use std::sync::Arc;
+use core::ops::Deref;
+
+use alloc::borrow::ToOwned;
+use alloc::sync::Arc;
 
 use bytes::Bytes;
-use futures_lite::future::block_on;
 
 use crate::v3::*;
 use crate::*;
-use QoS::*;
 
 #[test]
 fn test_header_firstbyte() {
     use PacketType::*;
-    let valid = vec![
+    use QoS::*;
+
+    #[rustfmt::skip]
+    let valid = alloc::vec![
         (0b0001_0000, Header::new(Connect, false, Level0, false, 0)),
         (0b0010_0000, Header::new(Connack, false, Level0, false, 0)),
         (0b0011_0000, Header::new(Publish, false, Level0, false, 0)),
@@ -32,17 +35,11 @@ fn test_header_firstbyte() {
         (0b0111_0000, Header::new(Pubcomp, false, Level0, false, 0)),
         (0b1000_0010, Header::new(Subscribe, false, Level0, false, 0)),
         (0b1001_0000, Header::new(Suback, false, Level0, false, 0)),
-        (
-            0b1010_0010,
-            Header::new(Unsubscribe, false, Level0, false, 0),
-        ),
+        (0b1010_0010, Header::new(Unsubscribe, false, Level0, false, 0)),
         (0b1011_0000, Header::new(Unsuback, false, Level0, false, 0)),
         (0b1100_0000, Header::new(Pingreq, false, Level0, false, 0)),
         (0b1101_0000, Header::new(Pingresp, false, Level0, false, 0)),
-        (
-            0b1110_0000,
-            Header::new(Disconnect, false, Level0, false, 0),
-        ),
+        (0b1110_0000, Header::new(Disconnect, false, Level0, false, 0)),
     ];
     for n in 0..=255 {
         let res = match valid.iter().find(|(byte, _)| *byte == n) {
@@ -58,29 +55,31 @@ fn test_header_firstbyte() {
 #[test]
 fn test_header_len() {
     use PacketType::*;
-    for (bytes, res) in vec![
+    use QoS::*;
+
+    for (bytes, res) in alloc::vec![
         (
-            vec![1 << 4, 0],
+            alloc::vec![1 << 4, 0],
             Ok(Header::new(Connect, false, Level0, false, 0)),
         ),
         (
-            vec![1 << 4, 127],
+            alloc::vec![1 << 4, 127],
             Ok(Header::new(Connect, false, Level0, false, 127)),
         ),
         (
-            vec![1 << 4, 0x80, 0],
+            alloc::vec![1 << 4, 0x80, 0],
             Ok(Header::new(Connect, false, Level0, false, 0)),
         ), //Weird encoding for "0" buf matches spec
         (
-            vec![1 << 4, 0x80, 1],
+            alloc::vec![1 << 4, 0x80, 1],
             Ok(Header::new(Connect, false, Level0, false, 128)),
         ),
         (
-            vec![1 << 4, 0x80 + 16, 78],
+            alloc::vec![1 << 4, 0x80 + 16, 78],
             Ok(Header::new(Connect, false, Level0, false, 10000)),
         ),
         (
-            vec![1 << 4, 0x80, 0x80, 0x80, 0x80],
+            alloc::vec![1 << 4, 0x80, 0x80, 0x80, 0x80],
             Err(Error::InvalidVarByteInt),
         ),
     ] {
@@ -446,7 +445,7 @@ fn test_decode_subscribe() {
         Packet::decode(data).unwrap().unwrap(),
         Packet::Subscribe(v3::Subscribe {
             pid: Pid::try_from(10).unwrap(),
-            topics: vec![(
+            topics: alloc::vec![(
                 TopicFilter::try_from("a/b".to_owned()).unwrap(),
                 QoS::Level0
             )],
@@ -467,7 +466,7 @@ fn test_decode_suback() {
         Packet::decode(data).unwrap().unwrap(),
         Packet::Suback(v3::Suback {
             pid: Pid::try_from(10).unwrap(),
-            topics: vec![SubscribeReturnCode::MaxLevel2],
+            topics: alloc::vec![SubscribeReturnCode::MaxLevel2],
         })
     );
     assert_eq!(
@@ -485,7 +484,7 @@ fn test_decode_unsubscribe() {
         Packet::decode(data).unwrap().unwrap(),
         Packet::Unsubscribe(v3::Unsubscribe {
             pid: Pid::try_from(10).unwrap(),
-            topics: vec![TopicFilter::try_from("a".to_owned()).unwrap(),],
+            topics: alloc::vec![TopicFilter::try_from("a".to_owned()).unwrap(),],
         })
     );
     assert_eq!(

@@ -1,8 +1,10 @@
-use std::mem;
-use std::sync::Arc;
+use core::mem;
+
+use alloc::string::ToString;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
 
 use bytes::Bytes;
-use futures_lite::future::block_on;
 
 use crate::v5::*;
 use crate::*;
@@ -64,12 +66,12 @@ fn test_v5_encode_connect() {
             // 2 + 3 = 5
             topic_name: TopicName::try_from("a/b".to_string()).unwrap(),
             // 2 + 2 = 4
-            payload: Bytes::from(vec![0u8, 1u8]),
+            payload: Bytes::from(alloc::vec![0u8, 1u8]),
         }),
         // 2 + 6 = 8
         username: Some(Arc::new("nahida".to_string())),
         // 2 + 2 = 4
-        password: Some(Bytes::from(vec![3u8, 4u8])),
+        password: Some(Bytes::from(alloc::vec![3u8, 4u8])),
     };
 
     let len = [
@@ -119,7 +121,7 @@ fn test_v5_encode_connack() {
             // 1 + 2 + 3 = 6
             auth_method: Some(Arc::new("tls".to_string())),
             // 1 + 4 + 9 = 14
-            user_properties: vec![UserProperty {
+            user_properties: alloc::vec![UserProperty {
                 name: Arc::new("name".to_string()),
                 value: Arc::new("value".to_string()),
             }],
@@ -242,11 +244,11 @@ fn test_v5_encode_publish() {
             // 1 + 2 = 3
             topic_alias: Some(23),
             // 1 + 2 + 2 = 5
-            correlation_data: Some(Bytes::from(vec![0u8, 1])),
+            correlation_data: Some(Bytes::from(alloc::vec![0u8, 1])),
             ..Default::default()
         },
         // 3
-        payload: Bytes::from(vec![1u8, 2u8, 3u8]),
+        payload: Bytes::from(alloc::vec![1u8, 2u8, 3u8]),
     };
     let len = [
         2, // header
@@ -298,7 +300,7 @@ fn test_v5_encode_puback() {
             // 1 + 2 + 4 = 7
             reason_string: Some(Arc::new("auth".to_string())),
             // 13 + 14 = 27
-            user_properties: vec![
+            user_properties: alloc::vec![
                 // 1 + 4 + 9 = 14
                 UserProperty {
                     name: Arc::new("name".to_string()),
@@ -354,7 +356,7 @@ fn test_v5_encode_puback() {
         reason_code: PubackReasonCode::Success,
         properties: PubackProperties {
             reason_string: Some(Arc::new("".to_string())),
-            user_properties: vec![],
+            user_properties: alloc::vec![],
         },
     };
     let len = [
@@ -380,7 +382,7 @@ fn test_v5_encode_pubrec() {
             // 1 + 2 + 4 = 7
             reason_string: Some(Arc::new("auth".to_string())),
             // 13 + 14 = 27
-            user_properties: vec![
+            user_properties: alloc::vec![
                 // 1 + 4 + 9 = 14
                 UserProperty {
                     name: Arc::new("name".to_string()),
@@ -436,7 +438,7 @@ fn test_v5_encode_pubrec() {
         reason_code: PubrecReasonCode::Success,
         properties: PubrecProperties {
             reason_string: Some(Arc::new("".to_string())),
-            user_properties: vec![],
+            user_properties: alloc::vec![],
         },
     };
     let len = [
@@ -462,7 +464,7 @@ fn test_v5_encode_pubrel() {
             // 1 + 2 + 4 = 7
             reason_string: Some(Arc::new("auth".to_string())),
             // 13 + 14 = 27
-            user_properties: vec![
+            user_properties: alloc::vec![
                 // 1 + 4 + 9 = 14
                 UserProperty {
                     name: Arc::new("name".to_string()),
@@ -518,7 +520,7 @@ fn test_v5_encode_pubrel() {
         reason_code: PubrelReasonCode::Success,
         properties: PubrelProperties {
             reason_string: Some(Arc::new("".to_string())),
-            user_properties: vec![],
+            user_properties: alloc::vec![],
         },
     };
     let len = [
@@ -544,7 +546,7 @@ fn test_v5_encode_pubcomp() {
             // 1 + 2 + 4 = 7
             reason_string: Some(Arc::new("auth".to_string())),
             // 13 + 14 = 27
-            user_properties: vec![
+            user_properties: alloc::vec![
                 // 1 + 4 + 9 = 14
                 UserProperty {
                     name: Arc::new("name".to_string()),
@@ -600,7 +602,7 @@ fn test_v5_encode_pubcomp() {
         reason_code: PubcompReasonCode::Success,
         properties: PubcompProperties {
             reason_string: Some(Arc::new("".to_string())),
-            user_properties: vec![],
+            user_properties: alloc::vec![],
         },
     };
     let len = [
@@ -626,7 +628,7 @@ fn test_v5_encode_subscribe() {
             user_properties: Vec::new(),
         },
         // 5 + 1 = 6
-        topics: vec![(
+        topics: alloc::vec![(
             // 2 + 3 = 5
             TopicFilter::try_from("a/+".to_string()).unwrap(),
             // 1
@@ -661,7 +663,7 @@ fn test_v5_encode_suback() {
             user_properties: Vec::new(),
         },
         // 1
-        topics: vec![SubscribeReasonCode::GrantedQoS2],
+        topics: alloc::vec![SubscribeReasonCode::GrantedQoS2],
     };
     let len = [
         2, // header
@@ -679,7 +681,7 @@ fn test_v5_encode_unsubscribe() {
     let packet = Unsubscribe {
         pid: Pid::try_from(10).unwrap(),
         // 1 + 14 = 15
-        properties: vec![
+        properties: alloc::vec![
             // 1 + 4 + 9 = 14
             UserProperty {
                 name: Arc::new("name".to_string()),
@@ -688,7 +690,7 @@ fn test_v5_encode_unsubscribe() {
         ]
         .into(),
         // 5 + 3 = 8
-        topics: vec![
+        topics: alloc::vec![
             // 2 + 3 = 5
             TopicFilter::try_from("a/+".to_string()).unwrap(),
             // 2 + 1 = 3
@@ -708,7 +710,7 @@ fn test_v5_encode_unsubscribe() {
     let packet1 = Unsubscribe {
         pid: Pid::try_from(10).unwrap(),
         // 1 + 14 + 13 = 28
-        properties: vec![
+        properties: alloc::vec![
             // 1 + 4 + 9 = 14
             UserProperty {
                 name: Arc::new("name".to_string()),
@@ -722,7 +724,7 @@ fn test_v5_encode_unsubscribe() {
         ]
         .into(),
         // 5 + 3 = 8
-        topics: vec![
+        topics: alloc::vec![
             // 2 + 3 = 5
             TopicFilter::try_from("a/+".to_string()).unwrap(),
             // 2 + 1 = 3
@@ -752,7 +754,7 @@ fn test_v5_encode_unsuback() {
             user_properties: Vec::new(),
         },
         // 1
-        topics: vec![UnsubscribeReasonCode::UnspecifiedError],
+        topics: alloc::vec![UnsubscribeReasonCode::UnspecifiedError],
     };
     let len = [
         2, // header
