@@ -3,6 +3,9 @@ mod poll;
 mod types;
 mod utils;
 
+#[cfg(test)]
+mod tests;
+
 pub(crate) use utils::{
     decode_var_int, encode_packet, packet_from, read_bytes, read_string, read_u16, read_u32,
     read_u8, write_bytes, write_u16, write_u32, write_u8, write_var_int,
@@ -14,6 +17,9 @@ pub use poll::{
 };
 pub use types::{Encodable, Pid, Protocol, QoS, QosPid, TopicFilter, TopicName, VarBytes};
 pub use utils::{decode_raw_header, header_len, remaining_len, total_len, var_int_len};
+
+#[cfg(all(test, feature = "dhat-heap"))]
+pub use tests::MemorySummary;
 
 /// Character used to separate each level within a topic tree and provide a hierarchical structure.
 pub const LEVEL_SEP: char = '/';
