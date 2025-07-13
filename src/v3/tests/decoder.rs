@@ -48,7 +48,7 @@ fn test_header_firstbyte() {
             None => Err(Error::InvalidHeader),
         };
         let buf: &[u8] = &[n, 0];
-        assert_eq!(res, Header::decode(buf), "{:08b}", n);
+        assert_eq!(res, Header::decode(buf), "{n:08b}");
     }
 }
 
@@ -332,7 +332,7 @@ fn test_decode_publish() {
             assert_eq!(p.topic_name.deref(), "a/b");
             assert_eq!(core::str::from_utf8(p.payload.as_ref()).unwrap(), "hello");
         }
-        other => panic!("Failed decode: {:?}", other),
+        other => panic!("Failed decode: {other:?}"),
     }
     assert_eq!(
         Packet::decode(data1).unwrap().unwrap(),
@@ -350,7 +350,7 @@ fn test_decode_publish() {
             assert_eq!(p.topic_name.deref(), "a/b");
             assert_eq!(core::str::from_utf8(p.payload.as_ref()).unwrap(), "hello");
         }
-        other => panic!("Failed decode: {:?}", other),
+        other => panic!("Failed decode: {other:?}"),
     }
     assert_eq!(
         Packet::decode(data2).unwrap().unwrap(),
@@ -368,7 +368,7 @@ fn test_decode_publish() {
             assert_eq!(p.topic_name.deref(), "a/b");
             assert_eq!(core::str::from_utf8(p.payload.as_ref()).unwrap(), "hello");
         }
-        other => panic!("Failed decode: {:?}", other),
+        other => panic!("Failed decode: {other:?}"),
     }
     assert_eq!(
         Packet::decode(data3).unwrap().unwrap(),
@@ -566,8 +566,7 @@ async fn poll_actor_model_simulation_v3() {
     let data: Arc<Vec<VarBytes>> = Arc::new(packets);
 
     println!(
-        "\n--- `v3::decoder` Actor Model Simulation ({} jobs) ---",
-        NUM_TASKS
+        "\n--- `v3::decoder` Actor Model Simulation ({NUM_TASKS} jobs) ---"
     );
 
     let stats_start = dhat::HeapStats::get();

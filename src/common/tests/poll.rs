@@ -164,8 +164,7 @@ async fn poll_stream_simulation() {
     let mock_data = prepare_mock_publish_data(TOPIC, PAYLOAD_SIZE, MOCK_PID);
 
     println!(
-        "\n--- `common::poll` Stream Simulation ({} rounds) ---",
-        NUM_ROUNDS
+        "\n--- `common::poll` Stream Simulation ({NUM_ROUNDS} rounds) ---"
     );
 
     for i in 0..NUM_ROUNDS {
@@ -239,8 +238,7 @@ async fn poll_actor_model_simulation() {
     let data = Arc::new(prepare_mock_publish_data(TOPIC, PAYLOAD_SIZE, MOCK_PID));
 
     println!(
-        "\n--- `common::poll` Actor Model Simulation ({} jobs) ---",
-        NUM_TASKS
+        "\n--- `common::poll` Actor Model Simulation ({NUM_TASKS} jobs) ---"
     );
 
     let stats_start = dhat::HeapStats::get();

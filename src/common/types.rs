@@ -523,22 +523,22 @@ mod tests {
         let t: Vec<(u16, u16, u16, u16)> = alloc::vec![
             (2, 1, 1, 3),
             (100, 1, 99, 101),
-            (1, 1, core::u16::MAX, 2),
-            (1, 2, core::u16::MAX - 1, 3),
-            (1, 3, core::u16::MAX - 2, 4),
-            (core::u16::MAX, 1, core::u16::MAX - 1, 1),
-            (core::u16::MAX, 2, core::u16::MAX - 2, 2),
-            (10, core::u16::MAX, 10, 10),
+            (1, 1, u16::MAX, 2),
+            (1, 2, u16::MAX - 1, 3),
+            (1, 3, u16::MAX - 2, 4),
+            (u16::MAX, 1, u16::MAX - 1, 1),
+            (u16::MAX, 2, u16::MAX - 2, 2),
+            (10, u16::MAX, 10, 10),
             (10, 0, 10, 10),
             (1, 0, 1, 1),
-            (core::u16::MAX, 0, core::u16::MAX, core::u16::MAX),
+            (u16::MAX, 0, u16::MAX, u16::MAX),
         ];
         for (cur, d, prev, next) in t {
             let cur = Pid::try_from(cur).unwrap();
             let sub = cur - d;
             let add = cur + d;
-            assert_eq!(prev, sub.value(), "{:?} - {} should be {}", cur, d, prev);
-            assert_eq!(next, add.value(), "{:?} + {} should be {}", cur, d, next);
+            assert_eq!(prev, sub.value(), "{cur:?} - {d} should be {prev}");
+            assert_eq!(next, add.value(), "{cur:?} + {d} should be {next}");
         }
     }
 
@@ -553,7 +553,7 @@ mod tests {
         // NOTE: Because v5.0 topic alias, we let up level to check empty topic name
         assert!(!TopicName::is_invalid(""));
         assert!(!TopicName::is_invalid(
-            "a".repeat(u16::max_value() as usize).as_str()
+            "a".repeat(u16::MAX as usize).as_str()
         ));
 
         // invalid topic name
@@ -566,14 +566,14 @@ mod tests {
         assert!(TopicName::is_invalid("abc#def"));
         assert!(TopicName::is_invalid("abc+def"));
         assert!(TopicName::is_invalid(
-            "a".repeat(u16::max_value() as usize + 1).as_str()
+            "a".repeat(u16::MAX as usize + 1).as_str()
         ));
     }
 
     #[test]
     fn test_valid_topic_filter() {
-        let string_65535 = "a".repeat(u16::max_value() as usize);
-        let string_65536 = "a".repeat(u16::max_value() as usize + 1);
+        let string_65535 = "a".repeat(u16::MAX as usize);
+        let string_65536 = "a".repeat(u16::MAX as usize + 1);
         for (is_invalid, topic) in [
             // valid topic filter
             (false, "abc/def"),
@@ -662,7 +662,7 @@ mod tests {
             let result = if is_invalid { (true, 0) } else { (false, 10) };
             assert_eq!(
                 result,
-                TopicFilter::is_invalid(alloc::format!("$share/xyz/{}", topic).as_str()),
+                TopicFilter::is_invalid(alloc::format!("$share/xyz/{topic}").as_str()),
             );
         }
 

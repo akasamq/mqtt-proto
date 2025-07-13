@@ -49,7 +49,7 @@ fn test_v5_header_firstbyte() {
             None => Err(Error::InvalidHeader.into()),
         };
         let buf: &[u8] = &[n, 0];
-        assert_eq!(res, Header::decode(buf), "{:08b}", n);
+        assert_eq!(res, Header::decode(buf), "{n:08b}");
     }
 }
 
@@ -1483,8 +1483,7 @@ async fn poll_actor_model_simulation_v5() {
     let data: Arc<Vec<VarBytes>> = Arc::new(packets);
 
     println!(
-        "\n--- `v5::decoder` Actor Model Simulation ({} jobs) ---",
-        NUM_TASKS
+        "\n--- `v5::decoder` Actor Model Simulation ({NUM_TASKS} jobs) ---"
     );
 
     let stats_start = dhat::HeapStats::get();
