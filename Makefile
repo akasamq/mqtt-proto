@@ -1,4 +1,10 @@
 
+test:
+	cargo test --features dhat-heap -- --nocapture --test-threads 1
+
+clippy:
+	cargo clippy --tests --all-features -- -D warnings
+
 # https://rust-fuzz.github.io/book/cargo-fuzz/coverage.html
 gen-fuzz-cov:
 	cargo fuzz coverage mqtt_v5_arbitrary
