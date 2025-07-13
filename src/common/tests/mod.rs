@@ -1,20 +1,20 @@
 mod poll;
 
-use serde::{Deserialize, Serialize, Serializer};
-
 #[cfg(feature = "dhat-heap")]
 #[global_allocator]
 static ALLOC: dhat::Alloc = dhat::Alloc;
 
+#[cfg(feature = "dhat-heap")]
 fn serialize_f64_2<S>(x: &f64, s: S) -> Result<S::Ok, S::Error>
 where
-    S: Serializer,
+    S: serde::Serializer,
 {
     let rounded = (x * 100.0).round() / 100.0;
     s.serialize_f64(rounded)
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[cfg(feature = "dhat-heap")]
 pub struct MemorySummary {
     /// Test function name
     pub test: &'static str,

@@ -1,20 +1,23 @@
-use std::pin::Pin;
-use std::sync::Arc;
+#[cfg(feature = "dhat-heap")]
+use std::{pin::Pin, sync::Arc};
 
-use futures_lite::future::{block_on, poll_fn};
-use futures_lite::Future;
-use tokio_test::io::Builder;
+#[cfg(feature = "dhat-heap")]
+use futures_lite::{
+    future::{block_on, poll_fn},
+    Future,
+};
 
-use crate::common::poll::{GenericPollPacket, GenericPollPacketState, PollHeader};
-use crate::common::utils::read_u16;
-use crate::Error;
+#[cfg(feature = "dhat-heap")]
+use crate::*;
 
+#[cfg(feature = "dhat-heap")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct MockHeader {
     remaining_len: u32,
     packet_type: u8,
 }
 
+#[cfg(feature = "dhat-heap")]
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum MockPacket {
     Connect {
@@ -29,6 +32,7 @@ enum MockPacket {
     Other,
 }
 
+#[cfg(feature = "dhat-heap")]
 fn read_string(reader: &mut &[u8]) -> String {
     if reader.len() < 2 {
         return String::new();
@@ -44,6 +48,7 @@ fn read_string(reader: &mut &[u8]) -> String {
     s
 }
 
+#[cfg(feature = "dhat-heap")]
 struct MockPublishData {
     control_byte: u8,
     remaining_len_buf: Vec<u8>,
@@ -51,6 +56,7 @@ struct MockPublishData {
     expected_packet: MockPacket,
 }
 
+#[cfg(feature = "dhat-heap")]
 fn prepare_mock_publish_data(
     topic_str: &str,
     payload_size: usize,
@@ -86,6 +92,7 @@ fn prepare_mock_publish_data(
     }
 }
 
+#[cfg(feature = "dhat-heap")]
 impl PollHeader for MockHeader {
     type Error = Error;
     type Packet = MockPacket;
@@ -164,7 +171,7 @@ async fn poll_stream_simulation() {
     for i in 0..NUM_ROUNDS {
         println!("\n--- Round {} ---", i + 1);
 
-        let mut reader_builder = Builder::new();
+        let mut reader_builder = tokio_test::io::Builder::new();
         reader_builder.read(&[mock_data.control_byte]);
         reader_builder.read(&mock_data.remaining_len_buf);
         for chunk in mock_data.body.chunks(256) {
@@ -251,7 +258,7 @@ async fn poll_actor_model_simulation() {
         handles.push(tokio::spawn(async move {
             let mock_data = &*data;
 
-            let mut reader = Builder::new()
+            let mut reader = tokio_test::io::Builder::new()
                 .read(&[mock_data.control_byte])
                 .read(&mock_data.remaining_len_buf)
                 .read(&mock_data.body)

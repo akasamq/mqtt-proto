@@ -18,7 +18,7 @@ pub use poll::{
 pub use types::{Encodable, Pid, Protocol, QoS, QosPid, TopicFilter, TopicName, VarBytes};
 pub use utils::{decode_raw_header, header_len, remaining_len, total_len, var_int_len};
 
-#[cfg(test)]
+#[cfg(all(test, feature = "dhat-heap"))]
 pub use tests::MemorySummary;
 
 /// Character used to separate each level within a topic tree and provide a hierarchical structure.
