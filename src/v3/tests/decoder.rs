@@ -11,107 +11,35 @@ use crate::*;
 #[test]
 fn test_header_firstbyte() {
     use PacketType::*;
+    use QoS::*;
+
+    #[rustfmt::skip]
     let valid = alloc::vec![
-        (
-            0b0001_0000,
-            Header::new(Connect, false, QoS::Level0, false, 0),
-        ),
-        (
-            0b0010_0000,
-            Header::new(Connack, false, QoS::Level0, false, 0),
-        ),
-        (
-            0b0011_0000,
-            Header::new(Publish, false, QoS::Level0, false, 0),
-        ),
-        (
-            0b0011_0001,
-            Header::new(Publish, false, QoS::Level0, true, 0),
-        ),
-        (
-            0b0011_0010,
-            Header::new(Publish, false, QoS::Level1, false, 0),
-        ),
-        (
-            0b0011_0011,
-            Header::new(Publish, false, QoS::Level1, true, 0),
-        ),
-        (
-            0b0011_0100,
-            Header::new(Publish, false, QoS::Level2, false, 0),
-        ),
-        (
-            0b0011_0101,
-            Header::new(Publish, false, QoS::Level2, true, 0),
-        ),
-        (
-            0b0011_1000,
-            Header::new(Publish, true, QoS::Level0, false, 0),
-        ),
-        (
-            0b0011_1001,
-            Header::new(Publish, true, QoS::Level0, true, 0),
-        ),
-        (
-            0b0011_1010,
-            Header::new(Publish, true, QoS::Level1, false, 0),
-        ),
-        (
-            0b0011_1011,
-            Header::new(Publish, true, QoS::Level1, true, 0),
-        ),
-        (
-            0b0011_1100,
-            Header::new(Publish, true, QoS::Level2, false, 0),
-        ),
-        (
-            0b0011_1101,
-            Header::new(Publish, true, QoS::Level2, true, 0),
-        ),
-        (
-            0b0100_0000,
-            Header::new(Puback, false, QoS::Level0, false, 0),
-        ),
-        (
-            0b0101_0000,
-            Header::new(Pubrec, false, QoS::Level0, false, 0),
-        ),
-        (
-            0b0110_0010,
-            Header::new(Pubrel, false, QoS::Level0, false, 0),
-        ),
-        (
-            0b0111_0000,
-            Header::new(Pubcomp, false, QoS::Level0, false, 0),
-        ),
-        (
-            0b1000_0010,
-            Header::new(Subscribe, false, QoS::Level0, false, 0),
-        ),
-        (
-            0b1001_0000,
-            Header::new(Suback, false, QoS::Level0, false, 0),
-        ),
-        (
-            0b1010_0010,
-            Header::new(Unsubscribe, false, QoS::Level0, false, 0),
-        ),
-        (
-            0b1011_0000,
-            Header::new(Unsuback, false, QoS::Level0, false, 0),
-        ),
-        (
-            0b1100_0000,
-            Header::new(Pingreq, false, QoS::Level0, false, 0),
-        ),
-        (
-            0b1101_0000,
-            Header::new(Pingresp, false, QoS::Level0, false, 0),
-        ),
-        (
-            0b1110_0000,
-            Header::new(Disconnect, false, QoS::Level0, false, 0),
-        ),
+        (0b0001_0000, Header::new(Connect, false, Level0, false, 0)),
+        (0b0010_0000, Header::new(Connack, false, Level0, false, 0)),
+        (0b0011_0000, Header::new(Publish, false, Level0, false, 0)),
+        (0b0011_0001, Header::new(Publish, false, Level0, true, 0)),
+        (0b0011_0010, Header::new(Publish, false, Level1, false, 0)),
+        (0b0011_0011, Header::new(Publish, false, Level1, true, 0)),
+        (0b0011_0100, Header::new(Publish, false, Level2, false, 0)),
+        (0b0011_0101, Header::new(Publish, false, Level2, true, 0)),
+        (0b0011_1000, Header::new(Publish, true, Level0, false, 0)),
+        (0b0011_1001, Header::new(Publish, true, Level0, true, 0)),
+        (0b0011_1010, Header::new(Publish, true, Level1, false, 0)),
+        (0b0011_1011, Header::new(Publish, true, Level1, true, 0)),
+        (0b0011_1100, Header::new(Publish, true, Level2, false, 0)),
+        (0b0011_1101, Header::new(Publish, true, Level2, true, 0)),
+        (0b0100_0000, Header::new(Puback, false, Level0, false, 0)),
+        (0b0101_0000, Header::new(Pubrec, false, Level0, false, 0)),
+        (0b0110_0010, Header::new(Pubrel, false, Level0, false, 0)),
+        (0b0111_0000, Header::new(Pubcomp, false, Level0, false, 0)),
+        (0b1000_0010, Header::new(Subscribe, false, Level0, false, 0)),
+        (0b1001_0000, Header::new(Suback, false, Level0, false, 0)),
+        (0b1010_0010, Header::new(Unsubscribe, false, Level0, false, 0)),
+        (0b1011_0000, Header::new(Unsuback, false, Level0, false, 0)),
+        (0b1100_0000, Header::new(Pingreq, false, Level0, false, 0)),
+        (0b1101_0000, Header::new(Pingresp, false, Level0, false, 0)),
+        (0b1110_0000, Header::new(Disconnect, false, Level0, false, 0)),
     ];
     for n in 0..=255 {
         let res = match valid.iter().find(|(byte, _)| *byte == n) {
@@ -127,26 +55,28 @@ fn test_header_firstbyte() {
 #[test]
 fn test_header_len() {
     use PacketType::*;
+    use QoS::*;
+
     for (bytes, res) in alloc::vec![
         (
             alloc::vec![1 << 4, 0],
-            Ok(Header::new(Connect, false, QoS::Level0, false, 0)),
+            Ok(Header::new(Connect, false, Level0, false, 0)),
         ),
         (
             alloc::vec![1 << 4, 127],
-            Ok(Header::new(Connect, false, QoS::Level0, false, 127)),
+            Ok(Header::new(Connect, false, Level0, false, 127)),
         ),
         (
             alloc::vec![1 << 4, 0x80, 0],
-            Ok(Header::new(Connect, false, QoS::Level0, false, 0)),
+            Ok(Header::new(Connect, false, Level0, false, 0)),
         ), //Weird encoding for "0" buf matches spec
         (
             alloc::vec![1 << 4, 0x80, 1],
-            Ok(Header::new(Connect, false, QoS::Level0, false, 128)),
+            Ok(Header::new(Connect, false, Level0, false, 128)),
         ),
         (
             alloc::vec![1 << 4, 0x80 + 16, 78],
-            Ok(Header::new(Connect, false, QoS::Level0, false, 10000)),
+            Ok(Header::new(Connect, false, Level0, false, 10000)),
         ),
         (
             alloc::vec![1 << 4, 0x80, 0x80, 0x80, 0x80],

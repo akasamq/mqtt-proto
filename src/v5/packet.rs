@@ -122,11 +122,11 @@ impl Packet {
         let data = match self {
             Packet::Pingreq => {
                 const CONTROL_BYTE: u8 = 0b11000000;
-                VarBytes::Fixed2([CONTROL_BYTE, VOID_PACKET_REMAINING_LEN])
+                return Ok(VarBytes::Fixed2([CONTROL_BYTE, VOID_PACKET_REMAINING_LEN]));
             }
             Packet::Pingresp => {
                 const CONTROL_BYTE: u8 = 0b11010000;
-                VarBytes::Fixed2([CONTROL_BYTE, VOID_PACKET_REMAINING_LEN])
+                return Ok(VarBytes::Fixed2([CONTROL_BYTE, VOID_PACKET_REMAINING_LEN]));
             }
             Packet::Publish(publish) => {
                 let mut control_byte: u8 = match publish.qos_pid {
@@ -140,58 +140,58 @@ impl Packet {
                 if publish.retain {
                     control_byte |= 0b00000001;
                 }
-                VarBytes::Dynamic(encode_packet(control_byte, publish)?)
+                encode_packet(control_byte, publish)?
             }
             Packet::Connect(inner) => {
                 const CONTROL_BYTE: u8 = 0b00010000;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner)?)
+                encode_packet(CONTROL_BYTE, inner)?
             }
             Packet::Connack(inner) => {
                 const CONTROL_BYTE: u8 = 0b00100000;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner)?)
+                encode_packet(CONTROL_BYTE, inner)?
             }
             Packet::Puback(inner) => {
                 const CONTROL_BYTE: u8 = 0b01000000;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner)?)
+                encode_packet(CONTROL_BYTE, inner)?
             }
             Packet::Pubrec(inner) => {
                 const CONTROL_BYTE: u8 = 0b01010000;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner)?)
+                encode_packet(CONTROL_BYTE, inner)?
             }
             Packet::Pubrel(inner) => {
                 const CONTROL_BYTE: u8 = 0b01100010;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner)?)
+                encode_packet(CONTROL_BYTE, inner)?
             }
             Packet::Pubcomp(inner) => {
                 const CONTROL_BYTE: u8 = 0b01110000;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner)?)
+                encode_packet(CONTROL_BYTE, inner)?
             }
             Packet::Subscribe(inner) => {
                 const CONTROL_BYTE: u8 = 0b10000010;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner)?)
+                encode_packet(CONTROL_BYTE, inner)?
             }
             Packet::Suback(inner) => {
                 const CONTROL_BYTE: u8 = 0b10010000;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner)?)
+                encode_packet(CONTROL_BYTE, inner)?
             }
             Packet::Unsubscribe(inner) => {
                 const CONTROL_BYTE: u8 = 0b10100010;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner)?)
+                encode_packet(CONTROL_BYTE, inner)?
             }
             Packet::Unsuback(inner) => {
                 const CONTROL_BYTE: u8 = 0b10110000;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner)?)
+                encode_packet(CONTROL_BYTE, inner)?
             }
             Packet::Disconnect(inner) => {
                 const CONTROL_BYTE: u8 = 0b11100000;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner)?)
+                encode_packet(CONTROL_BYTE, inner)?
             }
             Packet::Auth(inner) => {
                 const CONTROL_BYTE: u8 = 0b11110000;
-                VarBytes::Dynamic(encode_packet(CONTROL_BYTE, inner)?)
+                encode_packet(CONTROL_BYTE, inner)?
             }
         };
-        Ok(data)
+        Ok(VarBytes::Dynamic(data))
     }
 
     /// Return the total length of bytes the packet encoded into.

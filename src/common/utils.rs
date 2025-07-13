@@ -6,6 +6,14 @@ use alloc::vec::Vec;
 use simdutf8::basic::from_utf8;
 
 use crate::{AsyncRead, Encodable, Error, IoErrorKind, SyncWrite};
+use embedded_io_async::ReadExactError;
+
+fn from_read_exact_error<E: Into<Error>>(e: ReadExactError<E>) -> Error {
+    match e {
+        ReadExactError::UnexpectedEof => Error::IoError(IoErrorKind::UnexpectedEof),
+        ReadExactError::Other(e) => e.into(),
+    }
+}
 
 /// Read first byte(packet type and flags) and decode remaining length
 #[inline]
@@ -29,12 +37,7 @@ pub(crate) async fn read_bytes<T: AsyncRead + Unpin>(reader: &mut T) -> Result<V
     reader
         .read_exact(&mut data_buf)
         .await
-        .map_err(|e| match e {
-            embedded_io_async::ReadExactError::UnexpectedEof => {
-                Error::IoError(IoErrorKind::UnexpectedEof)
-            }
-            embedded_io_async::ReadExactError::Other(e) => e.into(),
-        })?;
+        .map_err(from_read_exact_error)?;
     Ok(data_buf)
 }
 
@@ -45,12 +48,7 @@ pub(crate) async fn read_u32<T: AsyncRead + Unpin>(reader: &mut T) -> Result<u32
     reader
         .read_exact(&mut len4_bytes)
         .await
-        .map_err(|e| match e {
-            embedded_io_async::ReadExactError::UnexpectedEof => {
-                Error::IoError(IoErrorKind::UnexpectedEof)
-            }
-            embedded_io_async::ReadExactError::Other(e) => e.into(),
-        })?;
+        .map_err(from_read_exact_error)?;
     Ok(u32::from_be_bytes(len4_bytes))
 }
 
@@ -60,24 +58,17 @@ pub(crate) async fn read_u16<T: AsyncRead + Unpin>(reader: &mut T) -> Result<u16
     reader
         .read_exact(&mut len2_bytes)
         .await
-        .map_err(|e| match e {
-            embedded_io_async::ReadExactError::UnexpectedEof => {
-                Error::IoError(IoErrorKind::UnexpectedEof)
-            }
-            embedded_io_async::ReadExactError::Other(e) => e.into(),
-        })?;
+        .map_err(from_read_exact_error)?;
     Ok(u16::from_be_bytes(len2_bytes))
 }
 
 #[inline]
 pub(crate) async fn read_u8<T: AsyncRead + Unpin>(reader: &mut T) -> Result<u8, Error> {
     let mut byte = [0u8; 1];
-    reader.read_exact(&mut byte).await.map_err(|e| match e {
-        embedded_io_async::ReadExactError::UnexpectedEof => {
-            Error::IoError(IoErrorKind::UnexpectedEof)
-        }
-        embedded_io_async::ReadExactError::Other(e) => e.into(),
-    })?;
+    reader
+        .read_exact(&mut byte)
+        .await
+        .map_err(from_read_exact_error)?;
     Ok(byte[0])
 }
 
@@ -136,12 +127,10 @@ pub(crate) async fn decode_var_int<T: AsyncRead + Unpin>(
     let mut i = 0;
     loop {
         let mut buf = [0u8; 1];
-        reader.read_exact(&mut buf).await.map_err(|e| match e {
-            embedded_io_async::ReadExactError::UnexpectedEof => {
-                Error::IoError(IoErrorKind::UnexpectedEof)
-            }
-            embedded_io_async::ReadExactError::Other(e) => e.into(),
-        })?;
+        reader
+            .read_exact(&mut buf)
+            .await
+            .map_err(from_read_exact_error)?;
         let byte = buf[0];
         var_int |= (u32::from(byte) & 0x7F) << (7 * i);
         if byte & 0x80 == 0 {
