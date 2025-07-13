@@ -24,9 +24,17 @@ simdutf8 = { version = "0.1", default-features = false }
 arbitrary = { version = "1", features = ["derive"], optional = true }
 
 [dev-dependencies]
-proptest = "1.0.0"
+dhat = "0.3"
+proptest = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 tokio = { version = "1", features = ["full"] }
+tokio-test = "0.4"
+
+[[bench]]
+name = "codec"
 
 [features]
-default = ["std"]
+default = ["std", "dhat-heap"]
 std = ["dep:embedded-io-adapters", "futures-lite/std", "thiserror/std"]
+dhat-heap = ["std"]

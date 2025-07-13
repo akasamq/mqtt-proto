@@ -272,11 +272,13 @@ impl Puback {
 impl Encodable for Puback {
     fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         write_u16(writer, self.pid.value())?;
-        if self.reason_code != PubackReasonCode::Success {
-            write_u8(writer, self.reason_code as u8)?;
-            if self.properties != PubackProperties::default() {
-                self.properties.encode(writer)?;
+        if self.properties == PubackProperties::default() {
+            if self.reason_code != PubackReasonCode::Success {
+                write_u8(writer, self.reason_code as u8)?;
             }
+        } else {
+            write_u8(writer, self.reason_code as u8)?;
+            self.properties.encode(writer)?;
         }
         Ok(())
     }
@@ -426,11 +428,13 @@ impl Pubrec {
 impl Encodable for Pubrec {
     fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         write_u16(writer, self.pid.value())?;
-        if self.reason_code != PubrecReasonCode::Success {
-            write_u8(writer, self.reason_code as u8)?;
-            if self.properties != PubrecProperties::default() {
-                self.properties.encode(writer)?;
+        if self.properties == PubrecProperties::default() {
+            if self.reason_code != PubrecReasonCode::Success {
+                write_u8(writer, self.reason_code as u8)?;
             }
+        } else {
+            write_u8(writer, self.reason_code as u8)?;
+            self.properties.encode(writer)?;
         }
         Ok(())
     }
@@ -580,11 +584,13 @@ impl Pubrel {
 impl Encodable for Pubrel {
     fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         write_u16(writer, self.pid.value())?;
-        if self.reason_code != PubrelReasonCode::Success {
-            write_u8(writer, self.reason_code as u8)?;
-            if self.properties != PubrelProperties::default() {
-                self.properties.encode(writer)?;
+        if self.properties == PubrelProperties::default() {
+            if self.reason_code != PubrelReasonCode::Success {
+                write_u8(writer, self.reason_code as u8)?;
             }
+        } else {
+            write_u8(writer, self.reason_code as u8)?;
+            self.properties.encode(writer)?;
         }
         Ok(())
     }
@@ -711,11 +717,13 @@ impl Pubcomp {
 impl Encodable for Pubcomp {
     fn encode<W: SyncWrite>(&self, writer: &mut W) -> Result<(), Error> {
         write_u16(writer, self.pid.value())?;
-        if self.reason_code != PubcompReasonCode::Success {
-            write_u8(writer, self.reason_code as u8)?;
-            if self.properties != PubcompProperties::default() {
-                self.properties.encode(writer)?;
+        if self.properties == PubcompProperties::default() {
+            if self.reason_code != PubcompReasonCode::Success {
+                write_u8(writer, self.reason_code as u8)?;
             }
+        } else {
+            write_u8(writer, self.reason_code as u8)?;
+            self.properties.encode(writer)?;
         }
         Ok(())
     }
