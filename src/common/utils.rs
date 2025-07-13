@@ -5,15 +5,7 @@ use alloc::vec::Vec;
 
 use simdutf8::basic::from_utf8;
 
-use crate::{AsyncRead, Encodable, Error, IoErrorKind, SyncWrite};
-use embedded_io_async::ReadExactError;
-
-fn from_read_exact_error<E: Into<Error>>(e: ReadExactError<E>) -> Error {
-    match e {
-        ReadExactError::UnexpectedEof => Error::IoError(IoErrorKind::UnexpectedEof),
-        ReadExactError::Other(e) => e.into(),
-    }
-}
+use crate::{from_read_exact_error, AsyncRead, Encodable, Error, SyncWrite};
 
 /// Read first byte(packet type and flags) and decode remaining length
 #[inline]

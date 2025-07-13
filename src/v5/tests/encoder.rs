@@ -356,7 +356,7 @@ fn test_v5_encode_puback() {
         reason_code: PubackReasonCode::Success,
         properties: PubackProperties {
             reason_string: Some(Arc::new("".to_string())),
-            user_properties: vec![],
+            user_properties: alloc::vec![],
         },
     };
     let len = [
@@ -438,7 +438,7 @@ fn test_v5_encode_pubrec() {
         reason_code: PubrecReasonCode::Success,
         properties: PubrecProperties {
             reason_string: Some(Arc::new("".to_string())),
-            user_properties: vec![],
+            user_properties: alloc::vec![],
         },
     };
     let len = [
@@ -520,7 +520,7 @@ fn test_v5_encode_pubrel() {
         reason_code: PubrelReasonCode::Success,
         properties: PubrelProperties {
             reason_string: Some(Arc::new("".to_string())),
-            user_properties: vec![],
+            user_properties: alloc::vec![],
         },
     };
     let len = [
@@ -602,7 +602,7 @@ fn test_v5_encode_pubcomp() {
         reason_code: PubcompReasonCode::Success,
         properties: PubcompProperties {
             reason_string: Some(Arc::new("".to_string())),
-            user_properties: vec![],
+            user_properties: alloc::vec![],
         },
     };
     let len = [

@@ -8,8 +8,8 @@ use bytes::Bytes;
 use simdutf8::basic::from_utf8;
 
 use crate::{
-    read_bytes, read_string, read_u16, read_u8, write_bytes, write_u16, write_u8, AsyncRead,
-    Encodable, Error, IoErrorKind, Protocol, QoS, SyncWrite, TopicName,
+    from_read_exact_error, read_bytes, read_string, read_u16, read_u8, write_bytes, write_u16,
+    write_u8, AsyncRead, Encodable, Error, Protocol, QoS, SyncWrite, TopicName,
 };
 
 use super::{
@@ -471,12 +471,10 @@ impl Connack {
         header: Header,
     ) -> Result<Self, ErrorV5> {
         let mut payload = [0u8; 2];
-        reader.read_exact(&mut payload).await.map_err(|e| match e {
-            embedded_io_async::ReadExactError::UnexpectedEof => {
-                Error::IoError(IoErrorKind::UnexpectedEof)
-            }
-            embedded_io_async::ReadExactError::Other(e) => e.into(),
-        })?;
+        reader
+            .read_exact(&mut payload)
+            .await
+            .map_err(from_read_exact_error)?;
         let session_present = match payload[0] {
             0 => false,
             1 => true,

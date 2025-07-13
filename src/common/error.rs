@@ -1,5 +1,6 @@
 use alloc::string::String;
 
+use embedded_io::ReadExactError;
 use thiserror::Error;
 
 use crate::Protocol;
@@ -91,6 +92,13 @@ impl<E: embedded_io::Error> From<E> for Error {
             _ => IoErrorKind::Other,
         };
         Error::IoError(kind)
+    }
+}
+
+pub fn from_read_exact_error<E: Into<Error>>(e: ReadExactError<E>) -> Error {
+    match e {
+        ReadExactError::UnexpectedEof => Error::IoError(IoErrorKind::UnexpectedEof),
+        ReadExactError::Other(e) => e.into(),
     }
 }
 

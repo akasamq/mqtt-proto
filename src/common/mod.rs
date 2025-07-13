@@ -20,7 +20,7 @@ pub(crate) use utils::{
     read_u8, write_bytes, write_string, write_u16, write_u32, write_u8, write_var_int,
 };
 
-pub use error::{Error, IoErrorKind};
+pub use error::{from_read_exact_error, Error, IoErrorKind};
 pub use poll::{
     GenericPollBodyState, GenericPollPacket, GenericPollPacketState, PollHeader, PollHeaderState,
 };

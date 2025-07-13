@@ -5,7 +5,7 @@ use core::task::{Context, Poll};
 
 use alloc::vec::Vec;
 
-use crate::{AsyncRead, Error, IoErrorKind};
+use crate::{from_read_exact_error, AsyncRead, Error, IoErrorKind};
 
 #[derive(Debug, Clone)]
 pub enum GenericPollPacketState<H> {
@@ -85,23 +85,19 @@ where
                     }) => {
                         if control_byte.is_none() {
                             let mut buf = [0u8; 1];
-                            reader.read_exact(&mut buf).await.map_err(|e| match e {
-                                embedded_io_async::ReadExactError::UnexpectedEof => {
-                                    Error::IoError(IoErrorKind::UnexpectedEof)
-                                }
-                                embedded_io_async::ReadExactError::Other(e) => e.into(),
-                            })?;
+                            reader
+                                .read_exact(&mut buf)
+                                .await
+                                .map_err(from_read_exact_error)?;
                             *control_byte = Some(buf[0]);
                         }
 
                         loop {
                             let mut buf = [0u8; 1];
-                            reader.read_exact(&mut buf).await.map_err(|e| match e {
-                                embedded_io_async::ReadExactError::UnexpectedEof => {
-                                    Error::IoError(IoErrorKind::UnexpectedEof)
-                                }
-                                embedded_io_async::ReadExactError::Other(e) => e.into(),
-                            })?;
+                            reader
+                                .read_exact(&mut buf)
+                                .await
+                                .map_err(from_read_exact_error)?;
 
                             let byte = buf[0];
                             *var_int |= (u32::from(byte) & 0x7F) << (7 * u32::from(*var_idx));

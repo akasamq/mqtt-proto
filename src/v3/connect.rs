@@ -6,8 +6,8 @@ use alloc::sync::Arc;
 use bytes::Bytes;
 
 use crate::{
-    read_bytes, read_string, read_u16, read_u8, write_bytes, write_string, write_u16, write_u8,
-    AsyncRead, Encodable, Error, IoErrorKind, Protocol, QoS, SyncWrite, TopicName,
+    from_read_exact_error, read_bytes, read_string, read_u16, read_u8, write_bytes, write_string,
+    write_u16, write_u8, AsyncRead, Encodable, Error, Protocol, QoS, SyncWrite, TopicName,
 };
 
 /// Connect packet body type.
@@ -181,12 +181,10 @@ impl Connack {
 
     pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
         let mut payload = [0u8; 2];
-        reader.read_exact(&mut payload).await.map_err(|e| match e {
-            embedded_io_async::ReadExactError::UnexpectedEof => {
-                Error::IoError(IoErrorKind::UnexpectedEof)
-            }
-            embedded_io_async::ReadExactError::Other(e) => e.into(),
-        })?;
+        reader
+            .read_exact(&mut payload)
+            .await
+            .map_err(from_read_exact_error)?;
         let session_present = match payload[0] {
             0 => false,
             1 => true,

@@ -9,10 +9,11 @@ mod common;
 pub mod v3;
 pub mod v5;
 
+#[allow(unused_imports)]
 pub(crate) use common::{
-    block_on, decode_var_int, encode_packet, packet_from, read_bytes, read_string, read_u16,
-    read_u32, read_u8, write_bytes, write_string, write_u16, write_u32, write_u8, write_var_int,
-    AsyncRead, AsyncWrite, SyncRead, SyncWrite,
+    block_on, decode_var_int, encode_packet, from_read_exact_error, packet_from, read_bytes,
+    read_string, read_u16, read_u32, read_u8, write_bytes, write_string, write_u16, write_u32,
+    write_u8, write_var_int, AsyncRead, AsyncWrite, SyncRead, SyncWrite,
 };
 
 pub use common::{
