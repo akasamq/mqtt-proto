@@ -1,8 +1,5 @@
 use core::ops::Deref;
 
-use alloc::borrow::ToOwned;
-use alloc::sync::Arc;
-
 use bytes::Bytes;
 
 use crate::v3::*;
@@ -158,7 +155,7 @@ fn test_decode_connect_wrong_version() {
     ];
     assert_eq!(
         Packet::decode(data),
-        Err(Error::InvalidProtocol("MQTT".to_owned(), 1)),
+        Err(Error::InvalidProtocol("MQTT".into(), 1)),
     );
     assert_eq!(
         Packet::decode(data).unwrap_err(),
@@ -204,15 +201,15 @@ fn test_decode_packet_n() {
     let pkt1 = v3::Connect {
         protocol: Protocol::V311,
         keep_alive: 10,
-        client_id: Arc::new("test".to_owned()),
+        client_id: "test".into(),
         clean_session: true,
         last_will: Some(LastWill {
-            topic_name: TopicName::try_from("/a".to_owned()).unwrap(),
+            topic_name: TopicName::try_from("/a").unwrap(),
             message: Bytes::from(b"offline".to_vec()),
             qos: QoS::Level1,
             retain: false,
         }),
-        username: Some(Arc::new("rust".to_owned())),
+        username: Some("rust".into()),
         password: Some(Bytes::from(b"mq".to_vec())),
     };
 
@@ -445,10 +442,7 @@ fn test_decode_subscribe() {
         Packet::decode(data).unwrap().unwrap(),
         Packet::Subscribe(v3::Subscribe {
             pid: Pid::try_from(10).unwrap(),
-            topics: alloc::vec![(
-                TopicFilter::try_from("a/b".to_owned()).unwrap(),
-                QoS::Level0
-            )],
+            topics: alloc::vec![(TopicFilter::try_from("a/b").unwrap(), QoS::Level0)],
         })
     );
     assert_eq!(
@@ -484,7 +478,7 @@ fn test_decode_unsubscribe() {
         Packet::decode(data).unwrap().unwrap(),
         Packet::Unsubscribe(v3::Unsubscribe {
             pid: Pid::try_from(10).unwrap(),
-            topics: alloc::vec![TopicFilter::try_from("a".to_owned()).unwrap(),],
+            topics: alloc::vec![TopicFilter::try_from("a").unwrap(),],
         })
     );
     assert_eq!(
@@ -524,7 +518,7 @@ async fn poll_actor_model_simulation_v3() {
         let pkt = Packet::Connect(Connect {
             protocol: Protocol::V311,
             keep_alive: 60,
-            client_id: Arc::new(client_id),
+            client_id: client_id.into(),
             clean_session: true,
             last_will: None,
             username: None,
@@ -539,7 +533,7 @@ async fn poll_actor_model_simulation_v3() {
             dup: false,
             qos_pid: QosPid::Level1(Pid::try_from(1).unwrap()),
             retain: false,
-            topic_name: TopicName::try_from("topic/test".to_owned()).unwrap(),
+            topic_name: TopicName::try_from("topic/test").unwrap(),
             payload: Bytes::from(payload),
         });
         packets.push(pkt.encode().unwrap());
@@ -548,14 +542,14 @@ async fn poll_actor_model_simulation_v3() {
     for qos in [QoS::Level0, QoS::Level1, QoS::Level2] {
         let pkt = Packet::Subscribe(Subscribe::new(
             Pid::try_from(10).unwrap(),
-            vec![(TopicFilter::try_from("a/+".to_owned()).unwrap(), qos)],
+            vec![(TopicFilter::try_from("a/+").unwrap(), qos)],
         ));
         packets.push(pkt.encode().unwrap());
     }
     for _ in 0..3 {
         let pkt = Packet::Unsubscribe(Unsubscribe::new(
             Pid::try_from(20).unwrap(),
-            vec![TopicFilter::try_from("b/#".to_owned()).unwrap()],
+            vec![TopicFilter::try_from("b/#").unwrap()],
         ));
         packets.push(pkt.encode().unwrap());
     }
@@ -565,9 +559,7 @@ async fn poll_actor_model_simulation_v3() {
 
     let data: Arc<Vec<VarBytes>> = Arc::new(packets);
 
-    println!(
-        "\n--- `v3::decoder` Actor Model Simulation ({NUM_TASKS} jobs) ---"
-    );
+    println!("\n--- `v3::decoder` Actor Model Simulation ({NUM_TASKS} jobs) ---");
 
     let stats_start = dhat::HeapStats::get();
     println!(

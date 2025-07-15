@@ -1,6 +1,5 @@
 use core::convert::TryFrom;
 
-use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
@@ -9,7 +8,7 @@ use simdutf8::basic::from_utf8;
 
 use crate::{
     from_read_exact_error, read_bytes, read_string, read_u16, read_u8, write_bytes, write_u16,
-    write_u8, AsyncRead, Encodable, Error, Protocol, QoS, SyncWrite, TopicName,
+    write_u8, AsyncRead, ClientId, Encodable, Error, Protocol, QoS, SyncWrite, TopicName, Username,
 };
 
 use super::{
@@ -42,7 +41,7 @@ pub struct Connect {
     /// The [client identifier] (ClientID).
     ///
     /// [client identifier]: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901059
-    pub client_id: Arc<String>,
+    pub client_id: ClientId,
 
     /// The [will] message.
     ///
@@ -50,11 +49,12 @@ pub struct Connect {
     pub last_will: Option<LastWill>,
 
     /// The [user name](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901071).
-    pub username: Option<Arc<String>>,
+    pub username: Option<Username>,
 
     /// The [password](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901072).
     pub password: Option<Bytes>,
 }
+
 #[cfg(feature = "arbitrary")]
 impl<'a> arbitrary::Arbitrary<'a> for Connect {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
@@ -72,7 +72,7 @@ impl<'a> arbitrary::Arbitrary<'a> for Connect {
 }
 
 impl Connect {
-    pub fn new(client_id: Arc<String>, keep_alive: u16) -> Self {
+    pub fn new(client_id: ClientId, keep_alive: u16) -> Self {
         Connect {
             protocol: Protocol::V500,
             clean_start: true,
@@ -111,7 +111,7 @@ impl Connect {
         // FIXME: check remaining length
 
         let properties = ConnectProperties::decode_async(reader, header.typ).await?;
-        let client_id = Arc::new(read_string(reader).await?);
+        let client_id = read_string(reader).await?;
         let last_will = if connect_flags & 0b100 != 0 {
             let qos = QoS::from_u8((connect_flags & 0b11000) >> 3)?;
             let retain = (connect_flags & 0b00100000) != 0;
@@ -122,7 +122,7 @@ impl Connect {
             None
         };
         let username = if connect_flags & 0b10000000 != 0 {
-            Some(Arc::new(read_string(reader).await?))
+            Some(read_string(reader).await?)
         } else {
             None
         };
@@ -222,7 +222,7 @@ pub struct ConnectProperties {
     /// User Property
     pub user_properties: Vec<UserProperty>,
     /// Authentication Method
-    pub auth_method: Option<Arc<String>>,
+    pub auth_method: Option<Arc<str>>,
     /// Authentication Data
     pub auth_data: Option<Bytes>,
 }
@@ -380,11 +380,12 @@ pub struct WillProperties {
     pub delay_interval: Option<u32>,
     pub payload_is_utf8: Option<bool>,
     pub message_expiry_interval: Option<u32>,
-    pub content_type: Option<Arc<String>>,
+    pub content_type: Option<Arc<str>>,
     pub response_topic: Option<TopicName>,
     pub correlation_data: Option<Bytes>,
     pub user_properties: Vec<UserProperty>,
 }
+
 #[cfg(feature = "arbitrary")]
 impl<'a> arbitrary::Arbitrary<'a> for WillProperties {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
@@ -597,17 +598,17 @@ pub struct ConnackProperties {
     pub max_qos: Option<QoS>,
     pub retain_available: Option<bool>,
     pub max_packet_size: Option<u32>,
-    pub assigned_client_id: Option<Arc<String>>,
+    pub assigned_client_id: Option<Arc<str>>,
     pub topic_alias_max: Option<u16>,
-    pub reason_string: Option<Arc<String>>,
+    pub reason_string: Option<Arc<str>>,
     pub user_properties: Vec<UserProperty>,
     pub wildcard_subscription_available: Option<bool>,
     pub subscription_id_available: Option<bool>,
     pub shared_subscription_available: Option<bool>,
     pub server_keep_alive: Option<u16>,
-    pub response_info: Option<Arc<String>>,
-    pub server_reference: Option<Arc<String>>,
-    pub auth_method: Option<Arc<String>>,
+    pub response_info: Option<Arc<str>>,
+    pub server_reference: Option<Arc<str>>,
+    pub auth_method: Option<Arc<str>>,
     pub auth_data: Option<Bytes>,
 }
 
@@ -903,9 +904,9 @@ impl DisconnectReasonCode {
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct DisconnectProperties {
     pub session_expiry_interval: Option<u32>,
-    pub reason_string: Option<Arc<String>>,
+    pub reason_string: Option<Arc<str>>,
     pub user_properties: Vec<UserProperty>,
-    pub server_reference: Option<Arc<String>>,
+    pub server_reference: Option<Arc<str>>,
 }
 
 impl DisconnectProperties {
@@ -1047,9 +1048,9 @@ impl AuthReasonCode {
 /// Property list for AUTH packet.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct AuthProperties {
-    pub auth_method: Option<Arc<String>>,
+    pub auth_method: Option<Arc<str>>,
     pub auth_data: Option<Bytes>,
-    pub reason_string: Option<Arc<String>>,
+    pub reason_string: Option<Arc<str>>,
     pub user_properties: Vec<UserProperty>,
 }
 

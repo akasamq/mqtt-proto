@@ -1,4 +1,4 @@
-use alloc::string::String;
+use alloc::sync::Arc;
 
 use embedded_io::ReadExactError;
 use thiserror::Error;
@@ -38,7 +38,7 @@ pub enum Error {
 
     /// Invalid protocol.
     #[error("invalid protocol: {0}, {1}")]
-    InvalidProtocol(String, u8),
+    InvalidProtocol(Arc<str>, u8),
 
     /// Unexpected protocol
     #[error("unexpected protocol version: `{0}`")]
@@ -54,11 +54,11 @@ pub enum Error {
 
     /// Invalid Topic Name
     #[error("invalid topic name: {0}")]
-    InvalidTopicName(String),
+    InvalidTopicName(Arc<str>),
 
     /// Invalid topic filter
     #[error("invalid topic filter: {0}")]
-    InvalidTopicFilter(String),
+    InvalidTopicFilter(Arc<str>),
 
     /// Trying to decode a non-utf8 string.
     #[error("invalid string")]

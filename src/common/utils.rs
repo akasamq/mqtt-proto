@@ -1,6 +1,6 @@
 use core::slice;
 
-use alloc::string::String;
+use alloc::sync::Arc;
 use alloc::vec::Vec;
 
 use simdutf8::basic::from_utf8;
@@ -16,10 +16,10 @@ pub async fn decode_raw_header<T: AsyncRead + Unpin>(reader: &mut T) -> Result<(
 }
 
 #[inline]
-pub(crate) async fn read_string<T: AsyncRead + Unpin>(reader: &mut T) -> Result<String, Error> {
+pub(crate) async fn read_string<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Arc<str>, Error> {
     let data_buf = read_bytes(reader).await?;
-    let _str = from_utf8(&data_buf).map_err(|_| Error::InvalidString)?;
-    Ok(unsafe { String::from_utf8_unchecked(data_buf) })
+    let s = from_utf8(&data_buf).map_err(|_| Error::InvalidString)?;
+    Ok(s.into())
 }
 
 #[inline]
@@ -64,6 +64,7 @@ pub(crate) async fn read_u8<T: AsyncRead + Unpin>(reader: &mut T) -> Result<u8, 
     Ok(byte[0])
 }
 
+#[inline]
 pub(crate) fn write_string<W: SyncWrite>(writer: &mut W, value: &str) -> Result<(), Error> {
     write_bytes(writer, value.as_bytes())?;
     Ok(())
