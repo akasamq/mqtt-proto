@@ -278,12 +278,8 @@ async fn poll_actor_model_simulation() {
         handle.await.unwrap();
     }
 
-    let total_simulation_time = simulation_start.elapsed();
+    let elapsed = simulation_start.elapsed();
     let total_data_size = (PAYLOAD_SIZE + data.remaining_len_buf.len() + 1) * NUM_TASKS;
-    let throughput_mbps =
-        (total_data_size as f64 * 8.0) / (total_simulation_time.as_secs_f64() * 1_000_000.0);
-    let actors_per_second = NUM_TASKS as f64 / total_simulation_time.as_secs_f64();
-
     drop(data);
 
     let stats_end = dhat::HeapStats::get();
@@ -299,16 +295,14 @@ async fn poll_actor_model_simulation() {
         stats_end.max_bytes, stats_end.max_blocks
     );
 
-    let summary = super::MemorySummary {
-        test: "common::poll",
-        bytes: (stats_start.curr_bytes as u64, stats_end.curr_bytes as u64),
-        blocks: (stats_start.curr_blocks as u64, stats_end.curr_blocks as u64),
-        peak_bytes: stats_end.max_bytes as u64,
-        peak_blocks: stats_end.max_blocks as u64,
-        throughput_mbps,
-        jobs_per_sec: actors_per_second,
-        avg_time_per_job_us: total_simulation_time.as_micros() as f64 / NUM_TASKS as f64,
-    };
+    let summary = super::MemorySummary::new(
+        "common::poll",
+        &stats_start,
+        &stats_end,
+        total_data_size,
+        NUM_TASKS,
+        elapsed,
+    );
     println!("{}", serde_json::to_string(&summary).unwrap());
 
     println!("--- End Report ---");
