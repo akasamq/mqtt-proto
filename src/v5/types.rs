@@ -1,6 +1,5 @@
 use core::convert::TryFrom;
 
-use alloc::string::String;
 use alloc::sync::Arc;
 
 use bytes::Bytes;
@@ -169,12 +168,12 @@ impl PropertyValue {
     pub(crate) async fn decode_string<T: AsyncRead + Unpin>(
         reader: &mut T,
         property_id: PropertyId,
-        target: &mut Option<Arc<String>>,
+        target: &mut Option<Arc<str>>,
     ) -> Result<(), ErrorV5> {
         if target.is_some() {
             return Err(ErrorV5::DuplicatedProperty(property_id));
         }
-        *target = Some(Arc::new(read_string(reader).await?));
+        *target = Some(read_string(reader).await?);
         Ok(())
     }
 
@@ -211,10 +210,7 @@ impl PropertyValue {
     ) -> Result<UserProperty, ErrorV5> {
         let name = read_string(reader).await?;
         let value = read_string(reader).await?;
-        Ok(UserProperty {
-            name: Arc::new(name),
-            value: Arc::new(value),
-        })
+        Ok(UserProperty { name, value })
     }
 }
 
@@ -223,9 +219,9 @@ impl PropertyValue {
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct UserProperty {
     /// The name of the user property.
-    pub name: Arc<String>,
+    pub name: Arc<str>,
     /// The value of the user property.
-    pub value: Arc<String>,
+    pub value: Arc<str>,
 }
 
 /// Variable Byte Integer

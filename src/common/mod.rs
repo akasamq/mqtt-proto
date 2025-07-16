@@ -24,7 +24,9 @@ pub use error::{from_read_exact_error, Error, IoErrorKind};
 pub use poll::{
     GenericPollBodyState, GenericPollPacket, GenericPollPacketState, PollHeader, PollHeaderState,
 };
-pub use types::{Encodable, Pid, Protocol, QoS, QosPid, TopicFilter, TopicName, VarBytes};
+pub use types::{
+    ClientId, Encodable, Pid, Protocol, QoS, QosPid, TopicFilter, TopicName, Username, VarBytes,
+};
 pub use utils::{decode_raw_header, header_len, remaining_len, total_len, var_int_len};
 
 #[cfg(all(test, feature = "dhat-heap"))]

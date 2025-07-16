@@ -35,6 +35,6 @@ tokio-test = "0.4"
 name = "codec"
 
 [features]
-default = ["std", "dhat-heap"]
+default = ["std"]
 std = ["dep:embedded-io-adapters", "futures-lite/std", "thiserror/std"]
 dhat-heap = ["std"]

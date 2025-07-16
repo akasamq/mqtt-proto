@@ -1,6 +1,3 @@
-use alloc::borrow::ToOwned;
-use alloc::string::ToString;
-use alloc::sync::Arc;
 use alloc::vec::Vec;
 
 use bytes::Bytes;
@@ -125,7 +122,7 @@ fn test_v5_decode_connect() {
             clean_start: false,
             keep_alive: 10,
             properties: Default::default(),
-            client_id: Arc::new("test".to_string()),
+            client_id: "test".into(),
             last_will: None,
             username: None,
             password: Some(Bytes::from(alloc::vec![b'm', b'q', b't'])),
@@ -172,7 +169,7 @@ fn test_v5_decode_connect() {
     ];
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        ErrorV5::Common(Error::InvalidProtocol("MQTT".to_owned(), 1)),
+        ErrorV5::Common(Error::InvalidProtocol("MQTT".into(), 1)),
     );
     assert_eq!(
         Packet::decode(data).unwrap_err(),
@@ -267,7 +264,7 @@ fn test_v5_decode_connack() {
             reason_code: ConnectReasonCode::UnsupportedProtocolVersion,
             properties: ConnackProperties {
                 max_qos: Some(QoS::Level1),
-                reason_string: Some(Arc::new("abc".to_string())),
+                reason_string: Some("abc".into()),
                 ..Default::default()
             },
         })
@@ -432,7 +429,7 @@ fn test_v5_decode_auth() {
         Packet::Auth(Auth {
             reason_code: AuthReasonCode::ContinueAuthentication,
             properties: AuthProperties {
-                reason_string: Some(Arc::new("xy".to_string())),
+                reason_string: Some("xy".into()),
                 ..Default::default()
             },
         })
@@ -517,7 +514,7 @@ fn test_v5_decode_publish() {
             dup: false,
             qos_pid: QosPid::Level0,
             retain: false,
-            topic_name: TopicName::try_from("xy".to_string()).unwrap(),
+            topic_name: TopicName::try_from("xy").unwrap(),
             properties: Default::default(),
             payload: Bytes::from(alloc::vec![0xaa, 0xbb]),
         })
@@ -549,7 +546,7 @@ fn test_v5_decode_publish() {
             dup: true,
             qos_pid: QosPid::Level0,
             retain: false,
-            topic_name: TopicName::try_from("xy".to_string()).unwrap(),
+            topic_name: TopicName::try_from("xy").unwrap(),
             properties: PublishProperties {
                 topic_alias: Some(0x1133),
                 ..Default::default()
@@ -585,7 +582,7 @@ fn test_v5_decode_publish() {
             dup: false,
             qos_pid: QosPid::Level1(Pid::try_from(0x2244).unwrap()),
             retain: false,
-            topic_name: TopicName::try_from("xy".to_string()).unwrap(),
+            topic_name: TopicName::try_from("xy").unwrap(),
             properties: PublishProperties {
                 payload_is_utf8: Some(true),
                 ..Default::default()
@@ -615,7 +612,7 @@ fn test_v5_decode_publish() {
             dup: false,
             qos_pid: QosPid::Level0,
             retain: true,
-            topic_name: TopicName::try_from("xy".to_string()).unwrap(),
+            topic_name: TopicName::try_from("xy").unwrap(),
             properties: Default::default(),
             payload: Bytes::default(),
         })
@@ -644,7 +641,7 @@ fn test_v5_decode_publish() {
             dup: true,
             qos_pid: QosPid::Level2(Pid::try_from(0x1122).unwrap()),
             retain: true,
-            topic_name: TopicName::try_from("xy".to_string()).unwrap(),
+            topic_name: TopicName::try_from("xy").unwrap(),
             properties: Default::default(),
             payload: Bytes::default(),
         })
@@ -756,7 +753,7 @@ fn test_v5_decode_puback() {
             pid: Pid::try_from(0x1122).unwrap(),
             reason_code: PubackReasonCode::NotAuthorized,
             properties: PubackProperties {
-                reason_string: Some(Arc::new("e".to_string())),
+                reason_string: Some("e".into()),
                 user_properties: Vec::new(),
             },
         })
@@ -832,7 +829,7 @@ fn test_v5_decode_pubrec() {
             pid: Pid::try_from(0x1122).unwrap(),
             reason_code: PubrecReasonCode::NotAuthorized,
             properties: PubrecProperties {
-                reason_string: Some(Arc::new("e".to_string())),
+                reason_string: Some("e".into()),
                 user_properties: Vec::new(),
             },
         })
@@ -907,7 +904,7 @@ fn test_v5_decode_pubrel() {
             pid: Pid::try_from(0x1122).unwrap(),
             reason_code: PubrelReasonCode::PacketIdentifierNotFound,
             properties: PubrelProperties {
-                reason_string: Some(Arc::new("e".to_string())),
+                reason_string: Some("e".into()),
                 user_properties: Vec::new(),
             },
         })
@@ -982,7 +979,7 @@ fn test_v5_decode_pubcomp() {
             pid: Pid::try_from(0x1122).unwrap(),
             reason_code: PubcompReasonCode::PacketIdentifierNotFound,
             properties: PubcompProperties {
-                reason_string: Some(Arc::new("e".to_string())),
+                reason_string: Some("e".into()),
                 user_properties: Vec::new(),
             },
         })
@@ -1064,7 +1061,7 @@ fn test_v5_decode_subscribe() {
                 user_properties: Vec::new(),
             },
             topics: alloc::vec![(
-                TopicFilter::try_from("/+".to_string()).unwrap(),
+                TopicFilter::try_from("/+").unwrap(),
                 SubscriptionOptions {
                     max_qos: QoS::Level0,
                     no_local: false,
@@ -1099,7 +1096,7 @@ fn test_v5_decode_subscribe() {
             pid: Pid::try_from(0x1122).unwrap(),
             properties: Default::default(),
             topics: alloc::vec![(
-                TopicFilter::try_from("/+".to_string()).unwrap(),
+                TopicFilter::try_from("/+").unwrap(),
                 SubscriptionOptions {
                     max_qos: QoS::Level2,
                     no_local: true,
@@ -1180,7 +1177,7 @@ fn test_v5_decode_suback() {
         Packet::Suback(Suback {
             pid: Pid::try_from(0x1122).unwrap(),
             properties: SubackProperties {
-                reason_string: Some(Arc::new("e".to_string())),
+                reason_string: Some("e".into()),
                 user_properties: Vec::new(),
             },
             topics: alloc::vec![
@@ -1253,18 +1250,18 @@ fn test_v5_decode_unsubscribe() {
             pid: Pid::try_from(0x1122).unwrap(),
             properties: alloc::vec![
                 UserProperty {
-                    name: Arc::new("k1".to_string()),
-                    value: Arc::new("v1".to_string()),
+                    name: "k1".into(),
+                    value: "v1".into(),
                 },
                 UserProperty {
-                    name: Arc::new("k2".to_string()),
-                    value: Arc::new("v2".to_string()),
+                    name: "k2".into(),
+                    value: "v2".into(),
                 },
             ]
             .into(),
             topics: alloc::vec![
-                TopicFilter::try_from("/+".to_string()).unwrap(),
-                TopicFilter::try_from("/".to_string()).unwrap(),
+                TopicFilter::try_from("/+").unwrap(),
+                TopicFilter::try_from("/").unwrap(),
             ],
         })
     );
@@ -1330,7 +1327,7 @@ fn test_v5_decode_unsuback() {
         Packet::Unsuback(Unsuback {
             pid: Pid::try_from(0x1122).unwrap(),
             properties: UnsubackProperties {
-                reason_string: Some(Arc::new("e".to_string())),
+                reason_string: Some("e".into()),
                 user_properties: Vec::new(),
             },
             topics: alloc::vec![
@@ -1422,7 +1419,7 @@ async fn poll_actor_model_simulation_v5() {
             clean_start: true,
             keep_alive: 60,
             properties: Default::default(),
-            client_id: Arc::new(client_id),
+            client_id: client_id.into(),
             last_will: None,
             username: None,
             password: None,
@@ -1436,7 +1433,7 @@ async fn poll_actor_model_simulation_v5() {
             dup: false,
             qos_pid: QosPid::Level1(Pid::try_from(1).unwrap()),
             retain: false,
-            topic_name: TopicName::try_from("topic/test".to_owned()).unwrap(),
+            topic_name: TopicName::try_from("topic/test").unwrap(),
             properties: Default::default(),
             payload: Bytes::from(payload),
         });
@@ -1448,7 +1445,7 @@ async fn poll_actor_model_simulation_v5() {
             pid: Pid::try_from(10).unwrap(),
             properties: Default::default(),
             topics: vec![(
-                TopicFilter::try_from("a/+".to_owned()).unwrap(),
+                TopicFilter::try_from("a/+").unwrap(),
                 SubscriptionOptions {
                     max_qos: qos,
                     no_local: false,
@@ -1464,7 +1461,7 @@ async fn poll_actor_model_simulation_v5() {
         let pkt = Packet::Unsubscribe(Unsubscribe {
             pid: Pid::try_from(20).unwrap(),
             properties: Default::default(),
-            topics: vec![TopicFilter::try_from("b/#".to_owned()).unwrap()],
+            topics: vec![TopicFilter::try_from("b/#").unwrap()],
         });
         packets.push(pkt.encode().unwrap());
     }
@@ -1480,11 +1477,9 @@ async fn poll_actor_model_simulation_v5() {
         .unwrap(),
     );
 
-    let data: Arc<Vec<VarBytes>> = Arc::new(packets);
+    let data: std::sync::Arc<Vec<VarBytes>> = std::sync::Arc::new(packets);
 
-    println!(
-        "\n--- `v5::decoder` Actor Model Simulation ({NUM_TASKS} jobs) ---"
-    );
+    println!("\n--- `v5::decoder` Actor Model Simulation ({NUM_TASKS} jobs) ---");
 
     let stats_start = dhat::HeapStats::get();
     println!(
@@ -1510,12 +1505,8 @@ async fn poll_actor_model_simulation_v5() {
         handle.await.unwrap();
     }
 
-    let total_simulation_time = simulation_start.elapsed();
+    let elapsed = simulation_start.elapsed();
     let total_data_size = data.len() * NUM_TASKS;
-    let throughput_mbps =
-        (total_data_size as f64 * 8.0) / (total_simulation_time.as_secs_f64() * 1_000_000.0);
-    let jobs_per_sec = NUM_TASKS as f64 / total_simulation_time.as_secs_f64();
-
     drop(data);
 
     let stats_end = dhat::HeapStats::get();
@@ -1531,16 +1522,14 @@ async fn poll_actor_model_simulation_v5() {
         stats_end.max_bytes, stats_end.max_blocks
     );
 
-    let summary = common::MemorySummary {
-        test: "v5::decoder",
-        bytes: (stats_start.curr_bytes as u64, stats_end.curr_bytes as u64),
-        blocks: (stats_start.curr_blocks as u64, stats_end.curr_blocks as u64),
-        peak_bytes: stats_end.max_bytes as u64,
-        peak_blocks: stats_end.max_blocks as u64,
-        throughput_mbps,
-        jobs_per_sec,
-        avg_time_per_job_us: total_simulation_time.as_micros() as f64 / NUM_TASKS as f64,
-    };
+    let summary = common::MemorySummary::new(
+        "v5::decoder",
+        &stats_start,
+        &stats_end,
+        total_data_size,
+        NUM_TASKS,
+        elapsed,
+    );
     println!("{}", serde_json::to_string(&summary).unwrap());
 
     println!("--- End Report ---");

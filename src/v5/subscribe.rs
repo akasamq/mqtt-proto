@@ -1,6 +1,5 @@
 use core::convert::TryFrom;
 
-use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
@@ -249,7 +248,7 @@ impl Encodable for Suback {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct SubackProperties {
-    pub reason_string: Option<Arc<String>>,
+    pub reason_string: Option<Arc<str>>,
     pub user_properties: Vec<UserProperty>,
 }
 
@@ -516,7 +515,7 @@ impl Encodable for Unsuback {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct UnsubackProperties {
-    pub reason_string: Option<Arc<String>>,
+    pub reason_string: Option<Arc<str>>,
     pub user_properties: Vec<UserProperty>,
 }
 

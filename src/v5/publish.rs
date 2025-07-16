@@ -1,6 +1,5 @@
 use core::convert::TryFrom;
 
-use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
@@ -145,7 +144,7 @@ pub struct PublishProperties {
     pub user_properties: Vec<UserProperty>,
     // FIXME: this is a list of identifiers
     pub subscription_id: Option<VarByteInt>,
-    pub content_type: Option<Arc<String>>,
+    pub content_type: Option<Arc<str>>,
 }
 
 #[cfg(feature = "arbitrary")]
@@ -298,7 +297,7 @@ impl Encodable for Puback {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct PubackProperties {
-    pub reason_string: Option<Arc<String>>,
+    pub reason_string: Option<Arc<str>>,
     pub user_properties: Vec<UserProperty>,
 }
 
@@ -454,7 +453,7 @@ impl Encodable for Pubrec {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct PubrecProperties {
-    pub reason_string: Option<Arc<String>>,
+    pub reason_string: Option<Arc<str>>,
     pub user_properties: Vec<UserProperty>,
 }
 
@@ -610,7 +609,7 @@ impl Encodable for Pubrel {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct PubrelProperties {
-    pub reason_string: Option<Arc<String>>,
+    pub reason_string: Option<Arc<str>>,
     pub user_properties: Vec<UserProperty>,
 }
 
@@ -743,7 +742,7 @@ impl Encodable for Pubcomp {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct PubcompProperties {
-    pub reason_string: Option<Arc<String>>,
+    pub reason_string: Option<Arc<str>>,
     pub user_properties: Vec<UserProperty>,
 }
 

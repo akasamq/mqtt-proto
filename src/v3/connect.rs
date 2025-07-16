@@ -1,13 +1,11 @@
 use core::convert::TryFrom;
 
-use alloc::string::String;
-use alloc::sync::Arc;
-
 use bytes::Bytes;
 
 use crate::{
     from_read_exact_error, read_bytes, read_string, read_u16, read_u8, write_bytes, write_string,
-    write_u16, write_u8, AsyncRead, Encodable, Error, Protocol, QoS, SyncWrite, TopicName,
+    write_u16, write_u8, AsyncRead, ClientId, Encodable, Error, Protocol, QoS, SyncWrite,
+    TopicName, Username,
 };
 
 /// Connect packet body type.
@@ -16,9 +14,9 @@ pub struct Connect {
     pub protocol: Protocol,
     pub clean_session: bool,
     pub keep_alive: u16,
-    pub client_id: Arc<String>,
+    pub client_id: ClientId,
     pub last_will: Option<LastWill>,
-    pub username: Option<Arc<String>>,
+    pub username: Option<Username>,
     pub password: Option<Bytes>,
 }
 
@@ -38,7 +36,7 @@ impl<'a> arbitrary::Arbitrary<'a> for Connect {
 }
 
 impl Connect {
-    pub fn new(client_id: Arc<String>, keep_alive: u16) -> Self {
+    pub fn new(client_id: ClientId, keep_alive: u16) -> Self {
         Connect {
             protocol: Protocol::V311,
             clean_session: true,
@@ -68,7 +66,7 @@ impl Connect {
             return Err(Error::InvalidConnectFlags(connect_flags));
         }
         let keep_alive = read_u16(reader).await?;
-        let client_id = Arc::new(read_string(reader).await?);
+        let client_id = read_string(reader).await?;
         let last_will = if connect_flags & 0b100 != 0 {
             let topic_name = read_string(reader).await?;
             let message = read_bytes(reader).await?;
@@ -86,7 +84,7 @@ impl Connect {
             None
         };
         let username = if connect_flags & 0b10000000 != 0 {
-            Some(Arc::new(read_string(reader).await?))
+            Some(read_string(reader).await?)
         } else {
             None
         };

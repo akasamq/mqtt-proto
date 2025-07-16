@@ -1,7 +1,5 @@
 use core::mem;
 
-use alloc::borrow::ToOwned;
-use alloc::sync::Arc;
 use alloc::vec::Vec;
 
 use bytes::Bytes;
@@ -34,7 +32,7 @@ fn test_encode_connect() {
     let packet = Connect {
         protocol: Protocol::V311,
         keep_alive: 120,
-        client_id: Arc::new("sample".to_owned()),
+        client_id: "sample".into(),
         clean_session: true,
         last_will: None,
         username: None,
@@ -45,15 +43,15 @@ fn test_encode_connect() {
     let packet = Connect {
         protocol: Protocol::V311,
         keep_alive: 120,
-        client_id: Arc::new("sample".to_owned()),
+        client_id: "sample".into(),
         clean_session: true,
         last_will: Some(LastWill {
             qos: QoS::Level1,
             retain: true,
-            topic_name: TopicName::try_from("abc".to_owned()).unwrap(),
+            topic_name: TopicName::try_from("abc").unwrap(),
             message: Bytes::from("msg-content"),
         }),
-        username: Some(Arc::new("username".to_owned())),
+        username: Some("username".into()),
         password: Some(Bytes::from("password")),
     };
     assert_encode(packet.into(), 58);
@@ -61,7 +59,7 @@ fn test_encode_connect() {
     let packet = Connect {
         protocol: Protocol::V310,
         keep_alive: 120,
-        client_id: Arc::new("sample".to_owned()),
+        client_id: "sample".into(),
         clean_session: true,
         last_will: None,
         username: None,
@@ -85,7 +83,7 @@ fn test_encode_publish() {
         dup: false,
         qos_pid: QosPid::Level2(Pid::try_from(10).unwrap()),
         retain: true,
-        topic_name: TopicName::try_from("asdf".to_owned()).unwrap(),
+        topic_name: TopicName::try_from("asdf").unwrap(),
         payload: Bytes::from(b"hello".to_vec()),
     };
     assert_encode(packet.into(), 15);
@@ -119,10 +117,7 @@ fn test_encode_pubcomp() {
 fn test_encode_subscribe() {
     let packet = Subscribe::new(
         Pid::try_from(345).unwrap(),
-        alloc::vec![(
-            TopicFilter::try_from("a/b".to_owned()).unwrap(),
-            QoS::Level2,
-        )],
+        alloc::vec![(TopicFilter::try_from("a/b").unwrap(), QoS::Level2,)],
     );
     assert_encode(packet.into(), 10);
 }
@@ -140,7 +135,7 @@ fn test_encode_suback() {
 fn test_encode_unsubscribe() {
     let packet = Unsubscribe::new(
         Pid::try_from(12321).unwrap(),
-        alloc::vec![(TopicFilter::try_from("a/b".to_owned()).unwrap())],
+        alloc::vec![(TopicFilter::try_from("a/b").unwrap())],
     );
     assert_encode(packet.into(), 9);
 }

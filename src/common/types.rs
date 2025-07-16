@@ -4,7 +4,6 @@ use core::fmt;
 use core::hash::{Hash, Hasher};
 use core::ops::Deref;
 
-use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
@@ -239,12 +238,12 @@ impl QosPid {
 
 /// Topic name.
 ///
-/// See [MQTT 4.7]. The internal value is `Arc<String>`.
+/// See [MQTT 4.7]. The internal value is `Arc<str>`.
 ///
 /// [MQTT 4.7]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html#_Toc398718106
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-pub struct TopicName(Arc<String>);
+pub struct TopicName(Arc<str>);
 
 impl TopicName {
     /// Check if the topic name is invalid.
@@ -269,13 +268,24 @@ impl fmt::Display for TopicName {
     }
 }
 
-impl TryFrom<String> for TopicName {
+impl TryFrom<&str> for TopicName {
     type Error = Error;
-    fn try_from(value: String) -> Result<Self, Error> {
-        if TopicName::is_invalid(value.as_str()) {
+    fn try_from(value: &str) -> Result<Self, Error> {
+        if TopicName::is_invalid(value) {
+            Err(Error::InvalidTopicName(value.into()))
+        } else {
+            Ok(TopicName(value.into()))
+        }
+    }
+}
+
+impl TryFrom<Arc<str>> for TopicName {
+    type Error = Error;
+    fn try_from(value: Arc<str>) -> Result<Self, Error> {
+        if TopicName::is_invalid(&value) {
             Err(Error::InvalidTopicName(value))
         } else {
-            Ok(TopicName(Arc::new(value)))
+            Ok(TopicName(value))
         }
     }
 }
@@ -283,13 +293,13 @@ impl TryFrom<String> for TopicName {
 impl Deref for TopicName {
     type Target = str;
     fn deref(&self) -> &str {
-        self.0.as_str()
+        &self.0
     }
 }
 
 /// Topic filter.
 ///
-/// See [MQTT 4.7]. The internal value is `Arc<String>` and a cache value for
+/// See [MQTT 4.7]. The internal value is `Arc<str>` and a cache value for
 /// where shared filter byte index started. The traits:
 /// `Hash`/`Ord`/`PartialOrd`/`Eq`/`PartialEq` are all manually implemented for
 /// only contains the string value.
@@ -298,7 +308,7 @@ impl Deref for TopicName {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct TopicFilter {
-    inner: Arc<String>,
+    inner: Arc<str>,
     shared_filter_sep: u16,
 }
 
@@ -471,15 +481,30 @@ impl fmt::Display for TopicFilter {
     }
 }
 
-impl TryFrom<String> for TopicFilter {
+impl TryFrom<&str> for TopicFilter {
     type Error = Error;
-    fn try_from(value: String) -> Result<Self, Error> {
-        let (is_invalid, shared_filter_sep) = TopicFilter::is_invalid(value.as_str());
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let (is_invalid, shared_filter_sep) = TopicFilter::is_invalid(value);
+        if is_invalid {
+            Err(Error::InvalidTopicFilter(value.into()))
+        } else {
+            Ok(TopicFilter {
+                inner: value.into(),
+                shared_filter_sep,
+            })
+        }
+    }
+}
+
+impl TryFrom<Arc<str>> for TopicFilter {
+    type Error = Error;
+    fn try_from(value: Arc<str>) -> Result<Self, Self::Error> {
+        let (is_invalid, shared_filter_sep) = TopicFilter::is_invalid(&value);
         if is_invalid {
             Err(Error::InvalidTopicFilter(value))
         } else {
             Ok(TopicFilter {
-                inner: Arc::new(value),
+                inner: value,
                 shared_filter_sep,
             })
         }
@@ -489,7 +514,7 @@ impl TryFrom<String> for TopicFilter {
 impl Deref for TopicFilter {
     type Target = str;
     fn deref(&self) -> &str {
-        self.inner.as_str()
+        &self.inner
     }
 }
 
@@ -512,10 +537,14 @@ impl AsRef<[u8]> for VarBytes {
     }
 }
 
+/// The [client identifier](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901059).
+pub type ClientId = Arc<str>;
+
+/// The [user name](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901071).
+pub type Username = Arc<str>;
+
 #[cfg(test)]
 mod tests {
-    use alloc::borrow::ToOwned;
-
     use super::*;
 
     #[test]
@@ -688,7 +717,7 @@ mod tests {
             (None, "$share//+"),
         ] {
             if let Some((shared_group, shared_filter)) = result {
-                let filter = TopicFilter::try_from(raw_filter.to_owned()).unwrap();
+                let filter = TopicFilter::try_from(raw_filter).unwrap();
                 assert_eq!(filter.shared_group_name(), shared_group);
                 assert_eq!(filter.shared_filter(), shared_filter);
                 if let Some(group_name) = shared_group {
