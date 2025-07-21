@@ -75,6 +75,7 @@ pub enum IoErrorKind {
     UnexpectedEof,
     InvalidData,
     WriteZero,
+    TimedOut,
     Other,
 }
 
@@ -89,6 +90,7 @@ impl<E: embedded_io::Error> From<E> for Error {
         let kind = match err.kind() {
             embedded_io::ErrorKind::InvalidData => IoErrorKind::InvalidData,
             embedded_io::ErrorKind::WriteZero => IoErrorKind::WriteZero,
+            embedded_io::ErrorKind::TimedOut => IoErrorKind::TimedOut,
             _ => IoErrorKind::Other,
         };
         Error::IoError(kind)
@@ -114,6 +116,9 @@ impl From<Error> for std::io::Error {
             }
             Error::IoError(IoErrorKind::WriteZero) => {
                 std::io::Error::new(std::io::ErrorKind::WriteZero, "write zero")
+            }
+            Error::IoError(IoErrorKind::TimedOut) => {
+                std::io::Error::new(std::io::ErrorKind::TimedOut, "timed out")
             }
             Error::IoError(IoErrorKind::Other) => std::io::Error::other("other error"),
             _ => std::io::Error::new(std::io::ErrorKind::InvalidData, "mqtt protocol error"),
