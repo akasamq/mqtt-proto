@@ -1,5 +1,8 @@
 use core::convert::AsRef;
 
+#[cfg(all(feature = "tokio", feature = "std"))]
+use tokio::io::AsyncWriteExt;
+
 use crate::{
     block_on, decode_raw_header, encode_packet, packet_from, total_len, AsyncRead, AsyncWrite,
     Encodable, Error, QoS, QosPid, VarBytes,

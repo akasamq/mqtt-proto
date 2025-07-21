@@ -12,13 +12,14 @@ edition = "2021"
 
 [dependencies]
 bytes = { version = "1", default-features = false }
-embassy-futures = { version = "0.1", default-features = false }
-embedded-io = { version = "0.6", default-features = false, features = ["alloc"] }
-embedded-io-adapters = { version = "0.6", features = ["std", "tokio-1"], optional = true }
-embedded-io-async = { version = "0.6", default-features = false, features = ["alloc"] }
+embassy-futures = { version = "0.1", default-features = false, optional = true }
+embedded-io = { version = "0.6", default-features = false, features = ["alloc"], optional = true }
+embedded-io-adapters = { version = "0.6", default-features = false, optional = true }
+embedded-io-async = { version = "0.6", default-features = false, features = ["alloc"], optional = true }
 futures-lite = { version = "2", default-features = false }
-thiserror = { version = "2", default-features = false }
 simdutf8 = { version = "0.1", default-features = false }
+thiserror = { version = "2", default-features = false }
+tokio = { version = "1", default-features = false, features = ["io-util"], optional = true }
 
 # Only for fuzz testing
 arbitrary = { version = "1", features = ["derive"], optional = true }
@@ -35,6 +36,17 @@ tokio-test = "0.4"
 name = "codec"
 
 [features]
-default = ["std"]
-std = ["dep:embedded-io-adapters", "futures-lite/std", "thiserror/std"]
+default = ["std", "tokio"]
+std = ["embedded-io-adapters?/std", "bytes/std", "futures-lite/std", "simdutf8/std", "thiserror/std"]
+
+# Enable DHAT Memory debugging
 dhat-heap = ["std"]
+
+# Enable `embedded-hal` I/O features
+embedded-io = ["dep:embedded-io", "dep:embedded-io-adapters", "dep:embedded-io-async"]
+
+# Enable `tokio` async runtime
+tokio = ["dep:tokio", "embedded-io-adapters?/tokio-1"]
+
+# Enable `embassy` async runtime
+embassy = ["dep:embassy-futures"]

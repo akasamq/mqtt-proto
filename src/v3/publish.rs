@@ -1,10 +1,12 @@
 use alloc::vec::Vec;
 
 use bytes::Bytes;
+#[cfg(all(feature = "tokio", feature = "std"))]
+use tokio::io::AsyncReadExt;
 
 use crate::{
-    from_read_exact_error, read_string, read_u16, write_string, write_u16, AsyncRead, Encodable,
-    Error, Pid, QoS, QosPid, SyncWrite, TopicName,
+    read_string, read_u16, write_string, write_u16, AsyncRead, Encodable, Error, Pid, QoS, QosPid,
+    SyncWrite, ToError, TopicName,
 };
 
 use super::Header;
@@ -72,7 +74,7 @@ impl Publish {
             reader
                 .read_exact(&mut data)
                 .await
-                .map_err(from_read_exact_error)?;
+                .map_err(ToError::to_error)?;
             data
         } else {
             Vec::new()

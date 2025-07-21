@@ -60,8 +60,16 @@ impl ErrorV5 {
     }
 }
 
+#[cfg(all(feature = "embedded-io", not(all(feature = "tokio", feature = "std"))))]
 impl<E: embedded_io::Error> From<E> for ErrorV5 {
     fn from(err: E) -> ErrorV5 {
+        ErrorV5::Common(err.into())
+    }
+}
+
+#[cfg(all(feature = "std"))]
+impl From<std::io::Error> for ErrorV5 {
+    fn from(err: std::io::Error) -> ErrorV5 {
         ErrorV5::Common(err.into())
     }
 }

@@ -6,21 +6,45 @@ mod utils;
 #[cfg(test)]
 mod tests;
 
-pub(crate) use embedded_io::{Read as SyncRead, Write as SyncWrite};
-pub(crate) use embedded_io_async::{Read as AsyncRead, Write as AsyncWrite};
+mod future {
+    #[cfg(not(any(feature = "std", feature = "embassy")))]
+    compile_error!("embassy feature is required when std is disabled");
 
-#[cfg(feature = "std")]
-pub(crate) use futures_lite::future::block_on;
+    #[cfg(all(feature = "std", not(feature = "embassy")))]
+    pub(crate) use futures_lite::future::block_on;
 
-#[cfg(not(feature = "std"))]
-pub(crate) use embassy_futures::block_on;
+    #[cfg(feature = "embassy")]
+    pub(crate) use embassy_futures::block_on;
+}
 
+mod io {
+    #[cfg(not(any(feature = "std", feature = "embedded-io")))]
+    compile_error!("embedded-io feature is required when std is disabled");
+
+    #[cfg(not(any(feature = "embedded-io", all(feature = "tokio", feature = "std"))))]
+    compile_error!("at least one async I/O implementation required: embedded-io or (tokio + std)");
+
+    #[cfg(all(feature = "std", not(feature = "embedded-io")))]
+    pub(crate) use std::io::{Read as SyncRead, Write as SyncWrite};
+
+    #[cfg(feature = "embedded-io")]
+    pub(crate) use embedded_io::{Read as SyncRead, Write as SyncWrite};
+
+    #[cfg(all(feature = "embedded-io", not(all(feature = "tokio", feature = "std"))))]
+    pub(crate) use embedded_io_async::{Read as AsyncRead, Write as AsyncWrite}; // Stateful style async trait
+
+    #[cfg(all(feature = "tokio", feature = "std"))]
+    pub(crate) use tokio::io::{AsyncRead, AsyncWrite}; // Futures style async trait
+}
+
+pub(crate) use future::block_on;
+pub(crate) use io::{AsyncRead, AsyncWrite, SyncRead, SyncWrite};
 pub(crate) use utils::{
     decode_var_int, encode_packet, packet_from, read_bytes, read_string, read_u16, read_u32,
     read_u8, write_bytes, write_string, write_u16, write_u32, write_u8, write_var_int,
 };
 
-pub use error::{from_read_exact_error, Error, IoErrorKind};
+pub use error::{Error, IoErrorKind, ToError};
 pub use poll::{
     GenericPollBodyState, GenericPollPacket, GenericPollPacketState, PollHeader, PollHeaderState,
 };

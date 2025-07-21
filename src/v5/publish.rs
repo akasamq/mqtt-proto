@@ -5,10 +5,12 @@ use alloc::vec::Vec;
 
 use bytes::Bytes;
 use simdutf8::basic::from_utf8;
+#[cfg(all(feature = "tokio", feature = "std"))]
+use tokio::io::AsyncReadExt;
 
 use crate::{
-    from_read_exact_error, read_string, read_u16, read_u8, write_bytes, write_u16, write_u8,
-    AsyncRead, Encodable, Error, Pid, QoS, QosPid, SyncWrite, TopicName,
+    read_string, read_u16, read_u8, write_bytes, write_u16, write_u8, AsyncRead, Encodable, Error,
+    Pid, QoS, QosPid, SyncWrite, ToError, TopicName,
 };
 
 use super::{
@@ -86,7 +88,7 @@ impl Publish {
             reader
                 .read_exact(&mut data)
                 .await
-                .map_err(from_read_exact_error)?;
+                .map_err(ToError::to_error)?;
             if properties.payload_is_utf8 == Some(true) && from_utf8(&data).is_err() {
                 return Err(ErrorV5::InvalidPayloadFormat);
             }

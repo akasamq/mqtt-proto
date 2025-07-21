@@ -4,8 +4,10 @@ use alloc::sync::Arc;
 use alloc::vec::Vec;
 
 use simdutf8::basic::from_utf8;
+#[cfg(all(feature = "tokio", feature = "std"))]
+use tokio::io::AsyncReadExt;
 
-use crate::{from_read_exact_error, AsyncRead, Encodable, Error, SyncWrite};
+use crate::{AsyncRead, Encodable, Error, SyncWrite, ToError};
 
 /// Read first byte(packet type and flags) and decode remaining length
 #[inline]
@@ -29,7 +31,7 @@ pub(crate) async fn read_bytes<T: AsyncRead + Unpin>(reader: &mut T) -> Result<V
     reader
         .read_exact(&mut data_buf)
         .await
-        .map_err(from_read_exact_error)?;
+        .map_err(ToError::to_error)?;
     Ok(data_buf)
 }
 
@@ -40,7 +42,7 @@ pub(crate) async fn read_u32<T: AsyncRead + Unpin>(reader: &mut T) -> Result<u32
     reader
         .read_exact(&mut len4_bytes)
         .await
-        .map_err(from_read_exact_error)?;
+        .map_err(ToError::to_error)?;
     Ok(u32::from_be_bytes(len4_bytes))
 }
 
@@ -50,7 +52,7 @@ pub(crate) async fn read_u16<T: AsyncRead + Unpin>(reader: &mut T) -> Result<u16
     reader
         .read_exact(&mut len2_bytes)
         .await
-        .map_err(from_read_exact_error)?;
+        .map_err(ToError::to_error)?;
     Ok(u16::from_be_bytes(len2_bytes))
 }
 
@@ -60,7 +62,7 @@ pub(crate) async fn read_u8<T: AsyncRead + Unpin>(reader: &mut T) -> Result<u8, 
     reader
         .read_exact(&mut byte)
         .await
-        .map_err(from_read_exact_error)?;
+        .map_err(ToError::to_error)?;
     Ok(byte[0])
 }
 
@@ -123,7 +125,7 @@ pub(crate) async fn decode_var_int<T: AsyncRead + Unpin>(
         reader
             .read_exact(&mut buf)
             .await
-            .map_err(from_read_exact_error)?;
+            .map_err(ToError::to_error)?;
         let byte = buf[0];
         var_int |= (u32::from(byte) & 0x7F) << (7 * i);
         if byte & 0x80 == 0 {

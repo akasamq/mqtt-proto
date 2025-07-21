@@ -5,10 +5,12 @@ use alloc::vec::Vec;
 
 use bytes::Bytes;
 use simdutf8::basic::from_utf8;
+#[cfg(all(feature = "tokio", feature = "std"))]
+use tokio::io::AsyncReadExt;
 
 use crate::{
-    from_read_exact_error, read_bytes, read_string, read_u16, read_u8, write_bytes, write_u16,
-    write_u8, AsyncRead, ClientId, Encodable, Error, Protocol, QoS, SyncWrite, TopicName, Username,
+    read_bytes, read_string, read_u16, read_u8, write_bytes, write_u16, write_u8, AsyncRead,
+    ClientId, Encodable, Error, Protocol, QoS, SyncWrite, ToError, TopicName, Username,
 };
 
 use super::{
@@ -475,7 +477,7 @@ impl Connack {
         reader
             .read_exact(&mut payload)
             .await
-            .map_err(from_read_exact_error)?;
+            .map_err(ToError::to_error)?;
         let session_present = match payload[0] {
             0 => false,
             1 => true,
