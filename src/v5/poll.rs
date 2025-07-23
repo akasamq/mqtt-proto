@@ -1,6 +1,6 @@
-use crate::{
-    block_on, GenericPollBodyState, GenericPollPacket, GenericPollPacketState, PollHeader,
-};
+use embedded_io_async::Read;
+
+use crate::{GenericPollPacket, GenericPollPacketState, PollHeader};
 
 use super::{
     Auth, Connack, Connect, Disconnect, ErrorV5, Header, Packet, PacketType, Puback, Pubcomp,
@@ -29,27 +29,25 @@ impl PollHeader for Header {
         Some(packet)
     }
 
-    fn block_decode(self, reader: &mut &[u8]) -> Result<Self::Packet, Self::Error> {
+    #[rustfmt::skip]
+    async fn stream_decode<T: Read + Unpin>(
+        self,
+        reader: &mut T,
+    ) -> Result<Self::Packet, Self::Error> {
         match self.typ {
-            PacketType::Connect => block_on(Connect::decode_async(reader, self)).map(Into::into),
-            PacketType::Connack => block_on(Connack::decode_async(reader, self)).map(Into::into),
-            PacketType::Publish => block_on(Publish::decode_async(reader, self)).map(Into::into),
-            PacketType::Puback => block_on(Puback::decode_async(reader, self)).map(Into::into),
-            PacketType::Pubrec => block_on(Pubrec::decode_async(reader, self)).map(Into::into),
-            PacketType::Pubrel => block_on(Pubrel::decode_async(reader, self)).map(Into::into),
-            PacketType::Pubcomp => block_on(Pubcomp::decode_async(reader, self)).map(Into::into),
-            PacketType::Subscribe => {
-                block_on(Subscribe::decode_async(reader, self)).map(Into::into)
-            }
-            PacketType::Suback => block_on(Suback::decode_async(reader, self)).map(Into::into),
-            PacketType::Unsubscribe => {
-                block_on(Unsubscribe::decode_async(reader, self)).map(Into::into)
-            }
-            PacketType::Unsuback => block_on(Unsuback::decode_async(reader, self)).map(Into::into),
-            PacketType::Disconnect => {
-                block_on(Disconnect::decode_async(reader, self)).map(Into::into)
-            }
-            PacketType::Auth => block_on(Auth::decode_async(reader, self)).map(Into::into),
+            PacketType::Connect => Connect::decode_async(reader, self).await.map(Into::into),
+            PacketType::Connack => Connack::decode_async(reader, self).await.map(Into::into),
+            PacketType::Publish => Publish::decode_async(reader, self).await.map(Into::into),
+            PacketType::Puback => Puback::decode_async(reader, self).await.map(Into::into),
+            PacketType::Pubrec => Pubrec::decode_async(reader, self).await.map(Into::into),
+            PacketType::Pubrel => Pubrel::decode_async(reader, self).await.map(Into::into),
+            PacketType::Pubcomp => Pubcomp::decode_async(reader, self).await.map(Into::into),
+            PacketType::Subscribe => Subscribe::decode_async(reader, self).await.map(Into::into),
+            PacketType::Suback => Suback::decode_async(reader, self).await.map(Into::into),
+            PacketType::Unsubscribe => Unsubscribe::decode_async(reader, self).await.map(Into::into),
+            PacketType::Unsuback => Unsuback::decode_async(reader, self).await.map(Into::into),
+            PacketType::Disconnect => Disconnect::decode_async(reader, self).await.map(Into::into),
+            PacketType::Auth => Auth::decode_async(reader, self).await.map(Into::into),
             PacketType::Pingreq | PacketType::Pingresp => unreachable!(),
         }
     }
@@ -65,4 +63,3 @@ impl PollHeader for Header {
 
 pub type PollPacket<'a, T> = GenericPollPacket<'a, T, Header>;
 pub type PollPacketState = GenericPollPacketState<Header>;
-pub type PollBodyState = GenericPollBodyState<Header>;

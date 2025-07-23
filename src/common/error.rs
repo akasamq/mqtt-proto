@@ -84,7 +84,6 @@ impl Error {
     }
 }
 
-#[cfg(feature = "embedded-io")]
 impl<E: embedded_io::Error> From<E> for Error {
     fn from(err: E) -> Error {
         match err.kind() {
@@ -96,24 +95,10 @@ impl<E: embedded_io::Error> From<E> for Error {
     }
 }
 
-#[cfg(feature = "std")]
-impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Error {
-        match err.kind() {
-            std::io::ErrorKind::UnexpectedEof => Error::IoError(IoErrorKind::UnexpectedEof),
-            std::io::ErrorKind::InvalidData => Error::IoError(IoErrorKind::InvalidData),
-            std::io::ErrorKind::WriteZero => Error::IoError(IoErrorKind::WriteZero),
-            std::io::ErrorKind::TimedOut => Error::IoError(IoErrorKind::TimedOut),
-            _ => Error::IoError(IoErrorKind::Other),
-        }
-    }
-}
-
 pub trait ToError {
     fn to_error(self) -> Error;
 }
 
-#[cfg(feature = "embedded-io")]
 impl<E: Into<Error>> ToError for embedded_io::ReadExactError<E> {
     fn to_error(self) -> Error {
         match self {

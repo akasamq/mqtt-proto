@@ -1,7 +1,6 @@
-use crate::{
-    block_on, read_u16, Error, GenericPollBodyState, GenericPollPacket, GenericPollPacketState,
-    Pid, PollHeader,
-};
+use embedded_io_async::Read;
+
+use crate::{read_u16, Error, GenericPollPacket, GenericPollPacketState, Pid, PollHeader};
 
 use super::{
     Connack, Connect, Header, Packet, PacketType, Publish, Suback, Subscribe, Unsubscribe,
@@ -28,27 +27,23 @@ impl PollHeader for Header {
         Some(packet)
     }
 
-    fn block_decode(self, reader: &mut &[u8]) -> Result<Self::Packet, Self::Error> {
+    #[rustfmt::skip]
+    async fn stream_decode<T: Read + Unpin>(
+        self,
+        reader: &mut T,
+    ) -> Result<Self::Packet, Self::Error> {
         match self.typ {
-            PacketType::Connect => block_on(Connect::decode_async(reader)).map(Into::into),
-            PacketType::Connack => block_on(Connack::decode_async(reader)).map(Into::into),
-            PacketType::Publish => block_on(Publish::decode_async(reader, self)).map(Into::into),
-            PacketType::Puback => Ok(Packet::Puback(Pid::try_from(block_on(read_u16(reader))?)?)),
-            PacketType::Pubrec => Ok(Packet::Pubrec(Pid::try_from(block_on(read_u16(reader))?)?)),
-            PacketType::Pubrel => Ok(Packet::Pubrel(Pid::try_from(block_on(read_u16(reader))?)?)),
-            PacketType::Pubcomp => Ok(Packet::Pubcomp(Pid::try_from(block_on(read_u16(reader))?)?)),
-            PacketType::Subscribe => {
-                block_on(Subscribe::decode_async(reader, self.remaining_len())).map(Into::into)
-            }
-            PacketType::Suback => {
-                block_on(Suback::decode_async(reader, self.remaining_len())).map(Into::into)
-            }
-            PacketType::Unsubscribe => {
-                block_on(Unsubscribe::decode_async(reader, self.remaining_len())).map(Into::into)
-            }
-            PacketType::Unsuback => Ok(Packet::Unsuback(Pid::try_from(block_on(read_u16(
-                reader,
-            ))?)?)),
+            PacketType::Connect => Connect::decode_async(reader).await.map(Into::into),
+            PacketType::Connack => Connack::decode_async(reader).await.map(Into::into),
+            PacketType::Publish => Publish::decode_async(reader, self).await.map(Into::into),
+            PacketType::Puback => Ok(Packet::Puback(Pid::try_from(read_u16(reader).await?)?)),
+            PacketType::Pubrec => Ok(Packet::Pubrec(Pid::try_from(read_u16(reader).await?)?)),
+            PacketType::Pubrel => Ok(Packet::Pubrel(Pid::try_from(read_u16(reader).await?)?)),
+            PacketType::Pubcomp => Ok(Packet::Pubcomp(Pid::try_from(read_u16(reader).await?)?)),
+            PacketType::Subscribe => Subscribe::decode_async(reader, self.remaining_len()).await.map(Into::into),
+            PacketType::Suback => Suback::decode_async(reader, self.remaining_len()).await.map(Into::into),
+            PacketType::Unsubscribe => Unsubscribe::decode_async(reader, self.remaining_len()).await.map(Into::into),
+            PacketType::Unsuback => Ok(Packet::Unsuback(Pid::try_from(read_u16(reader).await?)?)),
             PacketType::Pingreq | PacketType::Pingresp | PacketType::Disconnect => unreachable!(),
         }
     }
@@ -64,4 +59,3 @@ impl PollHeader for Header {
 
 pub type PollPacket<'a, T> = GenericPollPacket<'a, T, Header>;
 pub type PollPacketState = GenericPollPacketState<Header>;
-pub type PollBodyState = GenericPollBodyState<Header>;

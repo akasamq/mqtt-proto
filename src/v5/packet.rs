@@ -1,6 +1,6 @@
 use core::convert::AsRef;
 
-#[cfg(all(feature = "tokio", feature = "std"))]
+#[cfg(feature = "tokio")]
 use tokio::io::AsyncWriteExt;
 
 use crate::{

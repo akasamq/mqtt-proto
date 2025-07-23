@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 
 use bytes::Bytes;
 use simdutf8::basic::from_utf8;
-#[cfg(all(feature = "tokio", feature = "std"))]
+#[cfg(feature = "tokio")]
 use tokio::io::AsyncReadExt;
 
 use crate::{

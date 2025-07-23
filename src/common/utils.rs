@@ -4,7 +4,7 @@ use alloc::sync::Arc;
 use alloc::vec::Vec;
 
 use simdutf8::basic::from_utf8;
-#[cfg(all(feature = "tokio", feature = "std"))]
+#[cfg(feature = "tokio")]
 use tokio::io::AsyncReadExt;
 
 use crate::{AsyncRead, Encodable, Error, SyncWrite, ToError};

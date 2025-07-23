@@ -12,10 +12,10 @@ edition = "2021"
 
 [dependencies]
 bytes = { version = "1", default-features = false }
-embassy-futures = { version = "0.1", default-features = false, optional = true }
-embedded-io = { version = "0.6", default-features = false, features = ["alloc"], optional = true }
+embassy-futures = { version = "0.1", default-features = false }
+embedded-io = { version = "0.6", default-features = false, features = ["alloc"] }
 embedded-io-adapters = { version = "0.6", default-features = false, optional = true }
-embedded-io-async = { version = "0.6", default-features = false, features = ["alloc"], optional = true }
+embedded-io-async = { version = "0.6", default-features = false, features = ["alloc"] }
 futures-lite = { version = "2", default-features = false }
 simdutf8 = { version = "0.1", default-features = false }
 thiserror = { version = "2", default-features = false }
@@ -26,6 +26,7 @@ arbitrary = { version = "1", features = ["derive"], optional = true }
 
 [dev-dependencies]
 dhat = "0.3"
+embedded-io-adapters = { version = "0.6", features = ["tokio-1"] }
 proptest = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -36,17 +37,19 @@ tokio-test = "0.4"
 name = "codec"
 
 [features]
-default = ["std", "tokio"]
-std = ["embedded-io-adapters?/std", "bytes/std", "futures-lite/std", "simdutf8/std", "thiserror/std"]
+default = ["std"]
+std = [
+    "bytes/std",
+    "embedded-io/std",
+    "embedded-io-adapters?/std",
+    "embedded-io-async/std",
+    "futures-lite/std",
+    "simdutf8/std",
+    "thiserror/std"
+]
+
+# Enable `tokio` async runtime
+tokio = ["dep:embedded-io-adapters", "dep:tokio", "embedded-io-adapters?/tokio-1", "std"]
 
 # Enable DHAT Memory debugging
 dhat-heap = ["std"]
-
-# Enable `embedded-hal` I/O features
-embedded-io = ["dep:embedded-io", "dep:embedded-io-adapters", "dep:embedded-io-async"]
-
-# Enable `tokio` async runtime
-tokio = ["dep:tokio", "embedded-io-adapters?/tokio-1"]
-
-# Enable `embassy` async runtime
-embassy = ["dep:embassy-futures"]

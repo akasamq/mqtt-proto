@@ -1,7 +1,7 @@
 use core::convert::TryFrom;
 
 use bytes::Bytes;
-#[cfg(all(feature = "tokio", feature = "std"))]
+#[cfg(feature = "tokio")]
 use tokio::io::AsyncReadExt;
 
 use crate::{

@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 
 use bytes::Bytes;
-#[cfg(all(feature = "tokio", feature = "std"))]
+#[cfg(feature = "tokio")]
 use tokio::io::AsyncReadExt;
 
 use crate::{
