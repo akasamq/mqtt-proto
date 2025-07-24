@@ -1,8 +1,11 @@
 use core::convert::AsRef;
 
+#[cfg(feature = "tokio")]
+use tokio::io::AsyncWriteExt;
+
 use crate::{
-    block_on, decode_raw_header, encode_packet, packet_from, total_len, AsyncRead, AsyncWrite,
-    Encodable, Error, QoS, QosPid, VarBytes,
+    block_on, decode_raw_header_async, encode_packet, packet_from, total_len, AsyncRead,
+    AsyncWrite, Encodable, Error, QoS, QosPid, VarBytes,
 };
 
 use super::{
@@ -309,7 +312,7 @@ impl Header {
     }
 
     pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, ErrorV5> {
-        let (typ, remaining_len) = decode_raw_header(reader).await?;
+        let (typ, remaining_len) = decode_raw_header_async(reader).await?;
         Header::new_with(typ, remaining_len)
     }
 }

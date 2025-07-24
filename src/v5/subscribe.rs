@@ -4,8 +4,8 @@ use alloc::sync::Arc;
 use alloc::vec::Vec;
 
 use crate::{
-    decode_var_int, read_string, read_u16, read_u8, write_bytes, write_u16, write_u8, AsyncRead,
-    Encodable, Error, Pid, QoS, SyncWrite, TopicFilter,
+    decode_var_int_async, read_string_async, read_u16_async, read_u8_async, write_bytes, write_u16,
+    write_u8, AsyncRead, Encodable, Error, Pid, QoS, SyncWrite, TopicFilter,
 };
 
 use super::{
@@ -36,7 +36,7 @@ impl Subscribe {
         header: Header,
     ) -> Result<Self, ErrorV5> {
         let mut remaining_len = header.remaining_len as usize;
-        let pid = Pid::try_from(read_u16(reader).await?)?;
+        let pid = Pid::try_from(read_u16_async(reader).await?)?;
         let properties = SubscribeProperties::decode_async(reader, header.typ).await?;
         remaining_len = remaining_len
             .checked_sub(2 + properties.encode_len())
@@ -46,9 +46,9 @@ impl Subscribe {
         }
         let mut topics = Vec::new();
         while remaining_len > 0 {
-            let topic_filter = TopicFilter::try_from(read_string(reader).await?)?;
+            let topic_filter = TopicFilter::try_from(read_string_async(reader).await?)?;
             let options = {
-                let opt_byte = read_u8(reader).await?;
+                let opt_byte = read_u8_async(reader).await?;
                 if opt_byte & 0b11000000 > 0 {
                     return Err(ErrorV5::InvalidSubscriptionOption(opt_byte));
                 }
@@ -208,14 +208,14 @@ impl Suback {
         header: Header,
     ) -> Result<Self, ErrorV5> {
         let mut remaining_len = header.remaining_len as usize;
-        let pid = Pid::try_from(read_u16(reader).await?)?;
+        let pid = Pid::try_from(read_u16_async(reader).await?)?;
         let properties = SubackProperties::decode_async(reader, header.typ).await?;
         remaining_len = remaining_len
             .checked_sub(2 + properties.encode_len())
             .ok_or(Error::InvalidRemainingLength)?;
         let mut topics = Vec::new();
         while remaining_len > 0 {
-            let value = read_u8(reader).await?;
+            let value = read_u8_async(reader).await?;
             let code = SubscribeReasonCode::from_u8(value)
                 .ok_or(ErrorV5::InvalidReasonCode(header.typ, value))?;
             topics.push(code);
@@ -354,12 +354,12 @@ impl Unsubscribe {
         header: Header,
     ) -> Result<Self, ErrorV5> {
         let mut remaining_len = header.remaining_len as usize;
-        let pid = Pid::try_from(read_u16(reader).await?)?;
-        let (property_len, property_len_bytes) = decode_var_int(reader).await?;
+        let pid = Pid::try_from(read_u16_async(reader).await?)?;
+        let (property_len, property_len_bytes) = decode_var_int_async(reader).await?;
         let mut properties = UnsubscribeProperties::default();
         let mut len = 0;
         while property_len as usize > len {
-            let property_id = PropertyId::from_u8(read_u8(reader).await?)?;
+            let property_id = PropertyId::from_u8(read_u8_async(reader).await?)?;
             match property_id {
                 PropertyId::UserProperty => {
                     let property = PropertyValue::decode_user_property(reader).await?;
@@ -380,7 +380,7 @@ impl Unsubscribe {
         }
         let mut topics = Vec::new();
         while remaining_len > 0 {
-            let topic_filter = TopicFilter::try_from(read_string(reader).await?)?;
+            let topic_filter = TopicFilter::try_from(read_string_async(reader).await?)?;
             remaining_len = remaining_len
                 .checked_sub(2 + topic_filter.len())
                 .ok_or(Error::InvalidRemainingLength)?;
@@ -475,14 +475,14 @@ impl Unsuback {
         header: Header,
     ) -> Result<Self, ErrorV5> {
         let mut remaining_len = header.remaining_len as usize;
-        let pid = Pid::try_from(read_u16(reader).await?)?;
+        let pid = Pid::try_from(read_u16_async(reader).await?)?;
         let properties = UnsubackProperties::decode_async(reader, header.typ).await?;
         remaining_len = remaining_len
             .checked_sub(2 + properties.encode_len())
             .ok_or(Error::InvalidRemainingLength)?;
         let mut topics = Vec::new();
         while remaining_len > 0 {
-            let value = read_u8(reader).await?;
+            let value = read_u8_async(reader).await?;
             let code = UnsubscribeReasonCode::from_u8(value)
                 .ok_or(ErrorV5::InvalidReasonCode(header.typ, value))?;
             topics.push(code);

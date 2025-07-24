@@ -1,9 +1,11 @@
 use alloc::vec::Vec;
 
 use crate::{
-    read_string, read_u16, read_u8, write_string, write_u16, write_u8, AsyncRead, Encodable, Error,
-    Pid, QoS, SyncWrite, TopicFilter,
+    read_string_async, read_u16_async, read_u8_async, write_string, write_u16, write_u8, AsyncRead,
+    Encodable, Error, PacketBuf, Pid, QoS, SyncWrite, TopicFilter,
 };
+
+use super::Header;
 
 /// Subscribe packet body type.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -34,11 +36,33 @@ impl Subscribe {
         Self { pid, topics }
     }
 
+    pub fn decode(buf: &mut PacketBuf, header: Header) -> Result<Self, Error> {
+        let mut remaining_len = header.remaining_len as usize;
+        let pid = Pid::try_from(buf.read_u16()?)?;
+        remaining_len = remaining_len
+            .checked_sub(2)
+            .ok_or(Error::InvalidRemainingLength)?;
+        if buf.remaining() == 0 {
+            return Err(Error::EmptySubscription);
+        }
+        let mut topics = Vec::new();
+        while buf.remaining() > 0 {
+            let topic_filter = TopicFilter::try_from(buf.read_string()?)?;
+            let max_qos = QoS::from_u8(buf.read_u8()?)?;
+            remaining_len = remaining_len
+                .checked_sub(3 + topic_filter.len())
+                .ok_or(Error::InvalidRemainingLength)?;
+            topics.push((topic_filter, max_qos));
+        }
+        Ok(Subscribe { pid, topics })
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
-        mut remaining_len: usize,
+        header: Header,
     ) -> Result<Self, Error> {
-        let pid = Pid::try_from(read_u16(reader).await?)?;
+        let mut remaining_len = header.remaining_len as usize;
+        let pid = Pid::try_from(read_u16_async(reader).await?)?;
         remaining_len = remaining_len
             .checked_sub(2)
             .ok_or(Error::InvalidRemainingLength)?;
@@ -47,8 +71,8 @@ impl Subscribe {
         }
         let mut topics = Vec::new();
         while remaining_len > 0 {
-            let topic_filter = TopicFilter::try_from(read_string(reader).await?)?;
-            let max_qos = QoS::from_u8(read_u8(reader).await?)?;
+            let topic_filter = TopicFilter::try_from(read_string_async(reader).await?)?;
+            let max_qos = QoS::from_u8(read_u8_async(reader).await?)?;
             remaining_len = remaining_len
                 .checked_sub(3 + topic_filter.len())
                 .ok_or(Error::InvalidRemainingLength)?;
@@ -82,17 +106,34 @@ impl Suback {
         Self { pid, topics }
     }
 
-    pub async fn decode_async<T: AsyncRead + Unpin>(
-        reader: &mut T,
-        mut remaining_len: usize,
-    ) -> Result<Self, Error> {
-        let pid = Pid::try_from(read_u16(reader).await?)?;
+    pub fn decode(buf: &mut PacketBuf, header: Header) -> Result<Self, Error> {
+        let mut remaining_len = header.remaining_len as usize;
+        let pid = Pid::try_from(buf.read_u16()?)?;
         remaining_len = remaining_len
             .checked_sub(2)
             .ok_or(Error::InvalidRemainingLength)?;
         let mut topics = Vec::new();
         while remaining_len > 0 {
-            let value = read_u8(reader).await?;
+            let value = buf.read_u8()?;
+            let code = SubscribeReturnCode::from_u8(value)?;
+            topics.push(code);
+            remaining_len -= 1;
+        }
+        Ok(Suback { pid, topics })
+    }
+
+    pub async fn decode_async<T: AsyncRead + Unpin>(
+        reader: &mut T,
+        header: Header,
+    ) -> Result<Self, Error> {
+        let mut remaining_len = header.remaining_len as usize;
+        let pid = Pid::try_from(read_u16_async(reader).await?)?;
+        remaining_len = remaining_len
+            .checked_sub(2)
+            .ok_or(Error::InvalidRemainingLength)?;
+        let mut topics = Vec::new();
+        while remaining_len > 0 {
+            let value = read_u8_async(reader).await?;
             let code = SubscribeReturnCode::from_u8(value)?;
             topics.push(code);
             remaining_len -= 1;
@@ -119,11 +160,9 @@ impl Unsubscribe {
         Self { pid, topics }
     }
 
-    pub async fn decode_async<T: AsyncRead + Unpin>(
-        reader: &mut T,
-        mut remaining_len: usize,
-    ) -> Result<Self, Error> {
-        let pid = Pid::try_from(read_u16(reader).await?)?;
+    pub fn decode(buf: &mut PacketBuf, header: Header) -> Result<Self, Error> {
+        let mut remaining_len = header.remaining_len as usize;
+        let pid = Pid::try_from(buf.read_u16()?)?;
         remaining_len = remaining_len
             .checked_sub(2)
             .ok_or(Error::InvalidRemainingLength)?;
@@ -132,7 +171,30 @@ impl Unsubscribe {
         }
         let mut topics = Vec::new();
         while remaining_len > 0 {
-            let topic_filter = TopicFilter::try_from(read_string(reader).await?)?;
+            let topic_filter = TopicFilter::try_from(buf.read_string()?)?;
+            remaining_len = remaining_len
+                .checked_sub(2 + topic_filter.len())
+                .ok_or(Error::InvalidRemainingLength)?;
+            topics.push(topic_filter);
+        }
+        Ok(Unsubscribe { pid, topics })
+    }
+
+    pub async fn decode_async<T: AsyncRead + Unpin>(
+        reader: &mut T,
+        header: Header,
+    ) -> Result<Self, Error> {
+        let mut remaining_len = header.remaining_len as usize;
+        let pid = Pid::try_from(read_u16_async(reader).await?)?;
+        remaining_len = remaining_len
+            .checked_sub(2)
+            .ok_or(Error::InvalidRemainingLength)?;
+        if remaining_len == 0 {
+            return Err(Error::EmptySubscription);
+        }
+        let mut topics = Vec::new();
+        while remaining_len > 0 {
+            let topic_filter = TopicFilter::try_from(read_string_async(reader).await?)?;
             remaining_len = remaining_len
                 .checked_sub(2 + topic_filter.len())
                 .ok_or(Error::InvalidRemainingLength)?;

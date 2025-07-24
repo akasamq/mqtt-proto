@@ -1,8 +1,11 @@
 use core::convert::AsRef;
 
+#[cfg(feature = "tokio")]
+use tokio::io::AsyncWriteExt;
+
 use crate::{
-    block_on, decode_raw_header, encode_packet, packet_from, read_u16, total_len, AsyncRead,
-    AsyncWrite, Encodable, Error, Pid, QoS, QosPid, VarBytes,
+    block_on, decode_raw_header_async, encode_packet, packet_from, read_u16_async, total_len,
+    AsyncRead, AsyncWrite, Encodable, Error, Pid, QoS, QosPid, VarBytes,
 };
 
 use super::{Connack, Connect, Publish, Suback, Subscribe, Unsubscribe};
@@ -76,22 +79,14 @@ impl Packet {
             PacketType::Connect => Connect::decode_async(reader).await?.into(),
             PacketType::Connack => Connack::decode_async(reader).await?.into(),
             PacketType::Publish => Publish::decode_async(reader, header).await?.into(),
-            PacketType::Puback => Packet::Puback(Pid::try_from(read_u16(reader).await?)?),
-            PacketType::Pubrec => Packet::Pubrec(Pid::try_from(read_u16(reader).await?)?),
-            PacketType::Pubrel => Packet::Pubrel(Pid::try_from(read_u16(reader).await?)?),
-            PacketType::Pubcomp => Packet::Pubcomp(Pid::try_from(read_u16(reader).await?)?),
-            PacketType::Subscribe => Subscribe::decode_async(reader, header.remaining_len as usize)
-                .await?
-                .into(),
-            PacketType::Suback => Suback::decode_async(reader, header.remaining_len as usize)
-                .await?
-                .into(),
-            PacketType::Unsubscribe => {
-                Unsubscribe::decode_async(reader, header.remaining_len as usize)
-                    .await?
-                    .into()
-            }
-            PacketType::Unsuback => Packet::Unsuback(Pid::try_from(read_u16(reader).await?)?),
+            PacketType::Puback => Packet::Puback(Pid::try_from(read_u16_async(reader).await?)?),
+            PacketType::Pubrec => Packet::Pubrec(Pid::try_from(read_u16_async(reader).await?)?),
+            PacketType::Pubrel => Packet::Pubrel(Pid::try_from(read_u16_async(reader).await?)?),
+            PacketType::Pubcomp => Packet::Pubcomp(Pid::try_from(read_u16_async(reader).await?)?),
+            PacketType::Subscribe => Subscribe::decode_async(reader, header).await?.into(),
+            PacketType::Suback => Suback::decode_async(reader, header).await?.into(),
+            PacketType::Unsubscribe => Unsubscribe::decode_async(reader, header).await?.into(),
+            PacketType::Unsuback => Packet::Unsuback(Pid::try_from(read_u16_async(reader).await?)?),
         })
     }
 
@@ -300,7 +295,7 @@ impl Header {
     }
 
     pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
-        let (typ, remaining_len) = decode_raw_header(reader).await?;
+        let (typ, remaining_len) = decode_raw_header_async(reader).await?;
         Header::new_with(typ, remaining_len)
     }
 }

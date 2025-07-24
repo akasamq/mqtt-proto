@@ -5,10 +5,13 @@ use alloc::vec::Vec;
 
 use bytes::Bytes;
 use simdutf8::basic::from_utf8;
+#[cfg(feature = "tokio")]
+use tokio::io::AsyncReadExt;
 
 use crate::{
-    from_read_exact_error, read_bytes, read_string, read_u16, read_u8, write_bytes, write_u16,
-    write_u8, AsyncRead, ClientId, Encodable, Error, Protocol, QoS, SyncWrite, TopicName, Username,
+    read_bytes_async, read_string_async, read_u16_async, read_u8_async, write_bytes, write_u16,
+    write_u8, AsyncRead, ClientId, Encodable, Error, Protocol, QoS, SyncWrite, ToError, TopicName,
+    Username,
 };
 
 use super::{
@@ -102,16 +105,16 @@ impl Connect {
         if protocol != Protocol::V500 {
             return Err(Error::UnexpectedProtocol(protocol).into());
         }
-        let connect_flags: u8 = read_u8(reader).await?;
+        let connect_flags: u8 = read_u8_async(reader).await?;
         if connect_flags & 1 != 0 {
             return Err(Error::InvalidConnectFlags(connect_flags).into());
         }
-        let keep_alive = read_u16(reader).await?;
+        let keep_alive = read_u16_async(reader).await?;
 
         // FIXME: check remaining length
 
         let properties = ConnectProperties::decode_async(reader, header.typ).await?;
-        let client_id = read_string(reader).await?;
+        let client_id = read_string_async(reader).await?;
         let last_will = if connect_flags & 0b100 != 0 {
             let qos = QoS::from_u8((connect_flags & 0b11000) >> 3)?;
             let retain = (connect_flags & 0b00100000) != 0;
@@ -122,12 +125,12 @@ impl Connect {
             None
         };
         let username = if connect_flags & 0b10000000 != 0 {
-            Some(read_string(reader).await?)
+            Some(read_string_async(reader).await?)
         } else {
             None
         };
         let password = if connect_flags & 0b01000000 != 0 {
-            Some(Bytes::from(read_bytes(reader).await?))
+            Some(Bytes::from(read_bytes_async(reader).await?))
         } else {
             None
         };
@@ -342,8 +345,8 @@ impl LastWill {
         retain: bool,
     ) -> Result<Self, ErrorV5> {
         let properties = WillProperties::decode_async(reader).await?;
-        let topic_name = TopicName::try_from(read_string(reader).await?)?;
-        let payload = read_bytes(reader).await?;
+        let topic_name = TopicName::try_from(read_string_async(reader).await?)?;
+        let payload = read_bytes_async(reader).await?;
         if properties.payload_is_utf8 == Some(true) && from_utf8(&payload).is_err() {
             return Err(ErrorV5::InvalidPayloadFormat);
         }
@@ -475,7 +478,7 @@ impl Connack {
         reader
             .read_exact(&mut payload)
             .await
-            .map_err(from_read_exact_error)?;
+            .map_err(ToError::to_error)?;
         let session_present = match payload[0] {
             0 => false,
             1 => true,
@@ -746,12 +749,12 @@ impl Disconnect {
         let (reason_code, properties) = if header.remaining_len == 0 {
             (DisconnectReasonCode::NormalDisconnect, Default::default())
         } else if header.remaining_len == 1 {
-            let reason_byte = read_u8(reader).await?;
+            let reason_byte = read_u8_async(reader).await?;
             let reason_code = DisconnectReasonCode::from_u8(reason_byte)
                 .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
             (reason_code, Default::default())
         } else {
-            let reason_byte = read_u8(reader).await?;
+            let reason_byte = read_u8_async(reader).await?;
             let reason_code = DisconnectReasonCode::from_u8(reason_byte)
                 .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
             let properties = DisconnectProperties::decode_async(reader, header.typ).await?;
@@ -982,7 +985,7 @@ impl Auth {
                 properties: AuthProperties::default(),
             }
         } else {
-            let reason_byte = read_u8(reader).await?;
+            let reason_byte = read_u8_async(reader).await?;
             let reason_code = AuthReasonCode::from_u8(reason_byte)
                 .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
             let properties = AuthProperties::decode_async(reader, header.typ).await?;

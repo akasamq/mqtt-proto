@@ -4,7 +4,10 @@ use alloc::sync::Arc;
 
 use bytes::Bytes;
 
-use crate::{read_bytes, read_string, read_u16, read_u32, read_u8, AsyncRead, Error, TopicName};
+use crate::{
+    read_bytes_async, read_string_async, read_u16_async, read_u32_async, read_u8_async, AsyncRead,
+    Error, TopicName,
+};
 
 use super::ErrorV5;
 
@@ -129,7 +132,7 @@ impl PropertyValue {
         if target.is_some() {
             return Err(ErrorV5::DuplicatedProperty(property_id));
         }
-        let value = read_u8(reader).await?;
+        let value = read_u8_async(reader).await?;
         if value > 1 {
             Err(ErrorV5::InvalidByteProperty(property_id, value))
         } else {
@@ -147,7 +150,7 @@ impl PropertyValue {
         if target.is_some() {
             return Err(ErrorV5::DuplicatedProperty(property_id));
         }
-        *target = Some(read_u16(reader).await?);
+        *target = Some(read_u16_async(reader).await?);
         Ok(())
     }
 
@@ -160,7 +163,7 @@ impl PropertyValue {
         if target.is_some() {
             return Err(ErrorV5::DuplicatedProperty(property_id));
         }
-        *target = Some(read_u32(reader).await?);
+        *target = Some(read_u32_async(reader).await?);
         Ok(())
     }
 
@@ -173,7 +176,7 @@ impl PropertyValue {
         if target.is_some() {
             return Err(ErrorV5::DuplicatedProperty(property_id));
         }
-        *target = Some(read_string(reader).await?);
+        *target = Some(read_string_async(reader).await?);
         Ok(())
     }
 
@@ -186,7 +189,7 @@ impl PropertyValue {
         if target.is_some() {
             return Err(ErrorV5::DuplicatedProperty(property_id));
         }
-        let content = read_string(reader).await?;
+        let content = read_string_async(reader).await?;
         *target = Some(TopicName::try_from(content)?);
         Ok(())
     }
@@ -200,7 +203,7 @@ impl PropertyValue {
         if target.is_some() {
             return Err(ErrorV5::DuplicatedProperty(property_id));
         }
-        *target = Some(Bytes::from(read_bytes(reader).await?));
+        *target = Some(Bytes::from(read_bytes_async(reader).await?));
         Ok(())
     }
 
@@ -208,8 +211,8 @@ impl PropertyValue {
     pub(crate) async fn decode_user_property<T: AsyncRead + Unpin>(
         reader: &mut T,
     ) -> Result<UserProperty, ErrorV5> {
-        let name = read_string(reader).await?;
-        let value = read_string(reader).await?;
+        let name = read_string_async(reader).await?;
+        let value = read_string_async(reader).await?;
         Ok(UserProperty { name, value })
     }
 }
@@ -304,7 +307,7 @@ macro_rules! decode_property {
         if $properties.subscription_id.is_some() {
             return Err(crate::v5::ErrorV5::DuplicatedProperty($property_id));
         }
-        let (value, _bytes) = crate::decode_var_int($reader).await?;
+        let (value, _bytes) = crate::decode_var_int_async($reader).await?;
         $properties.subscription_id = Some(crate::v5::VarByteInt::try_from(value)?);
     };
     (SessionExpiryInterval, $properties:expr, $reader:expr, $property_id:expr) => {
@@ -411,7 +414,7 @@ macro_rules! decode_property {
         if $properties.max_qos.is_some() {
             return Err(crate::v5::ErrorV5::DuplicatedProperty($property_id));
         }
-        let value = crate::read_u8($reader).await?;
+        let value = crate::read_u8_async($reader).await?;
         if value > 1 {
             return Err(crate::v5::ErrorV5::InvalidByteProperty($property_id, value));
         } else {
@@ -466,10 +469,10 @@ macro_rules! decode_property {
 
 macro_rules! decode_properties {
     (LastWill, $properties:expr, $reader:expr, $($t:ident,)*) => {
-        let (property_len, _bytes) = crate::decode_var_int($reader).await?;
+        let (property_len, _bytes) = crate::decode_var_int_async($reader).await?;
         let mut len = 0;
         while property_len as usize > len {
-            let property_id = crate::v5::PropertyId::from_u8(crate::read_u8($reader).await?)?;
+            let property_id = crate::v5::PropertyId::from_u8(crate::read_u8_async($reader).await?)?;
             match property_id {
                 $(
                     crate::v5::PropertyId::$t => {
@@ -490,10 +493,10 @@ macro_rules! decode_properties {
         }
     };
     ($packet_type:expr, $properties:expr, $reader:expr, $($t:ident,)*) => {
-        let (property_len, _bytes) = crate::decode_var_int($reader).await?;
+        let (property_len, _bytes) = crate::decode_var_int_async($reader).await?;
         let mut len = 0;
         while property_len as usize > len {
-            let property_id = crate::v5::PropertyId::from_u8(crate::read_u8($reader).await?)?;
+            let property_id = crate::v5::PropertyId::from_u8(crate::read_u8_async($reader).await?)?;
             match property_id {
                 $(
                     crate::v5::PropertyId::$t => {

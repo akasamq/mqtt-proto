@@ -5,10 +5,12 @@ use alloc::vec::Vec;
 
 use bytes::Bytes;
 use simdutf8::basic::from_utf8;
+#[cfg(feature = "tokio")]
+use tokio::io::AsyncReadExt;
 
 use crate::{
-    from_read_exact_error, read_string, read_u16, read_u8, write_bytes, write_u16, write_u8,
-    AsyncRead, Encodable, Error, Pid, QoS, QosPid, SyncWrite, TopicName,
+    read_string_async, read_u16_async, read_u8_async, write_bytes, write_u16, write_u8, AsyncRead,
+    Encodable, Error, Pid, QoS, QosPid, SyncWrite, ToError, TopicName,
 };
 
 use super::{
@@ -58,7 +60,7 @@ impl Publish {
         header: Header,
     ) -> Result<Self, ErrorV5> {
         let mut remaining_len = header.remaining_len as usize;
-        let topic_name = read_string(reader).await?;
+        let topic_name = read_string_async(reader).await?;
         remaining_len = remaining_len
             .checked_sub(2 + topic_name.len())
             .ok_or(Error::InvalidRemainingLength)?;
@@ -68,13 +70,13 @@ impl Publish {
                 remaining_len = remaining_len
                     .checked_sub(2)
                     .ok_or(Error::InvalidRemainingLength)?;
-                QosPid::Level1(Pid::try_from(read_u16(reader).await?)?)
+                QosPid::Level1(Pid::try_from(read_u16_async(reader).await?)?)
             }
             QoS::Level2 => {
                 remaining_len = remaining_len
                     .checked_sub(2)
                     .ok_or(Error::InvalidRemainingLength)?;
-                QosPid::Level2(Pid::try_from(read_u16(reader).await?)?)
+                QosPid::Level2(Pid::try_from(read_u16_async(reader).await?)?)
             }
         };
         let properties = PublishProperties::decode_async(reader, header.typ).await?;
@@ -86,7 +88,7 @@ impl Publish {
             reader
                 .read_exact(&mut data)
                 .await
-                .map_err(from_read_exact_error)?;
+                .map_err(ToError::to_error)?;
             if properties.payload_is_utf8 == Some(true) && from_utf8(&data).is_err() {
                 return Err(ErrorV5::InvalidPayloadFormat);
             }
@@ -243,16 +245,16 @@ impl Puback {
         reader: &mut T,
         header: Header,
     ) -> Result<Self, ErrorV5> {
-        let pid = Pid::try_from(read_u16(reader).await?)?;
+        let pid = Pid::try_from(read_u16_async(reader).await?)?;
         let (reason_code, properties) = if header.remaining_len == 2 {
             (PubackReasonCode::Success, PubackProperties::default())
         } else if header.remaining_len == 3 {
-            let reason_byte = read_u8(reader).await?;
+            let reason_byte = read_u8_async(reader).await?;
             let reason_code = PubackReasonCode::from_u8(reason_byte)
                 .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
             (reason_code, PubackProperties::default())
         } else {
-            let reason_byte = read_u8(reader).await?;
+            let reason_byte = read_u8_async(reader).await?;
             let reason_code = PubackReasonCode::from_u8(reason_byte)
                 .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
             let properties = PubackProperties::decode_async(reader, header.typ).await?;
@@ -399,16 +401,16 @@ impl Pubrec {
         reader: &mut T,
         header: Header,
     ) -> Result<Self, ErrorV5> {
-        let pid = Pid::try_from(read_u16(reader).await?)?;
+        let pid = Pid::try_from(read_u16_async(reader).await?)?;
         let (reason_code, properties) = if header.remaining_len == 2 {
             (PubrecReasonCode::Success, PubrecProperties::default())
         } else if header.remaining_len == 3 {
-            let reason_byte = read_u8(reader).await?;
+            let reason_byte = read_u8_async(reader).await?;
             let reason_code = PubrecReasonCode::from_u8(reason_byte)
                 .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
             (reason_code, PubrecProperties::default())
         } else {
-            let reason_byte = read_u8(reader).await?;
+            let reason_byte = read_u8_async(reader).await?;
             let reason_code = PubrecReasonCode::from_u8(reason_byte)
                 .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
             let properties = PubrecProperties::decode_async(reader, header.typ).await?;
@@ -555,16 +557,16 @@ impl Pubrel {
         reader: &mut T,
         header: Header,
     ) -> Result<Self, ErrorV5> {
-        let pid = Pid::try_from(read_u16(reader).await?)?;
+        let pid = Pid::try_from(read_u16_async(reader).await?)?;
         let (reason_code, properties) = if header.remaining_len == 2 {
             (PubrelReasonCode::Success, PubrelProperties::default())
         } else if header.remaining_len == 3 {
-            let reason_byte = read_u8(reader).await?;
+            let reason_byte = read_u8_async(reader).await?;
             let reason_code = PubrelReasonCode::from_u8(reason_byte)
                 .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
             (reason_code, PubrelProperties::default())
         } else {
-            let reason_byte = read_u8(reader).await?;
+            let reason_byte = read_u8_async(reader).await?;
             let reason_code = PubrelReasonCode::from_u8(reason_byte)
                 .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
             let properties = PubrelProperties::decode_async(reader, header.typ).await?;
@@ -688,16 +690,16 @@ impl Pubcomp {
         reader: &mut T,
         header: Header,
     ) -> Result<Self, ErrorV5> {
-        let pid = Pid::try_from(read_u16(reader).await?)?;
+        let pid = Pid::try_from(read_u16_async(reader).await?)?;
         let (reason_code, properties) = if header.remaining_len == 2 {
             (PubcompReasonCode::Success, PubcompProperties::default())
         } else if header.remaining_len == 3 {
-            let reason_byte = read_u8(reader).await?;
+            let reason_byte = read_u8_async(reader).await?;
             let reason_code = PubcompReasonCode::from_u8(reason_byte)
                 .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
             (reason_code, PubcompProperties::default())
         } else {
-            let reason_byte = read_u8(reader).await?;
+            let reason_byte = read_u8_async(reader).await?;
             let reason_code = PubcompReasonCode::from_u8(reason_byte)
                 .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
             let properties = PubcompProperties::decode_async(reader, header.typ).await?;
