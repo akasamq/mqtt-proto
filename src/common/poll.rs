@@ -9,6 +9,8 @@ use embedded_io_async::Read;
 
 use crate::{AsyncRead, Error, IoErrorKind, ToError};
 
+const PACKET_BUFFER_THRESHOLD: usize = 8192;
+
 #[derive(Debug, Clone)]
 pub enum GenericPollPacketState<H> {
     Header {
@@ -16,12 +18,15 @@ pub enum GenericPollPacketState<H> {
         var_idx: u8,
         var_int: u32,
     },
-    Body {
+    BufferBody {
         header: H,
         /// Packet total size (include header)
         total: usize,
         idx: usize,
         buf: Vec<MaybeUninit<u8>>,
+    },
+    StreamBody {
+        header: H,
     },
 }
 
@@ -30,22 +35,33 @@ pub trait PollHeader {
     type Error;
     type Packet;
 
-    fn new_with(hd: u8, remaining_len: u32) -> Result<Self, Self::Error>
+    fn new_with(hd: u8, remaining_len: u32, total_len: u32) -> Result<Self, Self::Error>
     where
         Self: Sized;
 
     /// Packet without body is empty packet
     fn build_empty_packet(&self) -> Option<Self::Packet>;
 
+    /// Synchronous decode method for direct buffer access
+    fn decode_buffer(self, buf: &[u8], offset: &mut usize) -> Result<Self::Packet, Self::Error>;
+
     /// Async decode method for stream-based processing
-    async fn stream_decode<T: Read + Unpin>(
+    async fn decode_stream<T: Read + Unpin>(
         self,
         reader: &mut T,
     ) -> Result<Self::Packet, Self::Error>;
 
+    /// The remaining length of the packet to decode
     fn remaining_len(&self) -> usize;
 
+    /// The total length of the packet, including the header and the body
+    fn total_len(&self) -> usize;
+
     fn is_eof_error(err: &Self::Error) -> bool;
+
+    fn prefer_cache_decode(&self) -> bool {
+        self.total_len() < PACKET_BUFFER_THRESHOLD
+    }
 }
 
 impl<H> Default for GenericPollPacketState<H> {
@@ -111,42 +127,44 @@ where
                         return Err(Error::InvalidVarByteInt.into());
                     }
                 }
-                let header = match H::new_with(control_byte.unwrap(), *var_int) {
-                    Ok(header) => header,
-                    Err(err) => return Err(err),
-                };
+                let header = H::new_with(
+                    control_byte.unwrap(),
+                    *var_int,
+                    1 + 1 + *var_idx as u32 + *var_int,
+                )?;
                 if let Some(empty_packet) = header.build_empty_packet() {
                     return Ok((2, Vec::new(), empty_packet));
                 }
                 if header.remaining_len() == 0 {
                     return Err(Error::InvalidRemainingLength.into());
                 }
-                let mut buf: Vec<MaybeUninit<u8>> = Vec::with_capacity(header.remaining_len());
-                unsafe {
-                    buf.set_len(header.remaining_len());
+                let remaining_len = header.remaining_len();
+                if remaining_len < PACKET_BUFFER_THRESHOLD {
+                    let mut buf: Vec<MaybeUninit<u8>> = Vec::with_capacity(remaining_len);
+                    unsafe { buf.set_len(remaining_len) };
+                    *state = GenericPollPacketState::BufferBody {
+                        header,
+                        total: header.total_len(),
+                        idx: 0,
+                        buf,
+                    };
+                } else {
+                    *state = GenericPollPacketState::StreamBody { header };
                 }
-                *state = GenericPollPacketState::Body {
-                    header,
-                    total: 1 + 1 + *var_idx as usize + header.remaining_len(),
-                    idx: 0,
-                    buf,
-                };
             }
-            GenericPollPacketState::Body {
+            GenericPollPacketState::BufferBody {
                 header,
+                total,
                 idx,
                 buf,
-                total,
             } => {
                 while *idx < buf.len() {
-                    let remaining = buf.len() - *idx;
                     let buf_slice: &mut [u8] = unsafe {
                         core::slice::from_raw_parts_mut(
                             buf[*idx..].as_mut_ptr() as *mut u8,
-                            remaining,
+                            buf.len() - *idx,
                         )
                     };
-
                     match reader.read(buf_slice).await {
                         Ok(0) => return Err(Error::IoError(IoErrorKind::UnexpectedEof).into()),
                         Ok(n) => *idx += n,
@@ -154,17 +172,29 @@ where
                     }
                 }
 
-                let mut buf_ref: &[u8] = unsafe { mem::transmute(&buf[..]) };
-                let result = header.stream_decode(&mut buf_ref).await;
-                if result.is_ok() && !buf_ref.is_empty() {
-                    return Err(Error::InvalidRemainingLength.into());
+                // Reuse the counter for decoding
+                *idx = 0;
+                let buf_slice: &[u8] = unsafe { mem::transmute(&buf[..]) };
+                match header.decode_buffer(buf_slice, idx) {
+                    Ok(packet) => return Ok((*total, mem::take(buf), packet)),
+                    Err(e) => {
+                        if H::is_eof_error(&e) {
+                            return Err(Error::InvalidRemainingLength.into());
+                        }
+                        return Err(e.into());
+                    }
                 }
-                if let Err(err) = &result {
-                    if H::is_eof_error(err) {
+            }
+            GenericPollPacketState::StreamBody { header } => {
+                let result = header.decode_stream(reader).await;
+                if let Err(e) = &result {
+                    if H::is_eof_error(&e) {
                         return Err(Error::InvalidRemainingLength.into());
                     }
                 }
-                return result.map(|packet| (*total, mem::take(buf), packet));
+                let packet = result?;
+                let total_len = header.total_len();
+                return Ok((total_len, Vec::new(), packet));
             }
         }
     }

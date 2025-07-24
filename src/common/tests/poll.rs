@@ -11,8 +11,9 @@ use crate::*;
 #[cfg(feature = "dhat-heap")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct MockHeader {
-    remaining_len: u32,
     packet_type: u8,
+    remaining_len: u32,
+    total_len: u32,
 }
 
 #[cfg(feature = "dhat-heap")]
@@ -76,10 +77,11 @@ impl PollHeader for MockHeader {
     type Error = Error;
     type Packet = MockPacket;
 
-    fn new_with(hd: u8, remaining_len: u32) -> Result<Self, Self::Error> {
+    fn new_with(hd: u8, remaining_len: u32, total_len: u32) -> Result<Self, Self::Error> {
         Ok(MockHeader {
-            remaining_len,
             packet_type: hd,
+            remaining_len,
+            total_len,
         })
     }
 
@@ -91,23 +93,49 @@ impl PollHeader for MockHeader {
         }
     }
 
-    async fn stream_decode<T: embedded_io_async::Read + Unpin>(
-        self,
-        reader: &mut T,
-    ) -> Result<Self::Packet, Self::Error> {
+    fn decode_buffer(self, buf: &[u8], offset: &mut usize) -> Result<Self::Packet, Self::Error> {
         let packet = match self.packet_type & 0xF0 {
             0x10 => {
-                let protocol_name = read_string(reader).await?.to_string();
-                let protocol_version = read_u8(reader).await?;
+                let protocol_name = read_string(buf, offset)?.to_string();
+                let protocol_version = read_u8(buf, offset)?;
                 MockPacket::Connect {
                     protocol_name,
                     protocol_version,
                 }
             }
             0x30 => {
-                let topic = read_string(reader).await?.to_string();
-                let mock_pid = read_u16(reader).await?;
-                let payload = read_bytes(reader).await?;
+                let topic = read_string(buf, offset)?.to_string();
+                let mock_pid = read_u16(buf, offset)?;
+                let payload = read_bytes(buf, offset)?.to_vec();
+                MockPacket::Publish {
+                    topic,
+                    mock_pid,
+                    payload,
+                }
+            }
+            _ => MockPacket::Other,
+        };
+        assert_eq!(*offset, buf.len(), "offset should move to end");
+        Ok(packet)
+    }
+
+    async fn decode_stream<T: embedded_io_async::Read + Unpin>(
+        self,
+        reader: &mut T,
+    ) -> Result<Self::Packet, Self::Error> {
+        let packet = match self.packet_type & 0xF0 {
+            0x10 => {
+                let protocol_name = read_string_async(reader).await?.to_string();
+                let protocol_version = read_u8_async(reader).await?;
+                MockPacket::Connect {
+                    protocol_name,
+                    protocol_version,
+                }
+            }
+            0x30 => {
+                let topic = read_string_async(reader).await?.to_string();
+                let mock_pid = read_u16_async(reader).await?;
+                let payload = read_bytes_async(reader).await?;
                 MockPacket::Publish {
                     topic,
                     mock_pid,
@@ -121,6 +149,10 @@ impl PollHeader for MockHeader {
 
     fn remaining_len(&self) -> usize {
         self.remaining_len as usize
+    }
+
+    fn total_len(&self) -> usize {
+        self.total_len as usize
     }
 
     fn is_eof_error(err: &Self::Error) -> bool {

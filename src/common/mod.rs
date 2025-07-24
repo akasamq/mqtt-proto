@@ -31,8 +31,10 @@ pub(crate) mod io {
 pub(crate) use future::block_on;
 pub(crate) use io::{AsyncRead, AsyncWrite, SyncRead, SyncWrite};
 pub(crate) use utils::{
-    decode_var_int, encode_packet, packet_from, read_bytes, read_string, read_u16, read_u32,
-    read_u8, write_bytes, write_string, write_u16, write_u32, write_u8, write_var_int,
+    decode_var_int, decode_var_int_async, encode_packet, packet_from, read_bytes, read_bytes_async,
+    read_raw_bytes, read_string, read_string_async, read_u16, read_u16_async, read_u32,
+    read_u32_async, read_u8, read_u8_async, write_bytes, write_string, write_u16, write_u32,
+    write_u8, write_var_int,
 };
 
 pub use error::{Error, IoErrorKind, ToError};
@@ -40,7 +42,7 @@ pub use poll::{GenericPollPacket, GenericPollPacketState, PollHeader};
 pub use types::{
     ClientId, Encodable, Pid, Protocol, QoS, QosPid, TopicFilter, TopicName, Username, VarBytes,
 };
-pub use utils::{decode_raw_header, header_len, remaining_len, total_len, var_int_len};
+pub use utils::{decode_raw_header_async, header_len, remaining_len, total_len, var_int_len};
 
 #[cfg(all(test, feature = "dhat-heap"))]
 pub use tests::MemorySummary;

@@ -9,13 +9,14 @@ use simdutf8::basic::from_utf8;
 use tokio::io::AsyncReadExt;
 
 use crate::{
-    read_bytes, read_string, read_u16, read_u8, write_bytes, write_u16, write_u8, AsyncRead,
-    ClientId, Encodable, Error, Protocol, QoS, SyncWrite, ToError, TopicName, Username,
+    read_bytes, read_bytes_async, read_string, read_string_async, read_u16, read_u16_async,
+    read_u8, read_u8_async, write_bytes, write_u16, write_u8, AsyncRead, ClientId, Encodable,
+    Error, Protocol, QoS, SyncWrite, ToError, TopicName, Username,
 };
 
 use super::{
-    decode_properties, encode_properties, encode_properties_len, ErrorV5, Header, PacketType,
-    UserProperty,
+    decode_properties, decode_properties_async, encode_properties, encode_properties_len, ErrorV5,
+    Header, PacketType, UserProperty,
 };
 
 /// Body type of CONNECT packet.
@@ -87,16 +88,74 @@ impl Connect {
         }
     }
 
+    pub fn decode(buf: &[u8], offset: &mut usize, header: Header) -> Result<Self, ErrorV5> {
+        let protocol = Protocol::decode(buf, offset)?;
+        Self::decode_buffer_with_protocol(buf, offset, header, protocol)
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,
     ) -> Result<Self, ErrorV5> {
         let protocol = Protocol::decode_async(reader).await?;
-        Self::decode_with_protocol(reader, header, protocol).await
+        Self::decode_stream_with_protocol(reader, header, protocol).await
     }
 
     #[inline]
-    pub async fn decode_with_protocol<T: AsyncRead + Unpin>(
+    pub fn decode_buffer_with_protocol(
+        buf: &[u8],
+        offset: &mut usize,
+        header: Header,
+        protocol: Protocol,
+    ) -> Result<Self, ErrorV5> {
+        if protocol != Protocol::V500 {
+            return Err(Error::UnexpectedProtocol(protocol).into());
+        }
+        let connect_flags: u8 = read_u8(buf, offset)?;
+        if connect_flags & 1 != 0 {
+            return Err(Error::InvalidConnectFlags(connect_flags).into());
+        }
+        let keep_alive = read_u16(buf, offset)?;
+
+        // FIXME: check remaining length
+
+        let properties = ConnectProperties::decode(buf, offset, header.typ)?;
+        let client_id = read_string(buf, offset)?.into();
+        let last_will = if connect_flags & 0b100 != 0 {
+            let qos = QoS::from_u8((connect_flags & 0b11000) >> 3)?;
+            let retain = (connect_flags & 0b00100000) != 0;
+            Some(LastWill::decode(buf, offset, qos, retain)?)
+        } else if connect_flags & 0b11000 != 0 {
+            return Err(Error::InvalidConnectFlags(connect_flags).into());
+        } else {
+            None
+        };
+        let username = if connect_flags & 0b10000000 != 0 {
+            Some(read_string(buf, offset)?.into())
+        } else {
+            None
+        };
+        let password = if connect_flags & 0b01000000 != 0 {
+            Some(Bytes::copy_from_slice(read_bytes(buf, offset)?))
+        } else {
+            None
+        };
+        let clean_start = (connect_flags & 0b10) != 0;
+
+        Ok(Connect {
+            protocol,
+            clean_start,
+            properties,
+            keep_alive,
+            client_id,
+            last_will,
+            username,
+            password,
+        })
+    }
+
+    #[inline]
+    pub async fn decode_stream_with_protocol<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,
         protocol: Protocol,
@@ -104,16 +163,16 @@ impl Connect {
         if protocol != Protocol::V500 {
             return Err(Error::UnexpectedProtocol(protocol).into());
         }
-        let connect_flags: u8 = read_u8(reader).await?;
+        let connect_flags: u8 = read_u8_async(reader).await?;
         if connect_flags & 1 != 0 {
             return Err(Error::InvalidConnectFlags(connect_flags).into());
         }
-        let keep_alive = read_u16(reader).await?;
+        let keep_alive = read_u16_async(reader).await?;
 
         // FIXME: check remaining length
 
         let properties = ConnectProperties::decode_async(reader, header.typ).await?;
-        let client_id = read_string(reader).await?;
+        let client_id = read_string_async(reader).await?;
         let last_will = if connect_flags & 0b100 != 0 {
             let qos = QoS::from_u8((connect_flags & 0b11000) >> 3)?;
             let retain = (connect_flags & 0b00100000) != 0;
@@ -124,12 +183,12 @@ impl Connect {
             None
         };
         let username = if connect_flags & 0b10000000 != 0 {
-            Some(read_string(reader).await?)
+            Some(read_string_async(reader).await?)
         } else {
             None
         };
         let password = if connect_flags & 0b01000000 != 0 {
-            Some(Bytes::from(read_bytes(reader).await?))
+            Some(Bytes::from(read_bytes_async(reader).await?))
         } else {
             None
         };
@@ -247,12 +306,35 @@ impl<'a> arbitrary::Arbitrary<'a> for ConnectProperties {
 }
 
 impl ConnectProperties {
+    pub fn decode(
+        buf: &[u8],
+        offset: &mut usize,
+        packet_type: PacketType,
+    ) -> Result<Self, ErrorV5> {
+        let mut properties = ConnectProperties::default();
+        decode_properties!(
+            packet_type,
+            properties,
+            buf,
+            offset,
+            SessionExpiryInterval,
+            ReceiveMaximum,
+            MaximumPacketSize,
+            TopicAliasMaximum,
+            RequestResponseInformation,
+            RequestProblemInformation,
+            AuthenticationMethod,
+            AuthenticationData,
+        );
+        Ok(properties)
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         packet_type: PacketType,
     ) -> Result<Self, ErrorV5> {
         let mut properties = ConnectProperties::default();
-        decode_properties!(
+        decode_properties_async!(
             packet_type,
             properties,
             reader,
@@ -338,14 +420,30 @@ impl LastWill {
         }
     }
 
+    pub fn decode(buf: &[u8], offset: &mut usize, qos: QoS, retain: bool) -> Result<Self, ErrorV5> {
+        let properties = WillProperties::decode(buf, offset)?;
+        let topic_name = TopicName::try_from(read_string(buf, offset)?)?;
+        let payload = read_bytes(buf, offset)?;
+        if properties.payload_is_utf8 == Some(true) && from_utf8(&payload).is_err() {
+            return Err(ErrorV5::InvalidPayloadFormat);
+        }
+        Ok(LastWill {
+            qos,
+            retain,
+            properties,
+            topic_name,
+            payload: Bytes::copy_from_slice(payload),
+        })
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         qos: QoS,
         retain: bool,
     ) -> Result<Self, ErrorV5> {
         let properties = WillProperties::decode_async(reader).await?;
-        let topic_name = TopicName::try_from(read_string(reader).await?)?;
-        let payload = read_bytes(reader).await?;
+        let topic_name = TopicName::try_from(read_string_async(reader).await?)?;
+        let payload = read_bytes_async(reader).await?;
         if properties.payload_is_utf8 == Some(true) && from_utf8(&payload).is_err() {
             return Err(ErrorV5::InvalidPayloadFormat);
         }
@@ -404,9 +502,26 @@ impl<'a> arbitrary::Arbitrary<'a> for WillProperties {
 }
 
 impl WillProperties {
-    pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, ErrorV5> {
+    pub fn decode(buf: &[u8], offset: &mut usize) -> Result<Self, ErrorV5> {
         let mut properties = WillProperties::default();
         decode_properties!(
+            LastWill,
+            properties,
+            buf,
+            offset,
+            WillDelayInterval,
+            PayloadFormatIndicator,
+            MessageExpiryInterval,
+            ContentType,
+            ResponseTopic,
+            CorrelationData,
+        );
+        Ok(properties)
+    }
+
+    pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, ErrorV5> {
+        let mut properties = WillProperties::default();
+        decode_properties_async!(
             LastWill,
             properties,
             reader,
@@ -469,6 +584,24 @@ impl Connack {
             properties: ConnackProperties::default(),
         }
     }
+
+    pub fn decode(buf: &[u8], offset: &mut usize, header: Header) -> Result<Self, ErrorV5> {
+        let session_present = match read_u8(buf, offset)? {
+            0 => false,
+            1 => true,
+            flag => return Err(Error::InvalidConnackFlags(flag).into()),
+        };
+        let code = read_u8(buf, offset)?;
+        let reason_code =
+            ConnectReasonCode::from_u8(code).ok_or(ErrorV5::InvalidReasonCode(header.typ, code))?;
+        let properties = ConnackProperties::decode(buf, offset, header.typ)?;
+        Ok(Connack {
+            session_present,
+            reason_code,
+            properties,
+        })
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,
@@ -640,12 +773,43 @@ impl<'a> arbitrary::Arbitrary<'a> for ConnackProperties {
 }
 
 impl ConnackProperties {
+    pub fn decode(
+        buf: &[u8],
+        offset: &mut usize,
+        packet_type: PacketType,
+    ) -> Result<Self, ErrorV5> {
+        let mut properties = ConnackProperties::default();
+        decode_properties!(
+            packet_type,
+            properties,
+            buf,
+            offset,
+            SessionExpiryInterval,
+            ReceiveMaximum,
+            MaximumQoS,
+            RetainAvailable,
+            MaximumPacketSize,
+            AssignedClientIdentifier,
+            TopicAliasMaximum,
+            ReasonString,
+            WildcardSubscriptionAvailable,
+            SubscriptionIdentifierAvailable,
+            SharedSubscriptionAvailable,
+            ServerKeepAlive,
+            ResponseInformation,
+            ServerReference,
+            AuthenticationMethod,
+            AuthenticationData,
+        );
+        Ok(properties)
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         packet_type: PacketType,
     ) -> Result<Self, ErrorV5> {
         let mut properties = ConnackProperties::default();
-        decode_properties!(
+        decode_properties_async!(
             packet_type,
             properties,
             reader,
@@ -741,6 +905,27 @@ impl Disconnect {
         Self::new(DisconnectReasonCode::NormalDisconnect)
     }
 
+    pub fn decode(buf: &[u8], offset: &mut usize, header: Header) -> Result<Self, ErrorV5> {
+        let (reason_code, properties) = if header.remaining_len == 0 {
+            (DisconnectReasonCode::NormalDisconnect, Default::default())
+        } else if header.remaining_len == 1 {
+            let reason_byte = read_u8(buf, offset)?;
+            let reason_code = DisconnectReasonCode::from_u8(reason_byte)
+                .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
+            (reason_code, Default::default())
+        } else {
+            let reason_byte = read_u8(buf, offset)?;
+            let reason_code = DisconnectReasonCode::from_u8(reason_byte)
+                .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
+            let properties = DisconnectProperties::decode(buf, offset, header.typ)?;
+            (reason_code, properties)
+        };
+        Ok(Disconnect {
+            reason_code,
+            properties,
+        })
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,
@@ -748,12 +933,12 @@ impl Disconnect {
         let (reason_code, properties) = if header.remaining_len == 0 {
             (DisconnectReasonCode::NormalDisconnect, Default::default())
         } else if header.remaining_len == 1 {
-            let reason_byte = read_u8(reader).await?;
+            let reason_byte = read_u8_async(reader).await?;
             let reason_code = DisconnectReasonCode::from_u8(reason_byte)
                 .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
             (reason_code, Default::default())
         } else {
-            let reason_byte = read_u8(reader).await?;
+            let reason_byte = read_u8_async(reader).await?;
             let reason_code = DisconnectReasonCode::from_u8(reason_byte)
                 .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
             let properties = DisconnectProperties::decode_async(reader, header.typ).await?;
@@ -912,12 +1097,30 @@ pub struct DisconnectProperties {
 }
 
 impl DisconnectProperties {
+    pub fn decode(
+        buf: &[u8],
+        offset: &mut usize,
+        packet_type: PacketType,
+    ) -> Result<Self, ErrorV5> {
+        let mut properties = DisconnectProperties::default();
+        decode_properties!(
+            packet_type,
+            properties,
+            buf,
+            offset,
+            SessionExpiryInterval,
+            ReasonString,
+            ServerReference,
+        );
+        Ok(properties)
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         packet_type: PacketType,
     ) -> Result<Self, ErrorV5> {
         let mut properties = DisconnectProperties::default();
-        decode_properties!(
+        decode_properties_async!(
             packet_type,
             properties,
             reader,
@@ -974,6 +1177,25 @@ impl Auth {
         Self::new(AuthReasonCode::Success)
     }
 
+    pub fn decode(buf: &[u8], offset: &mut usize, header: Header) -> Result<Self, ErrorV5> {
+        let auth = if header.remaining_len == 0 {
+            Auth {
+                reason_code: AuthReasonCode::Success,
+                properties: AuthProperties::default(),
+            }
+        } else {
+            let reason_byte = read_u8(buf, offset)?;
+            let reason_code = AuthReasonCode::from_u8(reason_byte)
+                .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
+            let properties = AuthProperties::decode(buf, offset, header.typ)?;
+            Auth {
+                reason_code,
+                properties,
+            }
+        };
+        Ok(auth)
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,
@@ -984,7 +1206,7 @@ impl Auth {
                 properties: AuthProperties::default(),
             }
         } else {
-            let reason_byte = read_u8(reader).await?;
+            let reason_byte = read_u8_async(reader).await?;
             let reason_code = AuthReasonCode::from_u8(reason_byte)
                 .ok_or(ErrorV5::InvalidReasonCode(header.typ, reason_byte))?;
             let properties = AuthProperties::decode_async(reader, header.typ).await?;
@@ -1069,12 +1291,30 @@ impl<'a> arbitrary::Arbitrary<'a> for AuthProperties {
 }
 
 impl AuthProperties {
+    pub fn decode(
+        buf: &[u8],
+        offset: &mut usize,
+        packet_type: PacketType,
+    ) -> Result<Self, ErrorV5> {
+        let mut properties = AuthProperties::default();
+        decode_properties!(
+            packet_type,
+            properties,
+            buf,
+            offset,
+            AuthenticationMethod,
+            AuthenticationData,
+            ReasonString,
+        );
+        Ok(properties)
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         packet_type: PacketType,
     ) -> Result<Self, ErrorV5> {
         let mut properties = AuthProperties::default();
-        decode_properties!(
+        decode_properties_async!(
             packet_type,
             properties,
             reader,

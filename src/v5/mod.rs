@@ -14,8 +14,8 @@ mod types;
 mod tests;
 
 pub(crate) use types::{
-    decode_properties, decode_property, encode_properties, encode_properties_len, encode_property,
-    encode_property_len, PropertyValue,
+    decode_properties, decode_properties_async, decode_property, decode_property_async,
+    encode_properties, encode_properties_len, encode_property, encode_property_len, PropertyValue,
 };
 
 pub use connect::{

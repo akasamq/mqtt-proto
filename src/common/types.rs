@@ -1,6 +1,5 @@
 use core::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 use core::convert::TryFrom;
-use core::fmt;
 use core::hash::{Hash, Hasher};
 use core::ops::Deref;
 
@@ -14,7 +13,7 @@ use crate::{
     SHARED_PREFIX, SYS_PREFIX,
 };
 
-use super::{read_bytes, read_u8};
+use super::{read_bytes, read_bytes_async, read_u8, read_u8_async};
 
 pub const MQISDP: &[u8] = b"MQIsdp";
 pub const MQTT: &[u8] = b"MQTT";
@@ -68,15 +67,21 @@ impl Protocol {
         }
     }
 
+    pub fn decode(buf: &[u8], offset: &mut usize) -> Result<Self, Error> {
+        let name_buf = read_bytes(buf, offset)?;
+        let level = read_u8(buf, offset)?;
+        Protocol::new(&name_buf, level)
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
-        let name_buf = read_bytes(reader).await?;
-        let level = read_u8(reader).await?;
+        let name_buf = read_bytes_async(reader).await?;
+        let level = read_u8_async(reader).await?;
         Protocol::new(&name_buf, level)
     }
 }
 
-impl fmt::Display for Protocol {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl core::fmt::Display for Protocol {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let output = match self {
             Self::V310 => "v3.1",
             Self::V311 => "v3.1.1",
@@ -262,8 +267,8 @@ impl TopicName {
     }
 }
 
-impl fmt::Display for TopicName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl core::fmt::Display for TopicName {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
@@ -475,8 +480,8 @@ impl PartialEq for TopicFilter {
 
 impl Eq for TopicFilter {}
 
-impl fmt::Display for TopicFilter {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl core::fmt::Display for TopicFilter {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}", self.inner)
     }
 }

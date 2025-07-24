@@ -5,8 +5,8 @@ use bytes::Bytes;
 use tokio::io::AsyncReadExt;
 
 use crate::{
-    read_string, read_u16, write_string, write_u16, AsyncRead, Encodable, Error, Pid, QoS, QosPid,
-    SyncWrite, ToError, TopicName,
+    read_raw_bytes, read_string, read_string_async, read_u16, read_u16_async, write_string,
+    write_u16, AsyncRead, Encodable, Error, Pid, QoS, QosPid, SyncWrite, ToError, TopicName,
 };
 
 use super::Header;
@@ -45,12 +45,9 @@ impl Publish {
         }
     }
 
-    pub async fn decode_async<T: AsyncRead + Unpin>(
-        reader: &mut T,
-        header: Header,
-    ) -> Result<Self, Error> {
+    pub fn decode(buf: &[u8], offset: &mut usize, header: Header) -> Result<Self, Error> {
         let mut remaining_len = header.remaining_len as usize;
-        let topic_name = read_string(reader).await?;
+        let topic_name = read_string(buf, offset)?;
         remaining_len = remaining_len
             .checked_sub(2 + topic_name.len())
             .ok_or(Error::InvalidRemainingLength)?;
@@ -60,13 +57,51 @@ impl Publish {
                 remaining_len = remaining_len
                     .checked_sub(2)
                     .ok_or(Error::InvalidRemainingLength)?;
-                QosPid::Level1(Pid::try_from(read_u16(reader).await?)?)
+                QosPid::Level1(Pid::try_from(read_u16(buf, offset)?)?)
             }
             QoS::Level2 => {
                 remaining_len = remaining_len
                     .checked_sub(2)
                     .ok_or(Error::InvalidRemainingLength)?;
-                QosPid::Level2(Pid::try_from(read_u16(reader).await?)?)
+                QosPid::Level2(Pid::try_from(read_u16(buf, offset)?)?)
+            }
+        };
+        let payload = if remaining_len > 0 {
+            Bytes::copy_from_slice(read_raw_bytes(buf, offset, remaining_len)?)
+        } else {
+            Bytes::new()
+        };
+        Ok(Publish {
+            dup: header.dup,
+            qos_pid,
+            retain: header.retain,
+            topic_name: TopicName::try_from(topic_name)?,
+            payload,
+        })
+    }
+
+    pub async fn decode_async<T: AsyncRead + Unpin>(
+        reader: &mut T,
+        header: Header,
+    ) -> Result<Self, Error> {
+        let mut remaining_len = header.remaining_len as usize;
+        let topic_name = read_string_async(reader).await?;
+        remaining_len = remaining_len
+            .checked_sub(2 + topic_name.len())
+            .ok_or(Error::InvalidRemainingLength)?;
+        let qos_pid = match header.qos {
+            QoS::Level0 => QosPid::Level0,
+            QoS::Level1 => {
+                remaining_len = remaining_len
+                    .checked_sub(2)
+                    .ok_or(Error::InvalidRemainingLength)?;
+                QosPid::Level1(Pid::try_from(read_u16_async(reader).await?)?)
+            }
+            QoS::Level2 => {
+                remaining_len = remaining_len
+                    .checked_sub(2)
+                    .ok_or(Error::InvalidRemainingLength)?;
+                QosPid::Level2(Pid::try_from(read_u16_async(reader).await?)?)
             }
         };
         let payload = if remaining_len > 0 {
