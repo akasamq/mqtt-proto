@@ -203,6 +203,7 @@ where
                 ref mut var_idx,
                 ref mut var_int,
             } => {
+                #[allow(clippy::useless_conversion)] // Remove this will lead to `cargo check` error.
                 let header: H = poll_packet_header(reader, control_byte, var_idx, var_int)
                     .await
                     .map_err(Into::<H::Error>::into)?;
