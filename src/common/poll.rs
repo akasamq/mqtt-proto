@@ -33,7 +33,7 @@ pub enum GenericPollPacketState<H> {
 
 #[allow(async_fn_in_trait)]
 pub trait PollHeader {
-    type Error;
+    type Error: From<Error>;
     type Packet;
 
     fn new_with(hd: u8, remaining_len: u32, total_len: u32) -> Result<Self, Self::Error>
@@ -131,7 +131,6 @@ where
     Ok(header)
 }
 
-#[cfg(feature = "tokio")]
 async fn poll_packet_buffer_body<T, H>(
     reader: &mut T,
     header: H,
@@ -139,7 +138,7 @@ async fn poll_packet_buffer_body<T, H>(
 where
     T: AsyncRead + Unpin,
     H: PollHeader + Copy + Unpin,
-    H::Error: From<Error> + From<std::io::Error>,
+    H::Error: From<Error>,
 {
     let remaining_len = header.remaining_len();
     let mut buf: Vec<MaybeUninit<u8>> = Vec::with_capacity(remaining_len);
@@ -153,46 +152,7 @@ where
         match reader.read(slice).await {
             Ok(0) => return Err(Error::IoError(IoErrorKind::UnexpectedEof).into()),
             Ok(n) => idx += n,
-            Err(e) => return Err(e.into()),
-        }
-    }
-
-    let mut offset = 0;
-    let buf_slice: &[u8] = unsafe { core::mem::transmute(&buf[..]) };
-    let packet = header.decode_buffer(buf_slice, &mut offset).map_err(|e| {
-        if H::is_eof_error(&e) {
-            Error::InvalidRemainingLength.into()
-        } else {
-            e
-        }
-    })?;
-    Ok((header.total_len(), buf, packet))
-}
-
-// TODO: Remove the ugly impl
-#[cfg(not(feature = "tokio"))]
-async fn poll_packet_buffer_body<T, H>(
-    reader: &mut T,
-    header: H,
-) -> Result<(usize, Vec<MaybeUninit<u8>>, H::Packet), H::Error>
-where
-    T: AsyncRead + Unpin,
-    H: PollHeader + Copy + Unpin,
-    H::Error: From<Error> + From<T::Error>,
-{
-    let remaining_len = header.remaining_len();
-    let mut buf: Vec<MaybeUninit<u8>> = Vec::with_capacity(remaining_len);
-    unsafe { buf.set_len(remaining_len) };
-
-    let mut idx = 0;
-    while idx < remaining_len {
-        let slice: &mut [u8] = unsafe {
-            core::slice::from_raw_parts_mut(buf[idx..].as_mut_ptr() as *mut u8, remaining_len - idx)
-        };
-        match reader.read(slice).await {
-            Ok(0) => return Err(Error::IoError(IoErrorKind::UnexpectedEof).into()),
-            Ok(n) => idx += n,
-            Err(e) => return Err(e.into()),
+            Err(e) => return Err(Error::from(e).into()),
         }
     }
 
@@ -227,7 +187,6 @@ where
     Ok((header.total_len(), Vec::new(), packet))
 }
 
-#[cfg(feature = "tokio")]
 async fn poll_packet<T, H>(
     state: &mut GenericPollPacketState<H>,
     reader: &mut T,
@@ -235,7 +194,7 @@ async fn poll_packet<T, H>(
 where
     T: AsyncRead + Unpin,
     H: PollHeader + Copy + Unpin,
-    H::Error: From<Error> + From<std::io::Error>,
+    H::Error: From<Error>,
 {
     loop {
         match state {
@@ -244,61 +203,9 @@ where
                 ref mut var_idx,
                 ref mut var_int,
             } => {
-                let header: H = poll_packet_header(reader, control_byte, var_idx, var_int).await?;
-                if let Some(empty_packet) = header.build_empty_packet() {
-                    return Ok((2, Vec::new(), empty_packet));
-                }
-                if header.remaining_len() == 0 {
-                    return Err(Error::InvalidRemainingLength.into());
-                }
-                if header.prefer_cache_decode() {
-                    let remaining_len = header.remaining_len();
-                    let mut buf: Vec<MaybeUninit<u8>> = Vec::with_capacity(remaining_len);
-                    unsafe { buf.set_len(remaining_len) };
-                    *state = GenericPollPacketState::BufferBody {
-                        header,
-                        total: header.total_len(),
-                        idx: 0,
-                        buf,
-                    };
-                } else {
-                    *state = GenericPollPacketState::StreamBody { header };
-                }
-            }
-            GenericPollPacketState::BufferBody { header, .. } => {
-                let header_copy = *header;
-                let (total, buf, packet) = poll_packet_buffer_body(reader, header_copy).await?;
-                *state = GenericPollPacketState::default(); // Reset
-                return Ok((total, buf, packet));
-            }
-            GenericPollPacketState::StreamBody { header } => {
-                let header_copy = *header;
-                let (total, buf, packet) = poll_packet_stream_body(reader, header_copy).await?;
-                *state = GenericPollPacketState::default(); // Reset
-                return Ok((total, buf, packet));
-            }
-        }
-    }
-}
-
-#[cfg(not(feature = "tokio"))]
-async fn poll_packet<T, H>(
-    state: &mut GenericPollPacketState<H>,
-    reader: &mut T,
-) -> Result<(usize, Vec<MaybeUninit<u8>>, H::Packet), H::Error>
-where
-    T: AsyncRead + Unpin,
-    H: PollHeader + Copy + Unpin,
-    H::Error: From<Error> + From<T::Error>,
-{
-    loop {
-        match state {
-            GenericPollPacketState::Header {
-                ref mut control_byte,
-                ref mut var_idx,
-                ref mut var_int,
-            } => {
-                let header: H = poll_packet_header(reader, control_byte, var_idx, var_int).await?;
+                let header: H = poll_packet_header(reader, control_byte, var_idx, var_int)
+                    .await
+                    .map_err(Into::<H::Error>::into)?;
                 if let Some(empty_packet) = header.build_empty_packet() {
                     return Ok((2, Vec::new(), empty_packet));
                 }

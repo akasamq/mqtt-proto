@@ -119,7 +119,7 @@ impl PollHeader for MockHeader {
         Ok(packet)
     }
 
-    async fn decode_stream<T: embedded_io_async::Read + Unpin>(
+    async fn decode_stream<T: AsyncRead + Unpin>(
         self,
         reader: &mut T,
     ) -> Result<Self::Packet, Self::Error> {
