@@ -70,7 +70,7 @@ impl Protocol {
     pub fn decode(buf: &[u8], offset: &mut usize) -> Result<Self, Error> {
         let name_buf = read_bytes(buf, offset)?;
         let level = read_u8(buf, offset)?;
-        Protocol::new(&name_buf, level)
+        Protocol::new(name_buf, level)
     }
 
     pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {

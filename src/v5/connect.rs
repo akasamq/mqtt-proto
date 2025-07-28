@@ -424,7 +424,7 @@ impl LastWill {
         let properties = WillProperties::decode(buf, offset)?;
         let topic_name = TopicName::try_from(read_string(buf, offset)?)?;
         let payload = read_bytes(buf, offset)?;
-        if properties.payload_is_utf8 == Some(true) && from_utf8(&payload).is_err() {
+        if properties.payload_is_utf8 == Some(true) && from_utf8(payload).is_err() {
             return Err(ErrorV5::InvalidPayloadFormat);
         }
         Ok(LastWill {

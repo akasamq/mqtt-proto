@@ -1,7 +1,6 @@
-use embedded_io_async::Read;
-
 use crate::{
-    read_u16, read_u16_async, Error, GenericPollPacket, GenericPollPacketState, Pid, PollHeader,
+    read_u16, read_u16_async, AsyncRead, Error, GenericPollPacket, GenericPollPacketState, Pid,
+    PollHeader,
 };
 
 use super::{
@@ -47,7 +46,7 @@ impl PollHeader for Header {
     }
 
     #[rustfmt::skip]
-    async fn decode_stream<T: Read + Unpin>(
+    async fn decode_stream<T: AsyncRead + Unpin>(
         self,
         reader: &mut T,
     ) -> Result<Self::Packet, Self::Error> {

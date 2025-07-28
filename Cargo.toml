@@ -25,6 +25,7 @@ tokio = { version = "1", default-features = false, features = ["io-util"], optio
 arbitrary = { version = "1", features = ["derive"], optional = true }
 
 [dev-dependencies]
+criterion = "0.7"
 dhat = "0.3"
 embedded-io-adapters = { version = "0.6", features = ["tokio-1"] }
 proptest = "1"
@@ -35,6 +36,7 @@ tokio-test = "0.4"
 
 [[bench]]
 name = "codec"
+harness = false
 
 [features]
 default = ["std"]
