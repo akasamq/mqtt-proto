@@ -72,67 +72,52 @@ fn create_v5_publish(payload_size: usize) -> PacketV5 {
     })
 }
 
-fn bench_all(c: &mut Criterion) {
-    let sizes = [64, 4 * 1024, 8 * 1024, 32 * 1024];
+fn bench_encode(c: &mut Criterion) {
+    let sizes = [64, 4096, 16 * 1024];
+    let mut group = c.benchmark_group("encode");
 
     for &size in &sizes {
-        let v3_conn = create_v3_connect(size);
-        let v5_conn = create_v5_connect(size);
-        let v3_pub = create_v3_publish(size);
-        let v5_pub = create_v5_publish(size);
+        macro_rules! bench {
+            ($name:expr, $pkt:expr) => {
+                group.bench_with_input(BenchmarkId::new($name, size), &$pkt, |b, p| {
+                    b.iter(|| black_box(p.encode().unwrap()))
+                });
+            };
+        }
 
-        let v3_conn_bytes = v3_conn.encode().unwrap();
-        let v5_conn_bytes = v5_conn.encode().unwrap();
-        let v3_pub_bytes = v3_pub.encode().unwrap();
-        let v5_pub_bytes = v5_pub.encode().unwrap();
-
-        let mut group = c.benchmark_group(format!("size_{}_bytes", size));
-
-        group.bench_with_input(
-            BenchmarkId::new("v3_connect_encode", size),
-            &v3_conn,
-            |b, p| b.iter(|| black_box(p.encode())),
-        );
-        group.bench_with_input(
-            BenchmarkId::new("v5_connect_encode", size),
-            &v5_conn,
-            |b, p| b.iter(|| black_box(p.encode())),
-        );
-        group.bench_with_input(
-            BenchmarkId::new("v3_publish_encode", size),
-            &v3_pub,
-            |b, p| b.iter(|| black_box(p.encode())),
-        );
-        group.bench_with_input(
-            BenchmarkId::new("v5_publish_encode", size),
-            &v5_pub,
-            |b, p| b.iter(|| black_box(p.encode())),
-        );
-
-        group.bench_with_input(
-            BenchmarkId::new("v3_connect_decode", size),
-            &v3_conn_bytes,
-            |b, bytes| b.iter(|| black_box(PacketV3::decode(bytes.as_ref()))),
-        );
-        group.bench_with_input(
-            BenchmarkId::new("v5_connect_decode", size),
-            &v5_conn_bytes,
-            |b, bytes| b.iter(|| black_box(PacketV5::decode(bytes.as_ref()))),
-        );
-        group.bench_with_input(
-            BenchmarkId::new("v3_publish_decode", size),
-            &v3_pub_bytes,
-            |b, bytes| b.iter(|| black_box(PacketV3::decode(bytes.as_ref()))),
-        );
-        group.bench_with_input(
-            BenchmarkId::new("v5_publish_decode", size),
-            &v5_pub_bytes,
-            |b, bytes| b.iter(|| black_box(PacketV5::decode(bytes.as_ref()))),
-        );
-
-        group.finish();
+        bench!("v3_connect", create_v3_connect(size));
+        bench!("v5_connect", create_v5_connect(size));
+        bench!("v3_publish", create_v3_publish(size));
+        bench!("v5_publish", create_v5_publish(size));
     }
+    group.finish();
 }
 
-criterion_group!(codec_benches, bench_all);
-criterion_main!(codec_benches);
+fn bench_decode(c: &mut Criterion) {
+    let sizes = [64, 4096, 16 * 1024];
+    let mut group = c.benchmark_group("decode");
+
+    for &size in &sizes {
+        let v3_conn_bytes = create_v3_connect(size).encode().unwrap();
+        let v5_conn_bytes = create_v5_connect(size).encode().unwrap();
+        let v3_pub_bytes = create_v3_publish(size).encode().unwrap();
+        let v5_pub_bytes = create_v5_publish(size).encode().unwrap();
+
+        macro_rules! bench {
+            ($name:expr, $bytes:expr, $decode:path) => {
+                group.bench_with_input(BenchmarkId::new($name, size), $bytes, |b, bytes| {
+                    b.iter(|| black_box($decode(bytes.as_ref()).unwrap()))
+                });
+            };
+        }
+
+        bench!("v3_connect", &v3_conn_bytes, PacketV3::decode);
+        bench!("v5_connect", &v5_conn_bytes, PacketV5::decode);
+        bench!("v3_publish", &v3_pub_bytes, PacketV3::decode);
+        bench!("v5_publish", &v5_pub_bytes, PacketV5::decode);
+    }
+    group.finish();
+}
+
+criterion_group!(benches, bench_encode, bench_decode);
+criterion_main!(benches);

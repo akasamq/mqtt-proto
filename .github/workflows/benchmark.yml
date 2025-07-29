@@ -10,6 +10,9 @@ on:
         required: true
         default: "master"
 
+env:
+  BASELINE_NAME: master
+
 jobs:
   benchmark:
     name: Run benchmark
@@ -49,6 +52,14 @@ jobs:
         with:
           ref: ${{ steps.rev.outputs.sha }}
 
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-registry-${{ runner.os }}-
+
       - name: Create Check Run
         if: github.event.issue.pull_request
         uses: actions/github-script@v7
@@ -58,13 +69,10 @@ jobs:
             const { data: check } = await github.rest.checks.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              name: 'Benchmark',
+              name: 'Run benchmark',
               head_sha: '${{ steps.rev.outputs.sha }}',
+              external_id: '${{ github.run_id }}',
               status: 'in_progress',
-              output: {
-                title: 'Benchmark in progress',
-                summary: 'Triggered by `/benchmark`',
-              },
             });
             core.setOutput('id', check.id);
 
@@ -103,7 +111,6 @@ jobs:
           rm -f "$temp_file"
 
       - name: Run benchmark
-        id: bench
         run: |
           set -o pipefail
 
@@ -111,7 +118,7 @@ jobs:
           temp_file=$(mktemp)
 
           # Run test and capture output
-          cargo bench | tee "$temp_file"
+          cargo bench -- --noplot --output-format bencher | tee "$temp_file"
 
           # Process output
           echo "## Benchmark Results" >> $GITHUB_STEP_SUMMARY
@@ -129,15 +136,14 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const conclusion = '${{ steps.bench.outcome }}' === 'success' ? 'success' : 'failure';
             await github.rest.checks.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
               check_run_id: ${{ steps.check.outputs.id }},
               status: 'completed',
-              conclusion,
+              conclusion: '${{ job.status }}',
               output: {
                 title: 'Benchmark finished',
-                summary: 'Triggered by `/benchmark`',
+                summary: 'Benchmark completed.',
               },
             });

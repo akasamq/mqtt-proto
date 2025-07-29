@@ -239,7 +239,6 @@ pub struct Header {
     pub retain: bool,       // 1 B
     pub remaining_len: u32, // 4 B
     pub total_len: u32,     // 4 B
-    _padding: [u8; 4],      // 4 B
 }
 
 impl Header {
@@ -258,7 +257,6 @@ impl Header {
             retain,
             remaining_len,
             total_len,
-            _padding: [0; 4],
         }
     }
 
@@ -275,7 +273,6 @@ impl Header {
                     retain: hd & 1 == 1,
                     remaining_len,
                     total_len,
-                    _padding: [0; 4],
                 });
             }
             4 => (PacketType::Puback, hd & FLAGS_MASK == 0),
@@ -301,7 +298,6 @@ impl Header {
             retain: false,
             remaining_len,
             total_len,
-            _padding: [0; 4],
         })
     }
 

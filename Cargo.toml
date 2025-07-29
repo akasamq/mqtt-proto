@@ -10,6 +10,9 @@ keywords = ["mqtt", "codec", "network", "async"]
 categories = ["network-programming", "asynchronous"]
 edition = "2021"
 
+[lib]
+bench = false
+
 [dependencies]
 bytes = { version = "1", default-features = false }
 embassy-futures = { version = "0.1", default-features = false }

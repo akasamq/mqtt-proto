@@ -513,7 +513,7 @@ async fn poll_actor_model_simulation_v3() {
 
     let mut packets = Vec::new();
 
-    for len in [1, 8, 32, 128, 512] {
+    for len in (0..10).map(|i| 1 << i) {
         let client_id = "a".repeat(len);
         let pkt = Packet::Connect(Connect {
             protocol: Protocol::V311,
@@ -527,7 +527,7 @@ async fn poll_actor_model_simulation_v3() {
         packets.push(pkt.encode().unwrap());
     }
 
-    for size in [0, 2, 16, 128, 1024, 4096] {
+    for size in (0..15).map(|i| 1 << i) {
         let payload = vec![b'x'; size];
         let pkt = Packet::Publish(Publish {
             dup: false,
@@ -556,6 +556,13 @@ async fn poll_actor_model_simulation_v3() {
     packets.push(Packet::Pingreq.encode().unwrap());
     packets.push(Packet::Pingresp.encode().unwrap());
     packets.push(Packet::Disconnect.encode().unwrap());
+
+    let mut rng_seed = 42u64;
+    for i in (1..packets.len()).rev() {
+        rng_seed = rng_seed.wrapping_mul(1103515245).wrapping_add(12345);
+        let j = (rng_seed % (i + 1) as u64) as usize;
+        packets.swap(i, j);
+    }
 
     let data: std::sync::Arc<Vec<VarBytes>> = std::sync::Arc::new(packets);
 
