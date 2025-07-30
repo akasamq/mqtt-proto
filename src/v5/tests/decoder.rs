@@ -12,32 +12,32 @@ fn test_v5_header_firstbyte() {
 
     #[rustfmt::skip]
     let valid = alloc::vec![
-        (0b0001_0000, Header::new(Connect, false, Level0, false, 0)),
-        (0b0010_0000, Header::new(Connack, false, Level0, false, 0)),
-        (0b0011_0000, Header::new(Publish, false, Level0, false, 0)),
-        (0b0011_0001, Header::new(Publish, false, Level0, true, 0)),
-        (0b0011_0010, Header::new(Publish, false, Level1, false, 0)),
-        (0b0011_0011, Header::new(Publish, false, Level1, true, 0)),
-        (0b0011_0100, Header::new(Publish, false, Level2, false, 0)),
-        (0b0011_0101, Header::new(Publish, false, Level2, true, 0)),
-        (0b0011_1000, Header::new(Publish, true, Level0, false, 0)),
-        (0b0011_1001, Header::new(Publish, true, Level0, true, 0)),
-        (0b0011_1010, Header::new(Publish, true, Level1, false, 0)),
-        (0b0011_1011, Header::new(Publish, true, Level1, true, 0)),
-        (0b0011_1100, Header::new(Publish, true, Level2, false, 0)),
-        (0b0011_1101, Header::new(Publish, true, Level2, true, 0)),
-        (0b0100_0000, Header::new(Puback, false, Level0, false, 0)),
-        (0b0101_0000, Header::new(Pubrec, false, Level0, false, 0)),
-        (0b0110_0010, Header::new(Pubrel, false, Level0, false, 0)),
-        (0b0111_0000, Header::new(Pubcomp, false, Level0, false, 0)),
-        (0b1000_0010, Header::new(Subscribe, false, Level0, false, 0)),
-        (0b1001_0000, Header::new(Suback, false, Level0, false, 0)),
-        (0b1010_0010, Header::new(Unsubscribe, false, Level0, false, 0)),
-        (0b1011_0000, Header::new(Unsuback, false, Level0, false, 0)),
-        (0b1100_0000, Header::new(Pingreq, false, Level0, false, 0)),
-        (0b1101_0000, Header::new(Pingresp, false, Level0, false, 0)),
-        (0b1110_0000, Header::new(Disconnect, false, Level0, false, 0)),
-        (0b1111_0000, Header::new(Auth, false, Level0, false, 0)),
+        (0b0001_0000, Header::new(Connect, false, Level0, false, 0, 1)),
+        (0b0010_0000, Header::new(Connack, false, Level0, false, 0, 1)),
+        (0b0011_0000, Header::new(Publish, false, Level0, false, 0, 1)),
+        (0b0011_0001, Header::new(Publish, false, Level0, true, 0, 1)),
+        (0b0011_0010, Header::new(Publish, false, Level1, false, 0, 1)),
+        (0b0011_0011, Header::new(Publish, false, Level1, true, 0, 1)),
+        (0b0011_0100, Header::new(Publish, false, Level2, false, 0, 1)),
+        (0b0011_0101, Header::new(Publish, false, Level2, true, 0, 1)),
+        (0b0011_1000, Header::new(Publish, true, Level0, false, 0, 1)),
+        (0b0011_1001, Header::new(Publish, true, Level0, true, 0, 1)),
+        (0b0011_1010, Header::new(Publish, true, Level1, false, 0, 1)),
+        (0b0011_1011, Header::new(Publish, true, Level1, true, 0, 1)),
+        (0b0011_1100, Header::new(Publish, true, Level2, false, 0, 1)),
+        (0b0011_1101, Header::new(Publish, true, Level2, true, 0, 1)),
+        (0b0100_0000, Header::new(Puback, false, Level0, false, 0, 1)),
+        (0b0101_0000, Header::new(Pubrec, false, Level0, false, 0, 1)),
+        (0b0110_0010, Header::new(Pubrel, false, Level0, false, 0, 1)),
+        (0b0111_0000, Header::new(Pubcomp, false, Level0, false, 0, 1)),
+        (0b1000_0010, Header::new(Subscribe, false, Level0, false, 0, 1)),
+        (0b1001_0000, Header::new(Suback, false, Level0, false, 0, 1)),
+        (0b1010_0010, Header::new(Unsubscribe, false, Level0, false, 0, 1)),
+        (0b1011_0000, Header::new(Unsuback, false, Level0, false, 0, 1)),
+        (0b1100_0000, Header::new(Pingreq, false, Level0, false, 0, 1)),
+        (0b1101_0000, Header::new(Pingresp, false, Level0, false, 0, 1)),
+        (0b1110_0000, Header::new(Disconnect, false, Level0, false, 0, 1)),
+        (0b1111_0000, Header::new(Auth, false, Level0, false, 0, 1)),
     ];
     for n in 0..=255 {
         let res = match valid.iter().find(|(byte, _)| *byte == n) {
@@ -58,23 +58,23 @@ fn test_v5_header_len() {
     for (bytes, res) in alloc::vec![
         (
             alloc::vec![1 << 4, 0],
-            Ok(Header::new(Connect, false, Level0, false, 0)),
+            Ok(Header::new(Connect, false, Level0, false, 0, 1)),
         ),
         (
             alloc::vec![1 << 4, 127],
-            Ok(Header::new(Connect, false, Level0, false, 127)),
+            Ok(Header::new(Connect, false, Level0, false, 127, 1)),
         ),
         (
             alloc::vec![1 << 4, 0x80, 0],
-            Ok(Header::new(Connect, false, Level0, false, 0)),
+            Ok(Header::new(Connect, false, Level0, false, 0, 2)),
         ), //Weird encoding for "0" buf matches spec
         (
             alloc::vec![1 << 4, 0x80, 1],
-            Ok(Header::new(Connect, false, Level0, false, 128)),
+            Ok(Header::new(Connect, false, Level0, false, 128, 2)),
         ),
         (
             alloc::vec![1 << 4, 0x80 + 16, 78],
-            Ok(Header::new(Connect, false, Level0, false, 10000)),
+            Ok(Header::new(Connect, false, Level0, false, 10000, 2)),
         ),
         (
             alloc::vec![1 << 4, 0x80, 0x80, 0x80, 0x80],
@@ -1412,7 +1412,7 @@ async fn poll_actor_model_simulation_v5() {
 
     let mut packets = Vec::new();
 
-    for len in [1, 8, 32, 128, 512] {
+    for len in (0..10).map(|i| 1 << i) {
         let client_id = "a".repeat(len);
         let pkt = Packet::Connect(Connect {
             protocol: Protocol::V500,
@@ -1427,7 +1427,7 @@ async fn poll_actor_model_simulation_v5() {
         packets.push(pkt.encode().unwrap());
     }
 
-    for size in [0, 2, 16, 128, 1024, 4096] {
+    for size in (0..15).map(|i| 1 << i) {
         let payload = vec![b'x'; size];
         let pkt = Packet::Publish(Publish {
             dup: false,
@@ -1476,6 +1476,13 @@ async fn poll_actor_model_simulation_v5() {
         .encode()
         .unwrap(),
     );
+
+    let mut rng_seed = 42u64;
+    for i in (1..packets.len()).rev() {
+        rng_seed = rng_seed.wrapping_mul(1103515245).wrapping_add(12345);
+        let j = (rng_seed % (i + 1) as u64) as usize;
+        packets.swap(i, j);
+    }
 
     let data: std::sync::Arc<Vec<VarBytes>> = std::sync::Arc::new(packets);
 

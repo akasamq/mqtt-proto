@@ -4,13 +4,14 @@ use alloc::sync::Arc;
 use alloc::vec::Vec;
 
 use crate::{
-    decode_var_int, read_string, read_u16, read_u8, write_bytes, write_u16, write_u8, AsyncRead,
-    Encodable, Error, Pid, QoS, SyncWrite, TopicFilter,
+    decode_var_int, decode_var_int_async, read_string, read_string_async, read_u16, read_u16_async,
+    read_u8, read_u8_async, write_bytes, write_u16, write_u8, AsyncRead, Encodable, Error, Pid,
+    QoS, SyncWrite, TopicFilter,
 };
 
 use super::{
-    decode_properties, encode_properties, encode_properties_len, ErrorV5, Header, PacketType,
-    PropertyId, PropertyValue, UserProperty, VarByteInt,
+    decode_properties, decode_properties_async, encode_properties, encode_properties_len, ErrorV5,
+    Header, PacketType, PropertyId, PropertyValue, UserProperty, VarByteInt,
 };
 
 /// Body type for SUBSCRIBE packet.
@@ -31,12 +32,55 @@ impl Subscribe {
         }
     }
 
+    pub fn decode(buf: &[u8], offset: &mut usize, header: Header) -> Result<Self, ErrorV5> {
+        let mut remaining_len = header.remaining_len as usize;
+        let pid = Pid::try_from(read_u16(buf, offset)?)?;
+        let properties = SubscribeProperties::decode(buf, offset, header.typ)?;
+        remaining_len = remaining_len
+            .checked_sub(2 + properties.encode_len())
+            .ok_or(Error::InvalidRemainingLength)?;
+        if remaining_len == 0 {
+            return Err(Error::EmptySubscription.into());
+        }
+        let mut topics = Vec::new();
+        while remaining_len > 0 {
+            let topic_filter = TopicFilter::try_from(read_string(buf, offset)?)?;
+            let options = {
+                let opt_byte = read_u8(buf, offset)?;
+                if opt_byte & 0b11000000 > 0 {
+                    return Err(ErrorV5::InvalidSubscriptionOption(opt_byte));
+                }
+                let max_qos = QoS::from_u8(opt_byte & 0b11)
+                    .map_err(|_| ErrorV5::InvalidSubscriptionOption(opt_byte))?;
+                let no_local = opt_byte & 0b100 == 0b100;
+                let retain_as_published = opt_byte & 0b1000 == 0b1000;
+                let retain_handling = RetainHandling::from_u8((opt_byte & 0b110000) >> 4)
+                    .ok_or(ErrorV5::InvalidSubscriptionOption(opt_byte))?;
+                SubscriptionOptions {
+                    max_qos,
+                    no_local,
+                    retain_as_published,
+                    retain_handling,
+                }
+            };
+            remaining_len = remaining_len
+                .checked_sub(3 + topic_filter.len())
+                .ok_or(Error::InvalidRemainingLength)?;
+            topics.push((topic_filter, options));
+        }
+        Ok(Subscribe {
+            pid,
+            properties,
+            topics,
+        })
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,
     ) -> Result<Self, ErrorV5> {
         let mut remaining_len = header.remaining_len as usize;
-        let pid = Pid::try_from(read_u16(reader).await?)?;
+        let pid = Pid::try_from(read_u16_async(reader).await?)?;
         let properties = SubscribeProperties::decode_async(reader, header.typ).await?;
         remaining_len = remaining_len
             .checked_sub(2 + properties.encode_len())
@@ -46,9 +90,9 @@ impl Subscribe {
         }
         let mut topics = Vec::new();
         while remaining_len > 0 {
-            let topic_filter = TopicFilter::try_from(read_string(reader).await?)?;
+            let topic_filter = TopicFilter::try_from(read_string_async(reader).await?)?;
             let options = {
-                let opt_byte = read_u8(reader).await?;
+                let opt_byte = read_u8_async(reader).await?;
                 if opt_byte & 0b11000000 > 0 {
                     return Err(ErrorV5::InvalidSubscriptionOption(opt_byte));
                 }
@@ -108,12 +152,22 @@ pub struct SubscribeProperties {
 }
 
 impl SubscribeProperties {
+    pub fn decode(
+        buf: &[u8],
+        offset: &mut usize,
+        packet_type: PacketType,
+    ) -> Result<Self, ErrorV5> {
+        let mut properties = SubscribeProperties::default();
+        decode_properties!(packet_type, properties, buf, offset, SubscriptionIdentifier,);
+        Ok(properties)
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         packet_type: PacketType,
     ) -> Result<Self, ErrorV5> {
         let mut properties = SubscribeProperties::default();
-        decode_properties!(packet_type, properties, reader, SubscriptionIdentifier,);
+        decode_properties_async!(packet_type, properties, reader, SubscriptionIdentifier,);
         Ok(properties)
     }
 }
@@ -203,19 +257,41 @@ impl Suback {
         }
     }
 
+    pub fn decode(buf: &[u8], offset: &mut usize, header: Header) -> Result<Self, ErrorV5> {
+        let mut remaining_len = header.remaining_len as usize;
+        let pid = Pid::try_from(read_u16(buf, offset)?)?;
+        let properties = SubackProperties::decode(buf, offset, header.typ)?;
+        remaining_len = remaining_len
+            .checked_sub(2 + properties.encode_len())
+            .ok_or(Error::InvalidRemainingLength)?;
+        let mut topics = Vec::new();
+        while remaining_len > 0 {
+            let value = read_u8(buf, offset)?;
+            let code = SubscribeReasonCode::from_u8(value)
+                .ok_or(ErrorV5::InvalidReasonCode(header.typ, value))?;
+            topics.push(code);
+            remaining_len -= 1;
+        }
+        Ok(Suback {
+            pid,
+            properties,
+            topics,
+        })
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,
     ) -> Result<Self, ErrorV5> {
         let mut remaining_len = header.remaining_len as usize;
-        let pid = Pid::try_from(read_u16(reader).await?)?;
+        let pid = Pid::try_from(read_u16_async(reader).await?)?;
         let properties = SubackProperties::decode_async(reader, header.typ).await?;
         remaining_len = remaining_len
             .checked_sub(2 + properties.encode_len())
             .ok_or(Error::InvalidRemainingLength)?;
         let mut topics = Vec::new();
         while remaining_len > 0 {
-            let value = read_u8(reader).await?;
+            let value = read_u8_async(reader).await?;
             let code = SubscribeReasonCode::from_u8(value)
                 .ok_or(ErrorV5::InvalidReasonCode(header.typ, value))?;
             topics.push(code);
@@ -253,12 +329,22 @@ pub struct SubackProperties {
 }
 
 impl SubackProperties {
+    pub fn decode(
+        buf: &[u8],
+        offset: &mut usize,
+        packet_type: PacketType,
+    ) -> Result<Self, ErrorV5> {
+        let mut properties = SubackProperties::default();
+        decode_properties!(packet_type, properties, buf, offset, ReasonString,);
+        Ok(properties)
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         packet_type: PacketType,
     ) -> Result<Self, ErrorV5> {
         let mut properties = SubackProperties::default();
-        decode_properties!(packet_type, properties, reader, ReasonString,);
+        decode_properties_async!(packet_type, properties, reader, ReasonString,);
         Ok(properties)
     }
 }
@@ -349,20 +435,17 @@ impl Unsubscribe {
         }
     }
 
-    pub async fn decode_async<T: AsyncRead + Unpin>(
-        reader: &mut T,
-        header: Header,
-    ) -> Result<Self, ErrorV5> {
+    pub fn decode(buf: &[u8], offset: &mut usize, header: Header) -> Result<Self, ErrorV5> {
         let mut remaining_len = header.remaining_len as usize;
-        let pid = Pid::try_from(read_u16(reader).await?)?;
-        let (property_len, property_len_bytes) = decode_var_int(reader).await?;
+        let pid = Pid::try_from(read_u16(buf, offset)?)?;
+        let (property_len, property_len_bytes) = decode_var_int(buf, offset)?;
         let mut properties = UnsubscribeProperties::default();
         let mut len = 0;
         while property_len as usize > len {
-            let property_id = PropertyId::from_u8(read_u8(reader).await?)?;
+            let property_id = PropertyId::from_u8(read_u8(buf, offset)?)?;
             match property_id {
                 PropertyId::UserProperty => {
-                    let property = PropertyValue::decode_user_property(reader).await?;
+                    let property = PropertyValue::decode_user_property(buf, offset)?;
                     len += 1 + 4 + property.name.len() + property.value.len();
                     properties.user_properties.push(property);
                 }
@@ -380,7 +463,51 @@ impl Unsubscribe {
         }
         let mut topics = Vec::new();
         while remaining_len > 0 {
-            let topic_filter = TopicFilter::try_from(read_string(reader).await?)?;
+            let topic_filter = TopicFilter::try_from(read_string(buf, offset)?)?;
+            remaining_len = remaining_len
+                .checked_sub(2 + topic_filter.len())
+                .ok_or(Error::InvalidRemainingLength)?;
+            topics.push(topic_filter);
+        }
+        Ok(Unsubscribe {
+            pid,
+            properties,
+            topics,
+        })
+    }
+
+    pub async fn decode_async<T: AsyncRead + Unpin>(
+        reader: &mut T,
+        header: Header,
+    ) -> Result<Self, ErrorV5> {
+        let mut remaining_len = header.remaining_len as usize;
+        let pid = Pid::try_from(read_u16_async(reader).await?)?;
+        let (property_len, property_len_bytes) = decode_var_int_async(reader).await?;
+        let mut properties = UnsubscribeProperties::default();
+        let mut len = 0;
+        while property_len as usize > len {
+            let property_id = PropertyId::from_u8(read_u8_async(reader).await?)?;
+            match property_id {
+                PropertyId::UserProperty => {
+                    let property = PropertyValue::decode_user_property_async(reader).await?;
+                    len += 1 + 4 + property.name.len() + property.value.len();
+                    properties.user_properties.push(property);
+                }
+                _ => return Err(ErrorV5::InvalidProperty(header.typ, property_id)),
+            }
+        }
+        if property_len as usize != len {
+            return Err(ErrorV5::InvalidPropertyLength(property_len));
+        }
+        remaining_len = remaining_len
+            .checked_sub(2 + property_len_bytes + len)
+            .ok_or(Error::InvalidRemainingLength)?;
+        if remaining_len == 0 {
+            return Err(Error::EmptySubscription.into());
+        }
+        let mut topics = Vec::new();
+        while remaining_len > 0 {
+            let topic_filter = TopicFilter::try_from(read_string_async(reader).await?)?;
             remaining_len = remaining_len
                 .checked_sub(2 + topic_filter.len())
                 .ok_or(Error::InvalidRemainingLength)?;
@@ -424,12 +551,22 @@ pub struct UnsubscribeProperties {
 }
 
 impl UnsubscribeProperties {
+    pub fn decode(
+        buf: &[u8],
+        offset: &mut usize,
+        packet_type: PacketType,
+    ) -> Result<Self, ErrorV5> {
+        let mut properties = UnsubscribeProperties::default();
+        decode_properties!(packet_type, properties, buf, offset,);
+        Ok(properties)
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         packet_type: PacketType,
     ) -> Result<Self, ErrorV5> {
         let mut properties = UnsubscribeProperties::default();
-        decode_properties!(packet_type, properties, reader,);
+        decode_properties_async!(packet_type, properties, reader,);
         Ok(properties)
     }
 }
@@ -470,19 +607,41 @@ impl Unsuback {
         }
     }
 
+    pub fn decode(buf: &[u8], offset: &mut usize, header: Header) -> Result<Self, ErrorV5> {
+        let mut remaining_len = header.remaining_len as usize;
+        let pid = Pid::try_from(read_u16(buf, offset)?)?;
+        let properties = UnsubackProperties::decode(buf, offset, header.typ)?;
+        remaining_len = remaining_len
+            .checked_sub(2 + properties.encode_len())
+            .ok_or(Error::InvalidRemainingLength)?;
+        let mut topics = Vec::new();
+        while remaining_len > 0 {
+            let value = read_u8(buf, offset)?;
+            let code = UnsubscribeReasonCode::from_u8(value)
+                .ok_or(ErrorV5::InvalidReasonCode(header.typ, value))?;
+            topics.push(code);
+            remaining_len -= 1;
+        }
+        Ok(Unsuback {
+            pid,
+            properties,
+            topics,
+        })
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         header: Header,
     ) -> Result<Self, ErrorV5> {
         let mut remaining_len = header.remaining_len as usize;
-        let pid = Pid::try_from(read_u16(reader).await?)?;
+        let pid = Pid::try_from(read_u16_async(reader).await?)?;
         let properties = UnsubackProperties::decode_async(reader, header.typ).await?;
         remaining_len = remaining_len
             .checked_sub(2 + properties.encode_len())
             .ok_or(Error::InvalidRemainingLength)?;
         let mut topics = Vec::new();
         while remaining_len > 0 {
-            let value = read_u8(reader).await?;
+            let value = read_u8_async(reader).await?;
             let code = UnsubscribeReasonCode::from_u8(value)
                 .ok_or(ErrorV5::InvalidReasonCode(header.typ, value))?;
             topics.push(code);
@@ -520,12 +679,22 @@ pub struct UnsubackProperties {
 }
 
 impl UnsubackProperties {
+    pub fn decode(
+        buf: &[u8],
+        offset: &mut usize,
+        packet_type: PacketType,
+    ) -> Result<Self, ErrorV5> {
+        let mut properties = UnsubackProperties::default();
+        decode_properties!(packet_type, properties, buf, offset, ReasonString,);
+        Ok(properties)
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(
         reader: &mut T,
         packet_type: PacketType,
     ) -> Result<Self, ErrorV5> {
         let mut properties = UnsubackProperties::default();
-        decode_properties!(packet_type, properties, reader, ReasonString,);
+        decode_properties_async!(packet_type, properties, reader, ReasonString,);
         Ok(properties)
     }
 }
