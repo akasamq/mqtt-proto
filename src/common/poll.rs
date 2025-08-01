@@ -8,7 +8,7 @@ use alloc::vec::Vec;
 #[cfg(feature = "tokio")]
 use tokio::io::AsyncReadExt;
 
-use crate::{AsyncRead, Error, IoErrorKind, ToError};
+use super::{AsyncRead, Error, IoErrorKind, ToError};
 
 const PACKET_BUFFER_THRESHOLD: usize = 8192;
 
@@ -134,6 +134,8 @@ where
 async fn poll_packet_buffer_body<T, H>(
     reader: &mut T,
     header: H,
+    idx: &mut usize,
+    buf: &mut Vec<MaybeUninit<u8>>,
 ) -> Result<(usize, Vec<MaybeUninit<u8>>, H::Packet), H::Error>
 where
     T: AsyncRead + Unpin,
@@ -141,17 +143,14 @@ where
     H::Error: From<Error>,
 {
     let remaining_len = header.remaining_len();
-    let mut buf: Vec<MaybeUninit<u8>> = Vec::with_capacity(remaining_len);
-    unsafe { buf.set_len(remaining_len) };
 
-    let mut idx = 0;
-    while idx < remaining_len {
+    while *idx < remaining_len {
         let slice: &mut [u8] = unsafe {
-            core::slice::from_raw_parts_mut(buf[idx..].as_mut_ptr() as *mut u8, remaining_len - idx)
+            core::slice::from_raw_parts_mut(buf[*idx..].as_mut_ptr() as *mut u8, remaining_len - *idx)
         };
         match reader.read(slice).await {
             Ok(0) => return Err(Error::IoError(IoErrorKind::UnexpectedEof).into()),
-            Ok(n) => idx += n,
+            Ok(n) => *idx += n,
             Err(e) => return Err(Error::from(e).into()),
         }
     }
@@ -165,7 +164,7 @@ where
             e
         }
     })?;
-    Ok((header.total_len(), buf, packet))
+    Ok((header.total_len(), buf.clone(), packet))
 }
 
 async fn poll_packet_stream_body<T, H>(
@@ -203,7 +202,7 @@ where
                 ref mut var_idx,
                 ref mut var_int,
             } => {
-                #[allow(clippy::useless_conversion)] // Remove this will lead to `cargo check` error.
+                #[allow(clippy::useless_conversion)]
                 let header: H = poll_packet_header(reader, control_byte, var_idx, var_int)
                     .await
                     .map_err(Into::<H::Error>::into)?;
@@ -227,9 +226,9 @@ where
                     *state = GenericPollPacketState::StreamBody { header };
                 }
             }
-            GenericPollPacketState::BufferBody { header, .. } => {
+            GenericPollPacketState::BufferBody { header, buf, idx, .. } => {
                 let header_copy = *header;
-                let (total, buf, packet) = poll_packet_buffer_body(reader, header_copy).await?;
+                let (total, buf, packet) = poll_packet_buffer_body(reader, header_copy, idx, buf).await?;
                 *state = GenericPollPacketState::default(); // Reset
                 return Ok((total, buf, packet));
             }

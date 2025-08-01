@@ -7,7 +7,7 @@ use simdutf8::basic::from_utf8;
 #[cfg(feature = "tokio")]
 use tokio::io::AsyncReadExt;
 
-use crate::{AsyncRead, Encodable, Error, SyncWrite, ToError};
+use super::{AsyncRead, Encodable, Error, SyncWrite, ToError};
 
 /// Read first byte(packet type and flags) and decode remaining length
 #[inline]
