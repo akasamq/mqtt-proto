@@ -174,6 +174,8 @@ async fn poll_stream_simulation() {
 
     println!("\n--- `common::poll` Stream Simulation ({NUM_ROUNDS} rounds) ---");
 
+    let buffer = MockBuffer::default();
+
     for i in 0..NUM_ROUNDS {
         println!("\n--- Round {} ---", i + 1);
 
@@ -189,7 +191,8 @@ async fn poll_stream_simulation() {
         let mut reader = embedded_io_adapters::tokio_1::FromTokio::new(reader_builder.build());
 
         let mut state = GenericPollPacketState::<MockHeader>::default();
-        let mut poll_packet = GenericPollPacket::new(&mut state, &mut reader);
+        let mut buffer = buffer.clone();
+        let mut poll_packet = GenericPollPacket::new(&mut state, &mut reader, &mut buffer);
 
         let stats_start = dhat::HeapStats::get();
         println!(
@@ -258,8 +261,11 @@ async fn poll_actor_model_simulation() {
     let simulation_start = std::time::Instant::now();
     let mut handles = Vec::with_capacity(NUM_TASKS);
 
+    let buffer = MockBuffer::default();
+
     for _ in 0..NUM_TASKS {
         let data = data.clone();
+        let buffer = buffer.clone();
 
         handles.push(tokio::spawn(async move {
             let mock_data = &*data;
@@ -274,7 +280,8 @@ async fn poll_actor_model_simulation() {
             let mut reader = embedded_io_adapters::tokio_1::FromTokio::new(reader_builder.build());
 
             let mut state = GenericPollPacketState::<MockHeader>::default();
-            let mut poll_packet = GenericPollPacket::new(&mut state, &mut reader);
+            let mut buffer = buffer;
+            let mut poll_packet = GenericPollPacket::new(&mut state, &mut reader, &mut buffer);
 
             let result = poll_fn(|cx| Pin::new(&mut poll_packet).poll(cx)).await;
             assert!(result.is_ok());

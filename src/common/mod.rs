@@ -1,3 +1,4 @@
+mod buffer;
 mod error;
 mod poll;
 mod types;
@@ -37,6 +38,7 @@ pub(crate) use utils::{
     write_u8, write_var_int,
 };
 
+pub use buffer::{Buffer, BufferHandle, BufferResult, MockBuffer, MockBufferHandle, ReadStrategy};
 pub use error::{Error, IoErrorKind, ToError};
 pub use poll::{GenericPollPacket, GenericPollPacketState, PollHeader};
 pub use types::{

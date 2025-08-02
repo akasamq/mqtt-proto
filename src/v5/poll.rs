@@ -82,5 +82,5 @@ impl PollHeader for Header {
     }
 }
 
-pub type PollPacket<'a, T> = GenericPollPacket<'a, T, Header>;
+pub type PollPacket<'a, T, B> = GenericPollPacket<'a, T, Header, B>;
 pub type PollPacketState = GenericPollPacketState<Header>;

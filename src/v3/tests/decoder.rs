@@ -98,7 +98,12 @@ fn test_non_utf8_string() {
     ));
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap_err()
     );
 }
 
@@ -113,7 +118,12 @@ fn test_inner_length_too_long() {
     ];
     assert_eq!(Ok(None), Packet::decode(data));
     assert_eq!(
-        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err(),
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap_err(),
         Error::InvalidRemainingLength
     );
 }
@@ -134,11 +144,13 @@ fn test_decode_half_connect() {
     ];
     assert_eq!(Ok(None), Packet::decode(data));
     assert_eq!(12, data.len());
-    assert!(
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap_err()
-            .is_eof()
-    );
+    assert!(block_on(PollPacket::new(
+        &mut Default::default(),
+        &mut data,
+        &mut MockBuffer::default()
+    ))
+    .unwrap_err()
+    .is_eof());
 }
 
 #[test]
@@ -159,7 +171,12 @@ fn test_decode_connect_wrong_version() {
     );
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap_err()
     );
 }
 
@@ -177,7 +194,12 @@ fn test_decode_reserved_connect_flags() {
     );
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap_err()
     );
 }
 
@@ -222,9 +244,13 @@ fn test_decode_packet_n() {
     let decode_pkt1 = Packet::decode(data1).unwrap().unwrap();
     assert_eq!(
         Packet::decode(data1).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data1))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data1,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 
     offset += total_len(pkt1.encode_len()).unwrap();
@@ -232,9 +258,13 @@ fn test_decode_packet_n() {
     let decode_pkt2 = Packet::decode(data2).unwrap().unwrap();
     assert_eq!(
         Packet::decode(data2).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data2))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data2,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 
     offset += total_len(0).unwrap();
@@ -242,9 +272,13 @@ fn test_decode_packet_n() {
     let decode_pkt3 = Packet::decode(data3).unwrap().unwrap();
     assert_eq!(
         Packet::decode(data3).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data3))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data3,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 
     assert_eq!(Packet::Connect(pkt1), decode_pkt1);
@@ -264,9 +298,13 @@ fn test_decode_connack() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 
@@ -276,9 +314,13 @@ fn test_decode_ping_req() {
     assert_eq!(Ok(Some(Packet::Pingreq)), Packet::decode(data));
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 
@@ -288,9 +330,13 @@ fn test_decode_ping_resp() {
     assert_eq!(Ok(Some(Packet::Pingresp)), Packet::decode(data));
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 
@@ -300,9 +346,13 @@ fn test_decode_disconnect() {
     assert_eq!(Ok(Some(Packet::Disconnect)), Packet::decode(data));
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 
@@ -333,9 +383,13 @@ fn test_decode_publish() {
     }
     assert_eq!(
         Packet::decode(data1).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data1))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data1,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 
     let mut data2 = &data[12..];
@@ -351,9 +405,13 @@ fn test_decode_publish() {
     }
     assert_eq!(
         Packet::decode(data2).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data2))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data2,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 
     let mut data3 = &data[24..];
@@ -369,9 +427,13 @@ fn test_decode_publish() {
     }
     assert_eq!(
         Packet::decode(data3).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data3))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data3,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 
@@ -384,9 +446,13 @@ fn test_decode_pub_ack() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 
@@ -399,9 +465,13 @@ fn test_decode_pub_rec() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 
@@ -414,9 +484,13 @@ fn test_decode_pub_rel() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 
@@ -429,9 +503,13 @@ fn test_decode_pub_comp() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 
@@ -447,9 +525,13 @@ fn test_decode_subscribe() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 
@@ -465,9 +547,13 @@ fn test_decode_suback() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 
@@ -483,9 +569,13 @@ fn test_decode_unsubscribe() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 
@@ -498,9 +588,13 @@ fn test_decode_unsub_ack() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 

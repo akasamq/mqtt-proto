@@ -1,3 +1,4 @@
+mod buffer;
 mod poll;
 
 #[cfg(feature = "dhat-heap")]

@@ -16,6 +16,7 @@ bench = false
 [dependencies]
 bytes = { version = "1", default-features = false }
 embassy-futures = { version = "0.1", default-features = false }
+embassy-sync = { version = "0.7", default-features = false }
 embedded-io = { version = "0.6", default-features = false, features = ["alloc"] }
 embedded-io-async = { version = "0.6", default-features = false, features = ["alloc"] }
 futures-lite = { version = "2", default-features = false }
