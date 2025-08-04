@@ -22,13 +22,14 @@ embedded-io-async = { version = "0.6", default-features = false, features = ["al
 futures-lite = { version = "2", default-features = false }
 simdutf8 = { version = "0.1", default-features = false }
 thiserror = { version = "2", default-features = false }
-tokio = { version = "1", default-features = false, features = ["io-util"], optional = true }
+tokio = { version = "1", default-features = false, features = ["io-util", "sync"], optional = true }
 
 # Only for fuzz testing
 arbitrary = { version = "1", features = ["derive"], optional = true }
 
 [dev-dependencies]
 criterion = "0.7"
+critical-section = { version = "1.1", features = ["std"] }
 dhat = "0.3"
 embedded-io-adapters = { version = "0.6", features = ["tokio-1"] }
 proptest = "1"
