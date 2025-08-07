@@ -87,13 +87,6 @@ impl Default for MockBufferConfig {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct MockBufferStats {
-    pub total_capacity: usize,
-    pub free_buffers: usize,
-    pub allocated_buffers: usize,
-}
-
 struct PendingBufferNode {
     buffer: Vec<u8>,
     next: *mut PendingBufferNode,
