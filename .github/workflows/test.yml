@@ -1,4 +1,4 @@
-name: Clippy
+name: Test
 
 on:
   push:
@@ -7,8 +7,8 @@ on:
     branches: [master]
 
 jobs:
-  lint:
-    name: Run Clippy
+  test:
+    name: Run test & clippy
     runs-on: ubuntu-latest
 
     steps:
@@ -21,20 +21,23 @@ jobs:
           components: clippy
 
       - name: Cache cargo registry
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          key: cargo-registry-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-registry-
+            cargo-registry-${{ runner.os }}-
 
       - name: Cache cargo build
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: target
-          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+          key: cargo-build-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-build-
+            cargo-build-${{ runner.os }}-
 
-      - name: Run Clippy
-        run: make clippy
+      - name: Run tests
+        run: cargo test
+
+      - name: Run clippy
+        run: cargo clippy --tests --all-features -- -D warnings

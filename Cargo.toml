@@ -10,21 +10,28 @@ keywords = ["mqtt", "codec", "network", "async"]
 categories = ["network-programming", "asynchronous"]
 edition = "2021"
 
+[lib]
+bench = false
+
 [dependencies]
 bytes = { version = "1", default-features = false }
 embassy-futures = { version = "0.1", default-features = false }
+embassy-sync = { version = "0.7", default-features = false }
 embedded-io = { version = "0.6", default-features = false, features = ["alloc"] }
-embedded-io-adapters = { version = "0.6", features = ["std", "tokio-1"], optional = true }
 embedded-io-async = { version = "0.6", default-features = false, features = ["alloc"] }
 futures-lite = { version = "2", default-features = false }
-thiserror = { version = "2", default-features = false }
 simdutf8 = { version = "0.1", default-features = false }
+thiserror = { version = "2", default-features = false }
+tokio = { version = "1", default-features = false, features = ["io-util", "sync"], optional = true }
 
 # Only for fuzz testing
 arbitrary = { version = "1", features = ["derive"], optional = true }
 
 [dev-dependencies]
+criterion = "0.7"
+critical-section = { version = "1.1", features = ["std"] }
 dhat = "0.3"
+embedded-io-adapters = { version = "0.6", features = ["tokio-1"] }
 proptest = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -33,8 +40,21 @@ tokio-test = "0.4"
 
 [[bench]]
 name = "codec"
+harness = false
 
 [features]
 default = ["std"]
-std = ["dep:embedded-io-adapters", "futures-lite/std", "thiserror/std"]
+std = [
+    "bytes/std",
+    "embedded-io/std",
+    "embedded-io-async/std",
+    "futures-lite/std",
+    "simdutf8/std",
+    "thiserror/std"
+]
+
+# Enable `tokio` async runtime
+tokio = ["dep:tokio", "std"]
+
+# Enable DHAT Memory debugging
 dhat-heap = ["std"]

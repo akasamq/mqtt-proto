@@ -12,31 +12,31 @@ fn test_header_firstbyte() {
 
     #[rustfmt::skip]
     let valid = alloc::vec![
-        (0b0001_0000, Header::new(Connect, false, Level0, false, 0)),
-        (0b0010_0000, Header::new(Connack, false, Level0, false, 0)),
-        (0b0011_0000, Header::new(Publish, false, Level0, false, 0)),
-        (0b0011_0001, Header::new(Publish, false, Level0, true, 0)),
-        (0b0011_0010, Header::new(Publish, false, Level1, false, 0)),
-        (0b0011_0011, Header::new(Publish, false, Level1, true, 0)),
-        (0b0011_0100, Header::new(Publish, false, Level2, false, 0)),
-        (0b0011_0101, Header::new(Publish, false, Level2, true, 0)),
-        (0b0011_1000, Header::new(Publish, true, Level0, false, 0)),
-        (0b0011_1001, Header::new(Publish, true, Level0, true, 0)),
-        (0b0011_1010, Header::new(Publish, true, Level1, false, 0)),
-        (0b0011_1011, Header::new(Publish, true, Level1, true, 0)),
-        (0b0011_1100, Header::new(Publish, true, Level2, false, 0)),
-        (0b0011_1101, Header::new(Publish, true, Level2, true, 0)),
-        (0b0100_0000, Header::new(Puback, false, Level0, false, 0)),
-        (0b0101_0000, Header::new(Pubrec, false, Level0, false, 0)),
-        (0b0110_0010, Header::new(Pubrel, false, Level0, false, 0)),
-        (0b0111_0000, Header::new(Pubcomp, false, Level0, false, 0)),
-        (0b1000_0010, Header::new(Subscribe, false, Level0, false, 0)),
-        (0b1001_0000, Header::new(Suback, false, Level0, false, 0)),
-        (0b1010_0010, Header::new(Unsubscribe, false, Level0, false, 0)),
-        (0b1011_0000, Header::new(Unsuback, false, Level0, false, 0)),
-        (0b1100_0000, Header::new(Pingreq, false, Level0, false, 0)),
-        (0b1101_0000, Header::new(Pingresp, false, Level0, false, 0)),
-        (0b1110_0000, Header::new(Disconnect, false, Level0, false, 0)),
+        (0b0001_0000, Header::new(Connect, false, Level0, false, 0, 1)),
+        (0b0010_0000, Header::new(Connack, false, Level0, false, 0, 1)),
+        (0b0011_0000, Header::new(Publish, false, Level0, false, 0, 1)),
+        (0b0011_0001, Header::new(Publish, false, Level0, true, 0, 1)),
+        (0b0011_0010, Header::new(Publish, false, Level1, false, 0, 1)),
+        (0b0011_0011, Header::new(Publish, false, Level1, true, 0, 1)),
+        (0b0011_0100, Header::new(Publish, false, Level2, false, 0, 1)),
+        (0b0011_0101, Header::new(Publish, false, Level2, true, 0, 1)),
+        (0b0011_1000, Header::new(Publish, true, Level0, false, 0, 1)),
+        (0b0011_1001, Header::new(Publish, true, Level0, true, 0, 1)),
+        (0b0011_1010, Header::new(Publish, true, Level1, false, 0, 1)),
+        (0b0011_1011, Header::new(Publish, true, Level1, true, 0, 1)),
+        (0b0011_1100, Header::new(Publish, true, Level2, false, 0, 1)),
+        (0b0011_1101, Header::new(Publish, true, Level2, true, 0, 1)),
+        (0b0100_0000, Header::new(Puback, false, Level0, false, 0, 1)),
+        (0b0101_0000, Header::new(Pubrec, false, Level0, false, 0, 1)),
+        (0b0110_0010, Header::new(Pubrel, false, Level0, false, 0, 1)),
+        (0b0111_0000, Header::new(Pubcomp, false, Level0, false, 0, 1)),
+        (0b1000_0010, Header::new(Subscribe, false, Level0, false, 0, 1)),
+        (0b1001_0000, Header::new(Suback, false, Level0, false, 0, 1)),
+        (0b1010_0010, Header::new(Unsubscribe, false, Level0, false, 0, 1)),
+        (0b1011_0000, Header::new(Unsuback, false, Level0, false, 0, 1)),
+        (0b1100_0000, Header::new(Pingreq, false, Level0, false, 0, 1)),
+        (0b1101_0000, Header::new(Pingresp, false, Level0, false, 0, 1)),
+        (0b1110_0000, Header::new(Disconnect, false, Level0, false, 0, 1)),
     ];
     for n in 0..=255 {
         let res = match valid.iter().find(|(byte, _)| *byte == n) {
@@ -57,23 +57,23 @@ fn test_header_len() {
     for (bytes, res) in alloc::vec![
         (
             alloc::vec![1 << 4, 0],
-            Ok(Header::new(Connect, false, Level0, false, 0)),
+            Ok(Header::new(Connect, false, Level0, false, 0, 1)),
         ),
         (
             alloc::vec![1 << 4, 127],
-            Ok(Header::new(Connect, false, Level0, false, 127)),
+            Ok(Header::new(Connect, false, Level0, false, 127, 1)),
         ),
         (
             alloc::vec![1 << 4, 0x80, 0],
-            Ok(Header::new(Connect, false, Level0, false, 0)),
+            Ok(Header::new(Connect, false, Level0, false, 0, 2)),
         ), //Weird encoding for "0" buf matches spec
         (
             alloc::vec![1 << 4, 0x80, 1],
-            Ok(Header::new(Connect, false, Level0, false, 128)),
+            Ok(Header::new(Connect, false, Level0, false, 128, 2)),
         ),
         (
             alloc::vec![1 << 4, 0x80 + 16, 78],
-            Ok(Header::new(Connect, false, Level0, false, 10000)),
+            Ok(Header::new(Connect, false, Level0, false, 10000, 2)),
         ),
         (
             alloc::vec![1 << 4, 0x80, 0x80, 0x80, 0x80],
@@ -98,7 +98,12 @@ fn test_non_utf8_string() {
     ));
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap_err()
     );
 }
 
@@ -113,7 +118,12 @@ fn test_inner_length_too_long() {
     ];
     assert_eq!(Ok(None), Packet::decode(data));
     assert_eq!(
-        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err(),
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap_err(),
         Error::InvalidRemainingLength
     );
 }
@@ -134,11 +144,13 @@ fn test_decode_half_connect() {
     ];
     assert_eq!(Ok(None), Packet::decode(data));
     assert_eq!(12, data.len());
-    assert!(
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap_err()
-            .is_eof()
-    );
+    assert!(block_on(PollPacket::new(
+        &mut Default::default(),
+        &mut data,
+        &mut MockBuffer::default()
+    ))
+    .unwrap_err()
+    .is_eof());
 }
 
 #[test]
@@ -159,7 +171,12 @@ fn test_decode_connect_wrong_version() {
     );
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap_err()
     );
 }
 
@@ -177,7 +194,12 @@ fn test_decode_reserved_connect_flags() {
     );
     assert_eq!(
         Packet::decode(data).unwrap_err(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap_err()
     );
 }
 
@@ -222,9 +244,13 @@ fn test_decode_packet_n() {
     let decode_pkt1 = Packet::decode(data1).unwrap().unwrap();
     assert_eq!(
         Packet::decode(data1).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data1))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data1,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 
     offset += total_len(pkt1.encode_len()).unwrap();
@@ -232,9 +258,13 @@ fn test_decode_packet_n() {
     let decode_pkt2 = Packet::decode(data2).unwrap().unwrap();
     assert_eq!(
         Packet::decode(data2).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data2))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data2,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 
     offset += total_len(0).unwrap();
@@ -242,9 +272,13 @@ fn test_decode_packet_n() {
     let decode_pkt3 = Packet::decode(data3).unwrap().unwrap();
     assert_eq!(
         Packet::decode(data3).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data3))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data3,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 
     assert_eq!(Packet::Connect(pkt1), decode_pkt1);
@@ -264,9 +298,13 @@ fn test_decode_connack() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 
@@ -276,9 +314,13 @@ fn test_decode_ping_req() {
     assert_eq!(Ok(Some(Packet::Pingreq)), Packet::decode(data));
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 
@@ -288,9 +330,13 @@ fn test_decode_ping_resp() {
     assert_eq!(Ok(Some(Packet::Pingresp)), Packet::decode(data));
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 
@@ -300,9 +346,13 @@ fn test_decode_disconnect() {
     assert_eq!(Ok(Some(Packet::Disconnect)), Packet::decode(data));
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 
@@ -317,7 +367,7 @@ fn test_decode_publish() {
     let mut data1 = data;
     assert_eq!(
         Header::decode(data1).unwrap(),
-        Header::new_with(0b00110000, 10).unwrap(),
+        Header::new_with(0b00110000, 10, 1).unwrap(),
     );
     assert_eq!(data.len(), 38);
 
@@ -333,9 +383,13 @@ fn test_decode_publish() {
     }
     assert_eq!(
         Packet::decode(data1).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data1))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data1,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 
     let mut data2 = &data[12..];
@@ -351,9 +405,13 @@ fn test_decode_publish() {
     }
     assert_eq!(
         Packet::decode(data2).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data2))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data2,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 
     let mut data3 = &data[24..];
@@ -369,9 +427,13 @@ fn test_decode_publish() {
     }
     assert_eq!(
         Packet::decode(data3).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data3))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data3,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 
@@ -384,9 +446,13 @@ fn test_decode_pub_ack() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 
@@ -399,9 +465,13 @@ fn test_decode_pub_rec() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 
@@ -414,9 +484,13 @@ fn test_decode_pub_rel() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 
@@ -429,9 +503,13 @@ fn test_decode_pub_comp() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 
@@ -447,9 +525,13 @@ fn test_decode_subscribe() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 
@@ -465,9 +547,13 @@ fn test_decode_suback() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 
@@ -483,9 +569,13 @@ fn test_decode_unsubscribe() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 
@@ -498,9 +588,13 @@ fn test_decode_unsub_ack() {
     );
     assert_eq!(
         Packet::decode(data).unwrap().unwrap(),
-        block_on(PollPacket::new(&mut Default::default(), &mut data))
-            .unwrap()
-            .2
+        block_on(PollPacket::new(
+            &mut Default::default(),
+            &mut data,
+            &mut MockBuffer::default()
+        ))
+        .unwrap()
+        .2
     );
 }
 
@@ -513,7 +607,7 @@ async fn poll_actor_model_simulation_v3() {
 
     let mut packets = Vec::new();
 
-    for len in [1, 8, 32, 128, 512] {
+    for len in (0..10).map(|i| 1 << i) {
         let client_id = "a".repeat(len);
         let pkt = Packet::Connect(Connect {
             protocol: Protocol::V311,
@@ -527,7 +621,7 @@ async fn poll_actor_model_simulation_v3() {
         packets.push(pkt.encode().unwrap());
     }
 
-    for size in [0, 2, 16, 128, 1024, 4096] {
+    for size in (0..15).map(|i| 1 << i) {
         let payload = vec![b'x'; size];
         let pkt = Packet::Publish(Publish {
             dup: false,
@@ -556,6 +650,13 @@ async fn poll_actor_model_simulation_v3() {
     packets.push(Packet::Pingreq.encode().unwrap());
     packets.push(Packet::Pingresp.encode().unwrap());
     packets.push(Packet::Disconnect.encode().unwrap());
+
+    let mut rng_seed = 42u64;
+    for i in (1..packets.len()).rev() {
+        rng_seed = rng_seed.wrapping_mul(1103515245).wrapping_add(12345);
+        let j = (rng_seed % (i + 1) as u64) as usize;
+        packets.swap(i, j);
+    }
 
     let data: std::sync::Arc<Vec<VarBytes>> = std::sync::Arc::new(packets);
 

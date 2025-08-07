@@ -1,9 +1,8 @@
 use alloc::sync::Arc;
 
-use embedded_io::ReadExactError;
 use thiserror::Error;
 
-use crate::Protocol;
+use super::Protocol;
 
 /// Errors returned by encoding and decoding process.
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
@@ -74,6 +73,7 @@ pub enum Error {
 pub enum IoErrorKind {
     UnexpectedEof,
     InvalidData,
+    OutOfMemory,
     WriteZero,
     TimedOut,
     Other,
@@ -87,20 +87,42 @@ impl Error {
 
 impl<E: embedded_io::Error> From<E> for Error {
     fn from(err: E) -> Error {
-        let kind = match err.kind() {
-            embedded_io::ErrorKind::InvalidData => IoErrorKind::InvalidData,
-            embedded_io::ErrorKind::WriteZero => IoErrorKind::WriteZero,
-            embedded_io::ErrorKind::TimedOut => IoErrorKind::TimedOut,
-            _ => IoErrorKind::Other,
-        };
-        Error::IoError(kind)
+        match err.kind() {
+            embedded_io::ErrorKind::InvalidData => Error::IoError(IoErrorKind::InvalidData),
+            embedded_io::ErrorKind::OutOfMemory => Error::IoError(IoErrorKind::OutOfMemory),
+            embedded_io::ErrorKind::WriteZero => Error::IoError(IoErrorKind::WriteZero),
+            embedded_io::ErrorKind::TimedOut => Error::IoError(IoErrorKind::TimedOut),
+            _ => Error::IoError(IoErrorKind::Other),
+        }
     }
 }
 
-pub fn from_read_exact_error<E: Into<Error>>(e: ReadExactError<E>) -> Error {
-    match e {
-        ReadExactError::UnexpectedEof => Error::IoError(IoErrorKind::UnexpectedEof),
-        ReadExactError::Other(e) => e.into(),
+pub trait ToError {
+    fn to_error(self) -> Error;
+}
+
+impl<E: Into<Error>> ToError for embedded_io::ReadExactError<E> {
+    fn to_error(self) -> Error {
+        match self {
+            embedded_io::ReadExactError::UnexpectedEof => {
+                Error::IoError(IoErrorKind::UnexpectedEof)
+            }
+            embedded_io::ReadExactError::Other(e) => e.into(),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl ToError for std::io::Error {
+    fn to_error(self) -> Error {
+        match self.kind() {
+            std::io::ErrorKind::UnexpectedEof => Error::IoError(IoErrorKind::UnexpectedEof),
+            std::io::ErrorKind::InvalidData => Error::IoError(IoErrorKind::InvalidData),
+            std::io::ErrorKind::OutOfMemory => Error::IoError(IoErrorKind::OutOfMemory),
+            std::io::ErrorKind::WriteZero => Error::IoError(IoErrorKind::WriteZero),
+            std::io::ErrorKind::TimedOut => Error::IoError(IoErrorKind::TimedOut),
+            _ => Error::IoError(IoErrorKind::Other),
+        }
     }
 }
 
@@ -113,6 +135,9 @@ impl From<Error> for std::io::Error {
             }
             Error::IoError(IoErrorKind::InvalidData) => {
                 std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid data")
+            }
+            Error::IoError(IoErrorKind::OutOfMemory) => {
+                std::io::Error::new(std::io::ErrorKind::OutOfMemory, "out of memory")
             }
             Error::IoError(IoErrorKind::WriteZero) => {
                 std::io::Error::new(std::io::ErrorKind::WriteZero, "write zero")

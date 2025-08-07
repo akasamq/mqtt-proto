@@ -1,10 +1,8 @@
 #[cfg(feature = "dhat-heap")]
-use std::{pin::Pin, sync::Arc};
-
-#[cfg(feature = "dhat-heap")]
-use futures_lite::{
-    future::{block_on, poll_fn},
-    Future,
+use std::{
+    future::{poll_fn, Future},
+    pin::Pin,
+    sync::Arc,
 };
 
 #[cfg(feature = "dhat-heap")]
@@ -13,8 +11,9 @@ use crate::*;
 #[cfg(feature = "dhat-heap")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct MockHeader {
-    remaining_len: u32,
     packet_type: u8,
+    remaining_len: u32,
+    total_len: u32,
 }
 
 #[cfg(feature = "dhat-heap")]
@@ -33,22 +32,6 @@ enum MockPacket {
 }
 
 #[cfg(feature = "dhat-heap")]
-fn read_string(reader: &mut &[u8]) -> String {
-    if reader.len() < 2 {
-        return String::new();
-    }
-    let len_bytes: [u8; 2] = reader[0..2].try_into().unwrap();
-    let len = u16::from_be_bytes(len_bytes);
-    *reader = &reader[2..];
-    if reader.len() < len as usize {
-        return String::new();
-    }
-    let s = String::from_utf8_lossy(&reader[..len as usize]).to_string();
-    *reader = &reader[len as usize..];
-    s
-}
-
-#[cfg(feature = "dhat-heap")]
 struct MockPublishData {
     control_byte: u8,
     remaining_len_buf: Vec<u8>,
@@ -64,19 +47,16 @@ fn prepare_mock_publish_data(
 ) -> MockPublishData {
     let control_byte = 0x30; // Publish packet type
 
-    let mut topic_buf = Vec::new();
-    topic_buf.extend_from_slice(&(topic_str.len() as u16).to_be_bytes());
-    topic_buf.extend_from_slice(topic_str.as_bytes());
-
     let payload: Vec<u8> = (0..payload_size as u32).map(|i| (i % 256) as u8).collect();
 
-    let mut body = topic_buf;
-    body.extend_from_slice(&mock_pid.to_be_bytes());
-    body.extend_from_slice(&payload);
+    let mut body = Vec::new();
+    write_string(&mut body, topic_str).unwrap();
+    write_u16(&mut body, mock_pid).unwrap();
+    write_bytes(&mut body, &payload).unwrap();
     let body_len = body.len();
 
     let mut remaining_len_buf = Vec::new();
-    crate::common::write_var_int(&mut remaining_len_buf, body_len).unwrap();
+    write_var_int(&mut remaining_len_buf, body_len).unwrap();
 
     let expected_packet = MockPacket::Publish {
         topic: topic_str.to_string(),
@@ -97,10 +77,11 @@ impl PollHeader for MockHeader {
     type Error = Error;
     type Packet = MockPacket;
 
-    fn new_with(hd: u8, remaining_len: u32) -> Result<Self, Self::Error> {
+    fn new_with(hd: u8, remaining_len: u32, total_len: u32) -> Result<Self, Self::Error> {
         Ok(MockHeader {
-            remaining_len,
             packet_type: hd,
+            remaining_len,
+            total_len,
         })
     }
 
@@ -112,25 +93,49 @@ impl PollHeader for MockHeader {
         }
     }
 
-    fn block_decode(self, reader: &mut &[u8]) -> Result<Self::Packet, Self::Error> {
+    fn decode_buffer(self, buf: &[u8], offset: &mut usize) -> Result<Self::Packet, Self::Error> {
         let packet = match self.packet_type & 0xF0 {
             0x10 => {
-                let protocol_name = read_string(reader);
-                if reader.is_empty() {
-                    return Err(Error::InvalidVarByteInt);
-                }
-                let protocol_version = reader[0];
-                *reader = &reader[1..];
+                let protocol_name = read_string(buf, offset)?.to_string();
+                let protocol_version = read_u8(buf, offset)?;
                 MockPacket::Connect {
                     protocol_name,
                     protocol_version,
                 }
             }
             0x30 => {
-                let topic = read_string(reader);
-                let mock_pid = block_on(read_u16(reader))?;
-                let payload = reader.to_vec();
-                *reader = &[];
+                let topic = read_string(buf, offset)?.to_string();
+                let mock_pid = read_u16(buf, offset)?;
+                let payload = read_bytes(buf, offset)?.to_vec();
+                MockPacket::Publish {
+                    topic,
+                    mock_pid,
+                    payload,
+                }
+            }
+            _ => MockPacket::Other,
+        };
+        assert_eq!(*offset, buf.len(), "offset should move to end");
+        Ok(packet)
+    }
+
+    async fn decode_stream<T: AsyncRead + Unpin>(
+        self,
+        reader: &mut T,
+    ) -> Result<Self::Packet, Self::Error> {
+        let packet = match self.packet_type & 0xF0 {
+            0x10 => {
+                let protocol_name = read_string_async(reader).await?.to_string();
+                let protocol_version = read_u8_async(reader).await?;
+                MockPacket::Connect {
+                    protocol_name,
+                    protocol_version,
+                }
+            }
+            0x30 => {
+                let topic = read_string_async(reader).await?.to_string();
+                let mock_pid = read_u16_async(reader).await?;
+                let payload = read_bytes_async(reader).await?;
                 MockPacket::Publish {
                     topic,
                     mock_pid,
@@ -144,6 +149,10 @@ impl PollHeader for MockHeader {
 
     fn remaining_len(&self) -> usize {
         self.remaining_len as usize
+    }
+
+    fn total_len(&self) -> usize {
+        self.total_len as usize
     }
 
     fn is_eof_error(err: &Self::Error) -> bool {
@@ -165,6 +174,8 @@ async fn poll_stream_simulation() {
 
     println!("\n--- `common::poll` Stream Simulation ({NUM_ROUNDS} rounds) ---");
 
+    let buffer = MockBuffer::default();
+
     for i in 0..NUM_ROUNDS {
         println!("\n--- Round {} ---", i + 1);
 
@@ -174,10 +185,14 @@ async fn poll_stream_simulation() {
         for chunk in mock_data.body.chunks(256) {
             reader_builder.read(chunk);
         }
-        let mut reader = FromTokio::new(reader_builder.build());
+        #[cfg(feature = "tokio")]
+        let mut reader = reader_builder.build();
+        #[cfg(not(feature = "tokio"))]
+        let mut reader = embedded_io_adapters::tokio_1::FromTokio::new(reader_builder.build());
 
         let mut state = GenericPollPacketState::<MockHeader>::default();
-        let mut poll_packet = GenericPollPacket::new(&mut state, &mut reader);
+        let mut buffer = buffer.clone();
+        let mut poll_packet = GenericPollPacket::new(&mut state, &mut reader, &mut buffer);
 
         let stats_start = dhat::HeapStats::get();
         println!(
@@ -246,22 +261,27 @@ async fn poll_actor_model_simulation() {
     let simulation_start = std::time::Instant::now();
     let mut handles = Vec::with_capacity(NUM_TASKS);
 
+    let buffer = MockBuffer::default();
+
     for _ in 0..NUM_TASKS {
         let data = data.clone();
+        let buffer = buffer.clone();
 
         handles.push(tokio::spawn(async move {
             let mock_data = &*data;
 
-            let mut reader = FromTokio::new(
-                tokio_test::io::Builder::new()
-                    .read(&[mock_data.control_byte])
-                    .read(&mock_data.remaining_len_buf)
-                    .read(&mock_data.body)
-                    .build(),
-            );
+            let mut reader_builder = tokio_test::io::Builder::new();
+            reader_builder.read(&[mock_data.control_byte]);
+            reader_builder.read(&mock_data.remaining_len_buf);
+            reader_builder.read(&mock_data.body);
+            #[cfg(feature = "tokio")]
+            let mut reader = reader_builder.build();
+            #[cfg(not(feature = "tokio"))]
+            let mut reader = embedded_io_adapters::tokio_1::FromTokio::new(reader_builder.build());
 
             let mut state = GenericPollPacketState::<MockHeader>::default();
-            let mut poll_packet = GenericPollPacket::new(&mut state, &mut reader);
+            let mut buffer = buffer;
+            let mut poll_packet = GenericPollPacket::new(&mut state, &mut reader, &mut buffer);
 
             let result = poll_fn(|cx| Pin::new(&mut poll_packet).poll(cx)).await;
             assert!(result.is_ok());
