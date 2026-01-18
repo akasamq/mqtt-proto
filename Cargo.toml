@@ -16,8 +16,8 @@ bench = false
 [dependencies]
 bytes = { version = "1", default-features = false }
 embassy-futures = { version = "0.1", default-features = false }
-embedded-io = { version = "0.6", default-features = false, features = ["alloc"] }
-embedded-io-async = { version = "0.6", default-features = false, features = ["alloc"] }
+embedded-io = { version = "0.7", default-features = false, features = ["alloc"] }
+embedded-io-async = { version = "0.7", default-features = false, features = ["alloc"] }
 futures-lite = { version = "2", default-features = false }
 simdutf8 = { version = "0.1", default-features = false }
 thiserror = { version = "2", default-features = false }
@@ -27,9 +27,9 @@ tokio = { version = "1", default-features = false, features = ["io-util"], optio
 arbitrary = { version = "1", features = ["derive"], optional = true }
 
 [dev-dependencies]
-criterion = "0.7"
+criterion = "0.8"
 dhat = "0.3"
-embedded-io-adapters = { version = "0.6", features = ["tokio-1"] }
+embedded-io-adapters = { version = "0.7", features = ["tokio-1"] }
 proptest = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

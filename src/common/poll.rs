@@ -146,7 +146,10 @@ where
 
     while *idx < remaining_len {
         let slice: &mut [u8] = unsafe {
-            core::slice::from_raw_parts_mut(buf[*idx..].as_mut_ptr() as *mut u8, remaining_len - *idx)
+            core::slice::from_raw_parts_mut(
+                buf[*idx..].as_mut_ptr() as *mut u8,
+                remaining_len - *idx,
+            )
         };
         match reader.read(slice).await {
             Ok(0) => return Err(Error::IoError(IoErrorKind::UnexpectedEof).into()),
@@ -226,9 +229,12 @@ where
                     *state = GenericPollPacketState::StreamBody { header };
                 }
             }
-            GenericPollPacketState::BufferBody { header, buf, idx, .. } => {
+            GenericPollPacketState::BufferBody {
+                header, buf, idx, ..
+            } => {
                 let header_copy = *header;
-                let (total, buf, packet) = poll_packet_buffer_body(reader, header_copy, idx, buf).await?;
+                let (total, buf, packet) =
+                    poll_packet_buffer_body(reader, header_copy, idx, buf).await?;
                 *state = GenericPollPacketState::default(); // Reset
                 return Ok((total, buf, packet));
             }

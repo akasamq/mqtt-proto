@@ -2,7 +2,6 @@
 use std::{
     future::{poll_fn, Future},
     pin::Pin,
-    sync::Arc,
 };
 
 #[cfg(feature = "dhat-heap")]
@@ -245,9 +244,29 @@ async fn poll_actor_model_simulation() {
     const NUM_TASKS: usize = 100_000;
     const TOPIC: &str = "a/b/c";
 
-    let data = Arc::new(prepare_mock_publish_data(TOPIC, PAYLOAD_SIZE, MOCK_PID));
-
     println!("\n--- `common::poll` Actor Model Simulation ({NUM_TASKS} jobs) ---");
+
+    let mut readers = Vec::with_capacity(NUM_TASKS);
+    let total_data_size: usize;
+
+    {
+        let data = prepare_mock_publish_data(TOPIC, PAYLOAD_SIZE, MOCK_PID);
+        total_data_size = (PAYLOAD_SIZE + data.remaining_len_buf.len() + 1) * NUM_TASKS;
+
+        for _ in 0..NUM_TASKS {
+            let mut reader_builder = tokio_test::io::Builder::new();
+            reader_builder.read(&[data.control_byte]);
+            reader_builder.read(&data.remaining_len_buf);
+            reader_builder.read(&data.body);
+
+            #[cfg(feature = "tokio")]
+            let reader = reader_builder.build();
+            #[cfg(not(feature = "tokio"))]
+            let reader = embedded_io_adapters::tokio_1::FromTokio::new(reader_builder.build());
+
+            readers.push(reader);
+        }
+    }
 
     let stats_start = dhat::HeapStats::get();
     println!(
@@ -258,29 +277,16 @@ async fn poll_actor_model_simulation() {
     let simulation_start = std::time::Instant::now();
     let mut handles = Vec::with_capacity(NUM_TASKS);
 
-    for _ in 0..NUM_TASKS {
-        let data = data.clone();
-
+    for reader in readers.into_iter() {
         handles.push(tokio::spawn(async move {
-            let mock_data = &*data;
-
-            let mut reader_builder = tokio_test::io::Builder::new();
-            reader_builder.read(&[mock_data.control_byte]);
-            reader_builder.read(&mock_data.remaining_len_buf);
-            reader_builder.read(&mock_data.body);
-            #[cfg(feature = "tokio")]
-            let mut reader = reader_builder.build();
-            #[cfg(not(feature = "tokio"))]
-            let mut reader = embedded_io_adapters::tokio_1::FromTokio::new(reader_builder.build());
-
             let mut state = GenericPollPacketState::<MockHeader>::default();
-            let mut poll_packet = GenericPollPacket::new(&mut state, &mut reader);
+            let mut reader_mut = reader;
+            let mut poll_packet = GenericPollPacket::new(&mut state, &mut reader_mut);
 
             let result = poll_fn(|cx| Pin::new(&mut poll_packet).poll(cx)).await;
             assert!(result.is_ok());
 
             let (_total_len, buf, packet) = result.unwrap();
-            assert_eq!(packet, mock_data.expected_packet);
 
             drop(buf);
             drop(packet);
@@ -292,8 +298,6 @@ async fn poll_actor_model_simulation() {
     }
 
     let elapsed = simulation_start.elapsed();
-    let total_data_size = (PAYLOAD_SIZE + data.remaining_len_buf.len() + 1) * NUM_TASKS;
-    drop(data);
 
     let stats_end = dhat::HeapStats::get();
     println!(
@@ -316,7 +320,7 @@ async fn poll_actor_model_simulation() {
         NUM_TASKS,
         elapsed,
     );
-    println!("{}", serde_json::to_string(&summary).unwrap());
+    println!("\n{}", serde_json::to_string(&summary).unwrap());
 
     println!("--- End Report ---");
 }

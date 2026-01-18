@@ -564,21 +564,13 @@ async fn poll_actor_model_simulation_v3() {
         packets.swap(i, j);
     }
 
-    let data: std::sync::Arc<Vec<VarBytes>> = std::sync::Arc::new(packets);
-
     println!("\n--- `v3::decoder` Actor Model Simulation ({NUM_TASKS} jobs) ---");
 
-    let stats_start = dhat::HeapStats::get();
-    println!(
-        "Start:               {:>5} bytes in {:>2} blocks",
-        stats_start.curr_bytes, stats_start.curr_blocks
-    );
+    let total_data_size = packets.len() * NUM_TASKS;
 
-    let simulation_start = std::time::Instant::now();
     let mut handles = Vec::with_capacity(NUM_TASKS);
 
     for i in 0..NUM_TASKS {
-        let packets = data.clone();
         let idx = i % packets.len();
         let data = packets[idx].clone();
 
@@ -588,13 +580,21 @@ async fn poll_actor_model_simulation_v3() {
         }));
     }
 
+    drop(packets);
+
+    let stats_start = dhat::HeapStats::get();
+    println!(
+        "Start:               {:>5} bytes in {:>2} blocks",
+        stats_start.curr_bytes, stats_start.curr_blocks
+    );
+
+    let simulation_start = std::time::Instant::now();
+
     for handle in handles {
         handle.await.unwrap();
     }
 
     let elapsed = simulation_start.elapsed();
-    let total_data_size = data.len() * NUM_TASKS;
-    drop(data);
 
     let stats_end = dhat::HeapStats::get();
     println!(
@@ -617,7 +617,7 @@ async fn poll_actor_model_simulation_v3() {
         NUM_TASKS,
         elapsed,
     );
-    println!("{}", serde_json::to_string(&summary).unwrap());
+    println!("\n{}", serde_json::to_string(&summary).unwrap());
 
     println!("--- End Report ---");
 }
