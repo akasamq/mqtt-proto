@@ -2,6 +2,7 @@ use std::convert::TryFrom;
 use std::hint::black_box;
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use futures_lite::future::block_on;
 use mqtt_proto::{
     v3::{Connect as ConnectV3, LastWill as LastWillV3, Packet as PacketV3, Publish as PublishV3},
     v5::{Connect as ConnectV5, LastWill as LastWillV5, Packet as PacketV5, Publish as PublishV5},
@@ -103,7 +104,7 @@ fn bench_decode(c: &mut Criterion) {
         let v3_pub_bytes = create_v3_publish(size).encode().unwrap();
         let v5_pub_bytes = create_v5_publish(size).encode().unwrap();
 
-        macro_rules! bench {
+        macro_rules! bench_buffer {
             ($name:expr, $bytes:expr, $decode:path) => {
                 group.bench_with_input(BenchmarkId::new($name, size), $bytes, |b, bytes| {
                     b.iter(|| black_box($decode(bytes.as_ref()).unwrap()))
@@ -111,10 +112,26 @@ fn bench_decode(c: &mut Criterion) {
             };
         }
 
-        bench!("v3_connect", &v3_conn_bytes, PacketV3::decode);
-        bench!("v5_connect", &v5_conn_bytes, PacketV5::decode);
-        bench!("v3_publish", &v3_pub_bytes, PacketV3::decode);
-        bench!("v5_publish", &v5_pub_bytes, PacketV5::decode);
+        macro_rules! bench_stream {
+            ($name:expr, $bytes:expr, $decode:path) => {
+                group.bench_with_input(BenchmarkId::new($name, size), $bytes, |b, bytes| {
+                    b.iter(|| {
+                        let mut slice = bytes.as_ref();
+                        black_box(block_on(async { $decode(&mut slice).await.unwrap() }))
+                    })
+                });
+            };
+        }
+
+        bench_buffer!("v3_connect_buffer", &v3_conn_bytes, PacketV3::decode);
+        bench_buffer!("v5_connect_buffer", &v5_conn_bytes, PacketV5::decode);
+        bench_buffer!("v3_publish_buffer", &v3_pub_bytes, PacketV3::decode);
+        bench_buffer!("v5_publish_buffer", &v5_pub_bytes, PacketV5::decode);
+
+        bench_stream!("v3_connect_stream", &v3_conn_bytes, PacketV3::decode_async);
+        bench_stream!("v5_connect_stream", &v5_conn_bytes, PacketV5::decode_async);
+        bench_stream!("v3_publish_stream", &v3_pub_bytes, PacketV3::decode_async);
+        bench_stream!("v5_publish_stream", &v5_pub_bytes, PacketV5::decode_async);
     }
     group.finish();
 }

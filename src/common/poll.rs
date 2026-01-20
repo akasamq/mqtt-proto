@@ -21,8 +21,6 @@ pub enum GenericPollPacketState<H> {
     },
     BufferBody {
         header: H,
-        /// Packet total size (include header)
-        total: usize,
         idx: usize,
         buf: Vec<MaybeUninit<u8>>,
     },
@@ -131,6 +129,7 @@ where
     Ok(header)
 }
 
+#[allow(clippy::ptr_arg)]
 async fn poll_packet_buffer_body<T, H>(
     reader: &mut T,
     header: H,
@@ -221,7 +220,6 @@ where
                     unsafe { buf.set_len(remaining_len) };
                     *state = GenericPollPacketState::BufferBody {
                         header,
-                        total: header.total_len(),
                         idx: 0,
                         buf,
                     };
@@ -229,9 +227,7 @@ where
                     *state = GenericPollPacketState::StreamBody { header };
                 }
             }
-            GenericPollPacketState::BufferBody {
-                header, buf, idx, ..
-            } => {
+            GenericPollPacketState::BufferBody { header, buf, idx } => {
                 let header_copy = *header;
                 let (total, buf, packet) =
                     poll_packet_buffer_body(reader, header_copy, idx, buf).await?;

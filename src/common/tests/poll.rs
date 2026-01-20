@@ -9,48 +9,51 @@ use crate::*;
 
 #[cfg(feature = "dhat-heap")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct MockHeader {
-    packet_type: u8,
-    remaining_len: u32,
-    total_len: u32,
+pub struct MockHeader {
+    pub packet_type: u8,
+    pub remaining_len: u32,
+    pub total_len: u32,
 }
 
 #[cfg(feature = "dhat-heap")]
 #[derive(Debug, PartialEq, Eq, Clone)]
-enum MockPacket {
+pub enum MockPacket {
     Connect {
         protocol_name: String,
         protocol_version: u8,
     },
     Publish {
         topic: String,
-        mock_pid: u16,
+        packet_id: u16,
         payload: Vec<u8>,
     },
     Other,
 }
 
 #[cfg(feature = "dhat-heap")]
-struct MockPublishData {
-    control_byte: u8,
-    remaining_len_buf: Vec<u8>,
-    body: Vec<u8>,
-    expected_packet: MockPacket,
+pub struct MockPublishData {
+    pub control_byte: u8,
+    pub remaining_len_buf: Vec<u8>,
+    pub body: Vec<u8>,
+    pub expected_packet: MockPacket,
 }
 
 #[cfg(feature = "dhat-heap")]
-fn prepare_mock_publish_data(
-    topic_str: &str,
+pub fn prepare_mock_publish_data(
+    topic: &str,
     payload_size: usize,
-    mock_pid: u16,
+    packet_id: u16,
 ) -> MockPublishData {
-    let control_byte = 0x30; // Publish packet type
+    let control_byte = 0x30; // PUBLISH packet type
 
-    let payload: Vec<u8> = (0..payload_size as u32).map(|i| (i % 256) as u8).collect();
+    // Generate pseudo-random payload
+    let payload: Vec<u8> = (0..payload_size as u32)
+        .map(|i| ((i.wrapping_mul(37).wrapping_add(17)) & 0xFF) as u8)
+        .collect();
 
     let mut body = Vec::new();
-    write_string(&mut body, topic_str).unwrap();
-    write_u16(&mut body, mock_pid).unwrap();
+    write_string(&mut body, topic).unwrap();
+    write_u16(&mut body, packet_id).unwrap();
     write_bytes(&mut body, &payload).unwrap();
     let body_len = body.len();
 
@@ -58,8 +61,8 @@ fn prepare_mock_publish_data(
     write_var_int(&mut remaining_len_buf, body_len).unwrap();
 
     let expected_packet = MockPacket::Publish {
-        topic: topic_str.to_string(),
-        mock_pid,
+        topic: topic.to_string(),
+        packet_id,
         payload,
     };
 
@@ -104,17 +107,17 @@ impl PollHeader for MockHeader {
             }
             0x30 => {
                 let topic = read_string(buf, offset)?.to_string();
-                let mock_pid = read_u16(buf, offset)?;
+                let packet_id = read_u16(buf, offset)?;
                 let payload = read_bytes(buf, offset)?.to_vec();
                 MockPacket::Publish {
                     topic,
-                    mock_pid,
+                    packet_id,
                     payload,
                 }
             }
             _ => MockPacket::Other,
         };
-        assert_eq!(*offset, buf.len(), "offset should move to end");
+        assert_eq!(*offset, buf.len(), "offset should reach buffer end");
         Ok(packet)
     }
 
@@ -133,11 +136,11 @@ impl PollHeader for MockHeader {
             }
             0x30 => {
                 let topic = read_string_async(reader).await?.to_string();
-                let mock_pid = read_u16_async(reader).await?;
+                let packet_id = read_u16_async(reader).await?;
                 let payload = read_bytes_async(reader).await?;
                 MockPacket::Publish {
                     topic,
-                    mock_pid,
+                    packet_id,
                     payload,
                 }
             }
@@ -161,25 +164,28 @@ impl PollHeader for MockHeader {
 
 #[tokio::test(flavor = "current_thread")]
 #[cfg(feature = "dhat-heap")]
-async fn poll_stream_simulation() {
+async fn test_poll_stream() {
     let _profiler = dhat::Profiler::builder().testing().build();
 
-    const PAYLOAD_SIZE: usize = 1024;
-    const MOCK_PID: u16 = 42;
     const NUM_ROUNDS: usize = 5;
-    const TOPIC: &str = "a/b/c";
+    const PACKET_ID: u16 = 42;
+    const PAYLOAD_SIZE: usize = 1024;
+    const TOPIC: &str = "metrics/cpu";
 
-    let mock_data = prepare_mock_publish_data(TOPIC, PAYLOAD_SIZE, MOCK_PID);
+    println!(
+        "\n--- `common::poll` Stream Test ({} packets) ---",
+        NUM_ROUNDS
+    );
 
-    println!("\n--- `common::poll` Stream Simulation ({NUM_ROUNDS} rounds) ---");
+    let test_data = prepare_mock_publish_data(TOPIC, PAYLOAD_SIZE, PACKET_ID);
 
     for i in 0..NUM_ROUNDS {
         println!("\n--- Round {} ---", i + 1);
 
         let mut reader_builder = tokio_test::io::Builder::new();
-        reader_builder.read(&[mock_data.control_byte]);
-        reader_builder.read(&mock_data.remaining_len_buf);
-        for chunk in mock_data.body.chunks(256) {
+        reader_builder.read(&[test_data.control_byte]);
+        reader_builder.read(&test_data.remaining_len_buf);
+        for chunk in test_data.body.chunks(256) {
             reader_builder.read(chunk);
         }
         #[cfg(feature = "tokio")]
@@ -197,8 +203,7 @@ async fn poll_stream_simulation() {
         );
 
         let result = poll_fn(|cx| Pin::new(&mut poll_packet).poll(cx)).await;
-        assert!(result.is_ok());
-
+        assert!(result.is_ok(), "Round {} failed", i);
         let stats_decoded = dhat::HeapStats::get();
         println!(
             "Poll & Decode (net):    {:>5} bytes in {:>2} blocks. Change: {:>+5} bytes, {:>+3} blocks",
@@ -209,26 +214,17 @@ async fn poll_stream_simulation() {
         );
 
         let (_total_len, buf, packet) = result.unwrap();
-        assert_eq!(packet, mock_data.expected_packet);
+        assert_eq!(packet, test_data.expected_packet);
 
         drop(buf);
-        let stats_dropped_buf = dhat::HeapStats::get();
-        println!(
-            "Drop buffer:            {:>5} bytes in {:>2} blocks. Change: {:>+5} bytes, {:>+3} blocks",
-            stats_dropped_buf.curr_bytes,
-            stats_dropped_buf.curr_blocks,
-            stats_dropped_buf.curr_bytes as i64 - stats_decoded.curr_bytes as i64,
-            stats_dropped_buf.curr_blocks as i64 - stats_decoded.curr_blocks as i64
-        );
-
         drop(packet);
-        let stats_end_of_round = dhat::HeapStats::get();
+        let stats_end = dhat::HeapStats::get();
         println!(
             "Drop packet:            {:>5} bytes in {:>2} blocks. Change: {:>+5} bytes, {:>+3} blocks",
-            stats_end_of_round.curr_bytes,
-            stats_end_of_round.curr_blocks,
-            stats_end_of_round.curr_bytes as i64 - stats_dropped_buf.curr_bytes as i64,
-            stats_end_of_round.curr_blocks as i64 - stats_dropped_buf.curr_blocks as i64
+            stats_end.curr_bytes,
+            stats_end.curr_blocks,
+            stats_end.curr_bytes as i64 - stats_decoded.curr_bytes as i64,
+            stats_end.curr_blocks as i64 - stats_decoded.curr_blocks as i64
         );
     }
     println!("\n--- End Report ---");
@@ -236,28 +232,31 @@ async fn poll_stream_simulation() {
 
 #[tokio::test(flavor = "current_thread")]
 #[cfg(feature = "dhat-heap")]
-async fn poll_actor_model_simulation() {
+async fn test_poll_concurrent_packets() {
     let _profiler = dhat::Profiler::builder().testing().build();
 
+    const NUM_CONCURRENT: usize = 100_000;
+    const PACKET_ID: u16 = 42;
     const PAYLOAD_SIZE: usize = 1024;
-    const MOCK_PID: u16 = 42;
-    const NUM_TASKS: usize = 100_000;
-    const TOPIC: &str = "a/b/c";
+    const TOPIC: &str = "stream/data";
 
-    println!("\n--- `common::poll` Actor Model Simulation ({NUM_TASKS} jobs) ---");
+    println!(
+        "\n--- `common::poll` Concurrent Packet Test ({} tasks) ---",
+        NUM_CONCURRENT
+    );
 
-    let mut readers = Vec::with_capacity(NUM_TASKS);
+    let mut readers = Vec::with_capacity(NUM_CONCURRENT);
     let total_data_size: usize;
 
     {
-        let data = prepare_mock_publish_data(TOPIC, PAYLOAD_SIZE, MOCK_PID);
-        total_data_size = (PAYLOAD_SIZE + data.remaining_len_buf.len() + 1) * NUM_TASKS;
+        let test_data = prepare_mock_publish_data(TOPIC, PAYLOAD_SIZE, PACKET_ID);
+        total_data_size = (PAYLOAD_SIZE + test_data.remaining_len_buf.len() + 1) * NUM_CONCURRENT;
 
-        for _ in 0..NUM_TASKS {
+        for _ in 0..NUM_CONCURRENT {
             let mut reader_builder = tokio_test::io::Builder::new();
-            reader_builder.read(&[data.control_byte]);
-            reader_builder.read(&data.remaining_len_buf);
-            reader_builder.read(&data.body);
+            reader_builder.read(&[test_data.control_byte]);
+            reader_builder.read(&test_data.remaining_len_buf);
+            reader_builder.read(&test_data.body);
 
             #[cfg(feature = "tokio")]
             let reader = reader_builder.build();
@@ -275,7 +274,7 @@ async fn poll_actor_model_simulation() {
     );
 
     let simulation_start = std::time::Instant::now();
-    let mut handles = Vec::with_capacity(NUM_TASKS);
+    let mut handles = Vec::with_capacity(NUM_CONCURRENT);
 
     for reader in readers.into_iter() {
         handles.push(tokio::spawn(async move {
@@ -317,10 +316,10 @@ async fn poll_actor_model_simulation() {
         &stats_start,
         &stats_end,
         total_data_size,
-        NUM_TASKS,
+        NUM_CONCURRENT,
         elapsed,
     );
     println!("\n{}", serde_json::to_string(&summary).unwrap());
 
-    println!("--- End Report ---");
+    println!("\n--- End Report ---");
 }
