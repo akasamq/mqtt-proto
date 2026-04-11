@@ -1,11 +1,13 @@
 use core::convert::TryFrom;
 
 use bytes::Bytes;
+#[cfg(feature = "tokio")]
+use tokio::io::AsyncReadExt;
 
 use crate::{
-    from_read_exact_error, read_bytes, read_string, read_u16, read_u8, write_bytes, write_string,
-    write_u16, write_u8, AsyncRead, ClientId, Encodable, Error, Protocol, QoS, SyncWrite,
-    TopicName, Username,
+    read_bytes, read_bytes_async, read_string, read_string_async, read_u16, read_u16_async,
+    read_u8, read_u8_async, write_bytes, write_string, write_u16, write_u8, AsyncRead, ClientId,
+    Encodable, Error, Protocol, QoS, SyncWrite, ToError, TopicName, Username,
 };
 
 /// Connect packet body type.
@@ -48,28 +50,86 @@ impl Connect {
         }
     }
 
+    pub fn decode(buf: &[u8], offset: &mut usize) -> Result<Self, Error> {
+        let protocol = Protocol::decode(buf, offset)?;
+        Self::decode_buffer_with_protocol(buf, offset, protocol)
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
         let protocol = Protocol::decode_async(reader).await?;
-        Self::decode_with_protocol(reader, protocol).await
+        Self::decode_stream_with_protocol(reader, protocol).await
     }
 
     #[inline]
-    pub async fn decode_with_protocol<T: AsyncRead + Unpin>(
+    pub fn decode_buffer_with_protocol(
+        buf: &[u8],
+        offset: &mut usize,
+        protocol: Protocol,
+    ) -> Result<Self, Error> {
+        if protocol as u8 > 4 {
+            return Err(Error::UnexpectedProtocol(protocol));
+        }
+        let connect_flags: u8 = read_u8(buf, offset)?;
+        if connect_flags & 1 != 0 {
+            return Err(Error::InvalidConnectFlags(connect_flags));
+        }
+        let keep_alive = read_u16(buf, offset)?;
+        let client_id = read_string(buf, offset)?.into();
+        let last_will = if connect_flags & 0b100 != 0 {
+            let topic_name_slice = read_string(buf, offset)?;
+            let message_slice = read_bytes(buf, offset)?;
+            let qos = QoS::from_u8((connect_flags & 0b11000) >> 3)?;
+            let retain = (connect_flags & 0b00100000) != 0;
+            Some(LastWill {
+                topic_name: TopicName::try_from(topic_name_slice)?,
+                message: Bytes::copy_from_slice(message_slice),
+                qos,
+                retain,
+            })
+        } else if connect_flags & 0b11000 != 0 {
+            return Err(Error::InvalidConnectFlags(connect_flags));
+        } else {
+            None
+        };
+        let username = if connect_flags & 0b10000000 != 0 {
+            Some(read_string(buf, offset)?.into())
+        } else {
+            None
+        };
+        let password = if connect_flags & 0b01000000 != 0 {
+            Some(Bytes::copy_from_slice(read_bytes(buf, offset)?))
+        } else {
+            None
+        };
+        let clean_session = (connect_flags & 0b10) != 0;
+        Ok(Connect {
+            protocol,
+            clean_session,
+            keep_alive,
+            client_id,
+            last_will,
+            username,
+            password,
+        })
+    }
+
+    #[inline]
+    pub async fn decode_stream_with_protocol<T: AsyncRead + Unpin>(
         reader: &mut T,
         protocol: Protocol,
     ) -> Result<Self, Error> {
         if protocol as u8 > 4 {
             return Err(Error::UnexpectedProtocol(protocol));
         }
-        let connect_flags: u8 = read_u8(reader).await?;
+        let connect_flags: u8 = read_u8_async(reader).await?;
         if connect_flags & 1 != 0 {
             return Err(Error::InvalidConnectFlags(connect_flags));
         }
-        let keep_alive = read_u16(reader).await?;
-        let client_id = read_string(reader).await?;
+        let keep_alive = read_u16_async(reader).await?;
+        let client_id = read_string_async(reader).await?;
         let last_will = if connect_flags & 0b100 != 0 {
-            let topic_name = read_string(reader).await?;
-            let message = read_bytes(reader).await?;
+            let topic_name = read_string_async(reader).await?;
+            let message = read_bytes_async(reader).await?;
             let qos = QoS::from_u8((connect_flags & 0b11000) >> 3)?;
             let retain = (connect_flags & 0b00100000) != 0;
             Some(LastWill {
@@ -84,24 +144,24 @@ impl Connect {
             None
         };
         let username = if connect_flags & 0b10000000 != 0 {
-            Some(read_string(reader).await?)
+            Some(read_string_async(reader).await?)
         } else {
             None
         };
         let password = if connect_flags & 0b01000000 != 0 {
-            Some(Bytes::from(read_bytes(reader).await?))
+            Some(Bytes::from(read_bytes_async(reader).await?))
         } else {
             None
         };
         let clean_session = (connect_flags & 0b10) != 0;
         Ok(Connect {
             protocol,
+            clean_session,
             keep_alive,
             client_id,
+            last_will,
             username,
             password,
-            last_will,
-            clean_session,
         })
     }
 }
@@ -177,12 +237,25 @@ impl Connack {
         }
     }
 
+    pub fn decode(buf: &[u8], offset: &mut usize) -> Result<Self, Error> {
+        let session_present = match read_u8(buf, offset)? {
+            0 => false,
+            1 => true,
+            flag => return Err(Error::InvalidConnackFlags(flag)),
+        };
+        let code = ConnectReturnCode::from_u8(read_u8(buf, offset)?)?;
+        Ok(Connack {
+            session_present,
+            code,
+        })
+    }
+
     pub async fn decode_async<T: AsyncRead + Unpin>(reader: &mut T) -> Result<Self, Error> {
         let mut payload = [0u8; 2];
         reader
             .read_exact(&mut payload)
             .await
-            .map_err(from_read_exact_error)?;
+            .map_err(ToError::to_error)?;
         let session_present = match payload[0] {
             0 => false,
             1 => true,
