@@ -172,10 +172,7 @@ async fn test_poll_stream() {
     const PAYLOAD_SIZE: usize = 1024;
     const TOPIC: &str = "metrics/cpu";
 
-    println!(
-        "\n--- `common::poll` Stream Test ({} packets) ---",
-        NUM_ROUNDS
-    );
+    println!("\n--- `common::poll` Stream Test ({NUM_ROUNDS} packets) ---");
 
     let test_data = prepare_mock_publish_data(TOPIC, PAYLOAD_SIZE, PACKET_ID);
 
@@ -203,7 +200,7 @@ async fn test_poll_stream() {
         );
 
         let result = poll_fn(|cx| Pin::new(&mut poll_packet).poll(cx)).await;
-        assert!(result.is_ok(), "Round {} failed", i);
+        assert!(result.is_ok(), "Round {i} failed");
         let stats_decoded = dhat::HeapStats::get();
         println!(
             "Poll & Decode (net):    {:>5} bytes in {:>2} blocks. Change: {:>+5} bytes, {:>+3} blocks",
@@ -240,10 +237,7 @@ async fn test_poll_concurrent_packets() {
     const PAYLOAD_SIZE: usize = 1024;
     const TOPIC: &str = "stream/data";
 
-    println!(
-        "\n--- `common::poll` Concurrent Packet Test ({} tasks) ---",
-        NUM_CONCURRENT
-    );
+    println!("\n--- `common::poll` Concurrent Packet Test ({NUM_CONCURRENT} tasks) ---");
 
     let mut readers = Vec::with_capacity(NUM_CONCURRENT);
     let total_data_size: usize;
