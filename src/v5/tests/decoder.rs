@@ -807,8 +807,8 @@ fn test_v5_decode_publish() {
 
     let mut data: &[u8] = &[
         8 << 4 | 0b0010, // packet type = SUBSCRIBE
-        9,      // remaining length
-        0x00,   // pid = 0x0001
+        9,               // remaining length
+        0x00,            // pid = 0x0001
         0x01,
         0x04, // properties.len = 4
         0x0B, // SubscriptionIdentifier = 1
