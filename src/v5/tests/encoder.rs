@@ -284,6 +284,44 @@ fn test_v5_encode_publish() {
     };
     let len = [2, 2, 5, 3, 3].into_iter().sum();
     assert_encode(packet3.clone().into(), len);
+
+    let packet4 = Publish {
+        dup: false,
+        qos_pid: QosPid::Level0,
+        retain: false,
+        // 2 + 1 = 3
+        topic_name: TopicName::try_from("t").unwrap(),
+        // 1 + 2 = 3
+        properties: PublishProperties {
+            // 1 + 1 = 2
+            subscription_id: alloc::vec![VarByteInt::try_from(5).unwrap()],
+            ..Default::default()
+        },
+        payload: Bytes::default(),
+    };
+    let len = [2, 0, 3, 3, 0].into_iter().sum();
+    assert_encode(packet4.into(), len);
+
+    let packet5 = Publish {
+        dup: false,
+        qos_pid: QosPid::Level0,
+        retain: false,
+        // 2 + 1 = 3
+        topic_name: TopicName::try_from("t").unwrap(),
+        // 1 + 7 = 8
+        properties: PublishProperties {
+            // id=1 (1+1=2) + id=300 (1+2=3) + id=127 (1+1=2) = 7
+            subscription_id: alloc::vec![
+                VarByteInt::try_from(1).unwrap(),
+                VarByteInt::try_from(300).unwrap(),
+                VarByteInt::try_from(127).unwrap(),
+            ],
+            ..Default::default()
+        },
+        payload: Bytes::default(),
+    };
+    let len = [2, 0, 3, 8, 0].into_iter().sum();
+    assert_encode(packet5.into(), len);
 }
 
 #[test]

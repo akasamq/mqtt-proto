@@ -189,8 +189,7 @@ pub struct PublishProperties {
     pub response_topic: Option<TopicName>,
     pub correlation_data: Option<Bytes>,
     pub user_properties: Vec<UserProperty>,
-    // FIXME: this is a list of identifiers
-    pub subscription_id: Option<VarByteInt>,
+    pub subscription_id: Vec<VarByteInt>,
     pub content_type: Option<Arc<str>>,
 }
 
@@ -227,7 +226,7 @@ impl PublishProperties {
             TopicAlias,
             ResponseTopic,
             CorrelationData,
-            SubscriptionIdentifier,
+            [SubscriptionIdentifier],
             ContentType,
         );
         Ok(properties)
@@ -247,7 +246,7 @@ impl PublishProperties {
             TopicAlias,
             ResponseTopic,
             CorrelationData,
-            SubscriptionIdentifier,
+            [SubscriptionIdentifier],
             ContentType,
         );
         Ok(properties)
@@ -264,7 +263,7 @@ impl Encodable for PublishProperties {
             TopicAlias,
             ResponseTopic,
             CorrelationData,
-            SubscriptionIdentifier,
+            [SubscriptionIdentifier],
             ContentType,
         );
         Ok(())
@@ -279,7 +278,7 @@ impl Encodable for PublishProperties {
             TopicAlias,
             ResponseTopic,
             CorrelationData,
-            SubscriptionIdentifier,
+            [SubscriptionIdentifier],
             ContentType,
         );
         len
