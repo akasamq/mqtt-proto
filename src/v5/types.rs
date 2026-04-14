@@ -409,6 +409,12 @@ macro_rules! decode_property {
         let (value, _bytes) = crate::decode_var_int($buf, $offset)?;
         $properties.subscription_id = Some(crate::v5::VarByteInt::try_from(value)?);
     };
+    ([SubscriptionIdentifier], $properties:expr, $buf:expr, $offset:expr, $property_id:expr) => {
+        let (value, _bytes) = crate::decode_var_int($buf, $offset)?;
+        $properties
+            .subscription_id
+            .push(crate::v5::VarByteInt::try_from(value)?);
+    };
     (SessionExpiryInterval, $properties:expr, $buf:expr, $offset:expr, $property_id:expr) => {
         crate::v5::PropertyValue::decode_u32(
             $buf,
@@ -632,6 +638,12 @@ macro_rules! decode_property_async {
         let (value, _bytes) = crate::decode_var_int_async($reader).await?;
         $properties.subscription_id = Some(crate::v5::VarByteInt::try_from(value)?);
     };
+    ([SubscriptionIdentifier], $properties:expr, $reader:expr, $property_id:expr) => {
+        let (value, _bytes) = crate::decode_var_int_async($reader).await?;
+        $properties
+            .subscription_id
+            .push(crate::v5::VarByteInt::try_from(value)?);
+    };
     (SessionExpiryInterval, $properties:expr, $reader:expr, $property_id:expr) => {
         crate::v5::PropertyValue::decode_u32_async(
             $reader,
@@ -801,17 +813,40 @@ macro_rules! decode_property_async {
     };
 }
 
+macro_rules! property_id_of {
+    ([$t:ident]) => {
+        crate::v5::PropertyId::$t
+    };
+    ($t:ident) => {
+        crate::v5::PropertyId::$t
+    };
+}
+pub(crate) use property_id_of;
+
+macro_rules! decode_property_progress {
+    ([SubscriptionIdentifier], $properties:expr, $len:expr) => {
+        if let Some(value) = $properties.subscription_id.last() {
+            $len += 1 + crate::var_int_len(value.value() as usize)
+                .expect("subscription id exceed 268,435,455");
+        }
+    };
+    ($t:tt, $properties:expr, $len:expr) => {
+        crate::v5::encode_property_len!($t, $properties, $len);
+    };
+}
+pub(crate) use decode_property_progress;
+
 macro_rules! decode_properties {
-    (LastWill, $properties:expr, $buf:expr, $offset:expr, $($t:ident,)*) => {
+    (LastWill, $properties:expr, $buf:expr, $offset:expr, $($t:tt,)*) => {
         let (property_len, _bytes) = crate::decode_var_int($buf, $offset)?;
         let mut len = 0;
         while property_len as usize > len {
             let property_id = crate::v5::PropertyId::from_u8(crate::read_u8($buf, $offset)?)?;
             match property_id {
                 $(
-                    crate::v5::PropertyId::$t => {
+                    crate::v5::property_id_of!($t) => {
                         crate::v5::decode_property!($t, $properties, $buf, $offset, property_id);
-                        crate::v5::encode_property_len!($t, $properties, len);
+                        crate::v5::decode_property_progress!($t, $properties, len);
                     }
                 )*
                 crate::v5::PropertyId::UserProperty => {
@@ -826,16 +861,16 @@ macro_rules! decode_properties {
             return Err(crate::v5::ErrorV5::InvalidPropertyLength(property_len));
         }
     };
-    ($packet_type:expr, $properties:expr, $buf:expr, $offset:expr, $($t:ident,)*) => {
+    ($packet_type:expr, $properties:expr, $buf:expr, $offset:expr, $($t:tt,)*) => {
         let (property_len, _bytes) = crate::decode_var_int($buf, $offset)?;
         let mut len = 0;
         while property_len as usize > len {
             let property_id = crate::v5::PropertyId::from_u8(crate::read_u8($buf, $offset)?)?;
             match property_id {
                 $(
-                    crate::v5::PropertyId::$t => {
+                    crate::v5::property_id_of!($t) => {
                         crate::v5::decode_property!($t, $properties, $buf, $offset, property_id);
-                        crate::v5::encode_property_len!($t, $properties, len);
+                        crate::v5::decode_property_progress!($t, $properties, len);
                     }
                 )*
                 crate::v5::PropertyId::UserProperty => {
@@ -853,16 +888,16 @@ macro_rules! decode_properties {
 }
 
 macro_rules! decode_properties_async {
-    (LastWill, $properties:expr, $reader:expr, $($t:ident,)*) => {
+    (LastWill, $properties:expr, $reader:expr, $($t:tt,)*) => {
         let (property_len, _bytes) = crate::decode_var_int_async($reader).await?;
         let mut len = 0;
         while property_len as usize > len {
             let property_id = crate::v5::PropertyId::from_u8(crate::read_u8_async($reader).await?)?;
             match property_id {
                 $(
-                    crate::v5::PropertyId::$t => {
+                    crate::v5::property_id_of!($t) => {
                         crate::v5::decode_property_async!($t, $properties, $reader, property_id);
-                        crate::v5::encode_property_len!($t, $properties, len);
+                        crate::v5::decode_property_progress!($t, $properties, len);
                     }
                 )*
                     crate::v5::PropertyId::UserProperty => {
@@ -877,16 +912,16 @@ macro_rules! decode_properties_async {
             return Err(crate::v5::ErrorV5::InvalidPropertyLength(property_len));
         }
     };
-    ($packet_type:expr, $properties:expr, $reader:expr, $($t:ident,)*) => {
+    ($packet_type:expr, $properties:expr, $reader:expr, $($t:tt,)*) => {
         let (property_len, _bytes) = crate::decode_var_int_async($reader).await?;
         let mut len = 0;
         while property_len as usize > len {
             let property_id = crate::v5::PropertyId::from_u8(crate::read_u8_async($reader).await?)?;
             match property_id {
                 $(
-                    crate::v5::PropertyId::$t => {
+                    crate::v5::property_id_of!($t) => {
                         crate::v5::decode_property_async!($t, $properties, $reader, property_id);
-                        crate::v5::encode_property_len!($t, $properties, len);
+                        crate::v5::decode_property_progress!($t, $properties, len);
                     }
                 )*
                     crate::v5::PropertyId::UserProperty => {
@@ -941,6 +976,12 @@ macro_rules! encode_property {
     };
     (SubscriptionIdentifier, $properties:expr, $writer: expr) => {
         if let Some(value) = $properties.subscription_id {
+            crate::write_u8($writer, crate::v5::PropertyId::SubscriptionIdentifier as u8)?;
+            crate::write_var_int($writer, value.value() as usize)?;
+        }
+    };
+    ([SubscriptionIdentifier], $properties:expr, $writer: expr) => {
+        for value in $properties.subscription_id.iter() {
             crate::write_u8($writer, crate::v5::PropertyId::SubscriptionIdentifier as u8)?;
             crate::write_var_int($writer, value.value() as usize)?;
         }
@@ -1099,7 +1140,7 @@ macro_rules! encode_properties {
             crate::write_bytes($writer, value.as_bytes())?;
         }
     };
-    ($properties:expr, $writer:expr, $($t:ident,)+) => {
+    ($properties:expr, $writer:expr, $($t:tt,)+) => {
         let mut property_len = $properties.user_properties.len() + $properties
             .user_properties
             .iter()
@@ -1153,6 +1194,13 @@ macro_rules! encode_property_len {
     };
     (SubscriptionIdentifier, $properties:expr, $property_len:expr) => {
         if let Some(value) = $properties.subscription_id {
+            $property_len += 1 + crate::var_int_len(value.value() as usize)
+                .expect("subscription id exceed 268,435,455");
+        }
+    };
+    ([SubscriptionIdentifier], $properties:expr, $property_len:expr) => {
+        // During encode_len: sum all items in the list
+        for value in $properties.subscription_id.iter() {
             $property_len += 1 + crate::var_int_len(value.value() as usize)
                 .expect("subscription id exceed 268,435,455");
         }
@@ -1269,7 +1317,7 @@ macro_rules! encode_properties_len {
             .sum::<usize>();
         $len += property_len + crate::var_int_len(property_len).expect("total properties length exceed 268,435,455");
     };
-    ($properties:expr, $len:expr, $($t:ident,)+) => {
+    ($properties:expr, $len:expr, $($t:tt,)+) => {
         // Every properties have user property
         let mut property_len: usize = $properties.user_properties.len() + $properties
             .user_properties

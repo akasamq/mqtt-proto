@@ -731,6 +731,103 @@ fn test_v5_decode_publish() {
         Packet::decode(data).unwrap_err(),
         block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
     );
+
+    let mut data: &[u8] = &[
+        3 << 4, // packet type, qos=0
+        7,      // remaining length
+        0x00,   // topic name = "t"
+        0x01,
+        b't',
+        0x02, // properties.len = 2
+        0x0B, // SubscriptionIdentifier = 5
+        0x05,
+        0xAA, // payload = 0xAA
+    ];
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        Packet::Publish(Publish {
+            dup: false,
+            qos_pid: QosPid::Level0,
+            retain: false,
+            topic_name: TopicName::try_from("t").unwrap(),
+            properties: PublishProperties {
+                subscription_id: alloc::vec![VarByteInt::try_from(5).unwrap()],
+                ..Default::default()
+            },
+            payload: Bytes::from(alloc::vec![0xAA]),
+        })
+    );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .2,
+    );
+
+    let mut data: &[u8] = &[
+        3 << 4, // packet type, qos=0
+        12,     // remaining length
+        0x00,   // topic name = "t"
+        0x01,
+        b't',
+        0x07, // properties.len = 7
+        0x0B, // SubscriptionIdentifier = 1
+        0x01,
+        0x0B, // SubscriptionIdentifier = 300 (= 0xAC 0x02 in varint)
+        0xAC,
+        0x02,
+        0x0B, // SubscriptionIdentifier = 127
+        0x7F,
+        0xBB, // payload = 0xBB
+    ];
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        Packet::Publish(Publish {
+            dup: false,
+            qos_pid: QosPid::Level0,
+            retain: false,
+            topic_name: TopicName::try_from("t").unwrap(),
+            properties: PublishProperties {
+                subscription_id: alloc::vec![
+                    VarByteInt::try_from(1).unwrap(),
+                    VarByteInt::try_from(300).unwrap(),
+                    VarByteInt::try_from(127).unwrap(),
+                ],
+                ..Default::default()
+            },
+            payload: Bytes::from(alloc::vec![0xBB]),
+        })
+    );
+    assert_eq!(
+        Packet::decode(data).unwrap().unwrap(),
+        block_on(PollPacket::new(&mut Default::default(), &mut data))
+            .unwrap()
+            .2,
+    );
+
+    let mut data: &[u8] = &[
+        8 << 4 | 0b0010, // packet type = SUBSCRIBE
+        9,      // remaining length
+        0x00,   // pid = 0x0001
+        0x01,
+        0x04, // properties.len = 4
+        0x0B, // SubscriptionIdentifier = 1
+        0x01,
+        0x0B, // SubscriptionIdentifier = 2 (duplicate -> error)
+        0x02,
+        0x00, // topic filter = "t"
+        0x01,
+        b't',
+        0x00, // subscription options
+    ];
+    assert_eq!(
+        Packet::decode(data).unwrap_err(),
+        ErrorV5::DuplicatedProperty(PropertyId::SubscriptionIdentifier),
+    );
+    assert_eq!(
+        Packet::decode(data).unwrap_err(),
+        block_on(PollPacket::new(&mut Default::default(), &mut data)).unwrap_err()
+    );
 }
 
 #[test]
