@@ -751,7 +751,7 @@ fn test_v5_decode_publish() {
             retain: false,
             topic_name: TopicName::try_from("t").unwrap(),
             properties: PublishProperties {
-                subscription_id: alloc::vec![VarByteInt::try_from(5).unwrap()],
+                subscription_ids: alloc::vec![VarByteInt::try_from(5).unwrap()],
                 ..Default::default()
             },
             payload: Bytes::from(alloc::vec![0xAA]),
@@ -788,7 +788,7 @@ fn test_v5_decode_publish() {
             retain: false,
             topic_name: TopicName::try_from("t").unwrap(),
             properties: PublishProperties {
-                subscription_id: alloc::vec![
+                subscription_ids: alloc::vec![
                     VarByteInt::try_from(1).unwrap(),
                     VarByteInt::try_from(300).unwrap(),
                     VarByteInt::try_from(127).unwrap(),

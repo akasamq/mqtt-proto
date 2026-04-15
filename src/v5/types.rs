@@ -367,7 +367,7 @@ pub(crate) use get_property_id;
 
 macro_rules! add_property_len {
     ([SubscriptionIdentifier], $properties:expr, $len:expr) => {
-        if let Some(value) = $properties.subscription_id.last() {
+        if let Some(value) = $properties.subscription_ids.last() {
             $len += 1 + crate::var_int_len(value.value() as usize)
                 .expect("subscription id exceed 268,435,455");
         }
@@ -436,7 +436,7 @@ macro_rules! decode_property {
     ([SubscriptionIdentifier], $properties:expr, $buf:expr, $offset:expr, $property_id:expr) => {
         let (value, _bytes) = crate::decode_var_int($buf, $offset)?;
         $properties
-            .subscription_id
+            .subscription_ids
             .push(crate::v5::VarByteInt::try_from(value)?);
     };
     (SessionExpiryInterval, $properties:expr, $buf:expr, $offset:expr, $property_id:expr) => {
@@ -665,7 +665,7 @@ macro_rules! decode_property_async {
     ([SubscriptionIdentifier], $properties:expr, $reader:expr, $property_id:expr) => {
         let (value, _bytes) = crate::decode_var_int_async($reader).await?;
         $properties
-            .subscription_id
+            .subscription_ids
             .push(crate::v5::VarByteInt::try_from(value)?);
     };
     (SessionExpiryInterval, $properties:expr, $reader:expr, $property_id:expr) => {
@@ -982,7 +982,7 @@ macro_rules! encode_property {
         }
     };
     ([SubscriptionIdentifier], $properties:expr, $writer: expr) => {
-        for value in $properties.subscription_id.iter() {
+        for value in $properties.subscription_ids.iter() {
             crate::write_u8($writer, crate::v5::PropertyId::SubscriptionIdentifier as u8)?;
             crate::write_var_int($writer, value.value() as usize)?;
         }
@@ -1200,7 +1200,7 @@ macro_rules! encode_property_len {
         }
     };
     ([SubscriptionIdentifier], $properties:expr, $property_len:expr) => {
-        for value in $properties.subscription_id.iter() {
+        for value in $properties.subscription_ids.iter() {
             $property_len += 1 + crate::var_int_len(value.value() as usize)
                 .expect("subscription id exceed 268,435,455");
         }

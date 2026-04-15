@@ -189,7 +189,7 @@ pub struct PublishProperties {
     pub response_topic: Option<TopicName>,
     pub correlation_data: Option<Bytes>,
     pub user_properties: Vec<UserProperty>,
-    pub subscription_id: Vec<VarByteInt>,
+    pub subscription_ids: Vec<VarByteInt>,
     pub content_type: Option<Arc<str>>,
 }
 
@@ -203,7 +203,7 @@ impl<'a> arbitrary::Arbitrary<'a> for PublishProperties {
             response_topic: u.arbitrary()?,
             correlation_data: Option::<Vec<u8>>::arbitrary(u)?.map(Bytes::from),
             user_properties: u.arbitrary()?,
-            subscription_id: u.arbitrary()?,
+            subscription_ids: u.arbitrary()?,
             content_type: u.arbitrary()?,
         })
     }

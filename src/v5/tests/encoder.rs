@@ -294,7 +294,7 @@ fn test_v5_encode_publish() {
         // 1 + 2 = 3
         properties: PublishProperties {
             // 1 + 1 = 2
-            subscription_id: alloc::vec![VarByteInt::try_from(5).unwrap()],
+            subscription_ids: alloc::vec![VarByteInt::try_from(5).unwrap()],
             ..Default::default()
         },
         payload: Bytes::default(),
@@ -311,7 +311,7 @@ fn test_v5_encode_publish() {
         // 1 + 7 = 8
         properties: PublishProperties {
             // id=1 (1+1=2) + id=300 (1+2=3) + id=127 (1+1=2) = 7
-            subscription_id: alloc::vec![
+            subscription_ids: alloc::vec![
                 VarByteInt::try_from(1).unwrap(),
                 VarByteInt::try_from(300).unwrap(),
                 VarByteInt::try_from(127).unwrap(),
