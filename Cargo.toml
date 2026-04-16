@@ -55,3 +55,6 @@ tokio = ["dep:tokio", "std"]
 
 # Enable DHAT Memory debugging
 dhat-heap = ["std"]
+
+# Enable std for fuzz test
+arbitrary = ["dep:arbitrary", "std"]
