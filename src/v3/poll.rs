@@ -1,6 +1,6 @@
 use crate::{
-    read_u16, read_u16_async, AsyncRead, Error, GenericPollPacket, GenericPollPacketState, Pid,
-    PollHeader,
+    AsyncRead, Error, GenericPollPacket, GenericPollPacketState, Pid, PollHeader, read_u16,
+    read_u16_async,
 };
 
 use super::{

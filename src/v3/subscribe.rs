@@ -1,8 +1,8 @@
 use alloc::vec::Vec;
 
 use crate::{
-    read_string, read_string_async, read_u16, read_u16_async, read_u8, read_u8_async, write_string,
-    write_u16, write_u8, AsyncRead, Encodable, Error, Pid, QoS, SyncWrite, TopicFilter,
+    AsyncRead, Encodable, Error, Pid, QoS, SyncWrite, TopicFilter, read_string, read_string_async,
+    read_u8, read_u8_async, read_u16, read_u16_async, write_string, write_u8, write_u16,
 };
 
 use super::Header;

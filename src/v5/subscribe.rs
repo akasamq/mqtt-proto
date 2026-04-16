@@ -4,14 +4,14 @@ use alloc::sync::Arc;
 use alloc::vec::Vec;
 
 use crate::{
-    decode_var_int, decode_var_int_async, read_string, read_string_async, read_u16, read_u16_async,
-    read_u8, read_u8_async, write_bytes, write_u16, write_u8, AsyncRead, Encodable, Error, Pid,
-    QoS, SyncWrite, TopicFilter,
+    AsyncRead, Encodable, Error, Pid, QoS, SyncWrite, TopicFilter, decode_var_int,
+    decode_var_int_async, read_string, read_string_async, read_u8, read_u8_async, read_u16,
+    read_u16_async, write_bytes, write_u8, write_u16,
 };
 
 use super::{
-    decode_properties, decode_properties_async, encode_properties, encode_properties_len, ErrorV5,
-    Header, PacketType, PropertyId, PropertyValue, UserProperty, VarByteInt,
+    ErrorV5, Header, PacketType, PropertyId, PropertyValue, UserProperty, VarByteInt,
+    decode_properties, decode_properties_async, encode_properties, encode_properties_len,
 };
 
 /// Body type for SUBSCRIBE packet.

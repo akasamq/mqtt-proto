@@ -4,8 +4,8 @@ use core::convert::AsRef;
 use tokio::io::AsyncWriteExt;
 
 use crate::{
-    block_on, decode_raw_header_async, encode_packet, packet_from, total_len, AsyncRead,
-    AsyncWrite, Encodable, Error, QoS, QosPid, VarBytes,
+    AsyncRead, AsyncWrite, Encodable, Error, QoS, QosPid, VarBytes, block_on,
+    decode_raw_header_async, encode_packet, packet_from, total_len,
 };
 
 use super::{
@@ -109,11 +109,12 @@ impl Packet {
         match block_on(Self::decode_async(&mut bytes)) {
             Ok(pkt) => Ok(Some(pkt)),
             Err(err) => {
-                if let ErrorV5::Common(e) = &err {
-                    if e.is_eof() {
-                        return Ok(None);
-                    }
+                if let ErrorV5::Common(e) = &err
+                    && e.is_eof()
+                {
+                    return Ok(None);
                 }
+
                 Err(err)
             }
         }

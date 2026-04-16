@@ -1,12 +1,12 @@
 use std::convert::TryFrom;
 use std::hint::black_box;
 
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use futures_lite::future::block_on;
 use mqtt_proto::{
+    Pid, QoS, QosPid, TopicName,
     v3::{Connect as ConnectV3, LastWill as LastWillV3, Packet as PacketV3, Publish as PublishV3},
     v5::{Connect as ConnectV5, LastWill as LastWillV5, Packet as PacketV5, Publish as PublishV5},
-    Pid, QoS, QosPid, TopicName,
 };
 
 fn payload(len: usize) -> Vec<u8> {

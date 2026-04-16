@@ -9,8 +9,8 @@ use alloc::vec::Vec;
 use simdutf8::basic::from_utf8;
 
 use super::{
-    read_bytes, read_bytes_async, read_u8, read_u8_async, write_bytes, write_u8, AsyncRead, Error,
-    SyncWrite, LEVEL_SEP, MATCH_ALL_CHAR, MATCH_ONE_CHAR, SHARED_PREFIX, SYS_PREFIX,
+    AsyncRead, Error, LEVEL_SEP, MATCH_ALL_CHAR, MATCH_ONE_CHAR, SHARED_PREFIX, SYS_PREFIX,
+    SyncWrite, read_bytes, read_bytes_async, read_u8, read_u8_async, write_bytes, write_u8,
 };
 
 pub const MQISDP: &[u8] = b"MQIsdp";

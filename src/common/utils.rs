@@ -340,8 +340,10 @@ mod tests {
         }
 
         let mut err_data = &[0xff, 0xff, 0xff][..];
-        assert!(block_on(decode_var_int_async(&mut err_data))
-            .unwrap_err()
-            .is_eof());
+        assert!(
+            block_on(decode_var_int_async(&mut err_data))
+                .unwrap_err()
+                .is_eof()
+        );
     }
 }

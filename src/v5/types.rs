@@ -5,8 +5,8 @@ use alloc::sync::Arc;
 use bytes::Bytes;
 
 use crate::{
-    read_bytes, read_bytes_async, read_string, read_string_async, read_u16, read_u16_async,
-    read_u32, read_u32_async, read_u8, read_u8_async, AsyncRead, Error, TopicName,
+    AsyncRead, Error, TopicName, read_bytes, read_bytes_async, read_string, read_string_async,
+    read_u8, read_u8_async, read_u16, read_u16_async, read_u32, read_u32_async,
 };
 
 use super::ErrorV5;

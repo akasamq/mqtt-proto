@@ -9,14 +9,14 @@ use simdutf8::basic::from_utf8;
 use tokio::io::AsyncReadExt;
 
 use crate::{
-    read_bytes, read_bytes_async, read_string, read_string_async, read_u16, read_u16_async,
-    read_u8, read_u8_async, write_bytes, write_u16, write_u8, AsyncRead, ClientId, Encodable,
-    Error, Protocol, QoS, SyncWrite, ToError, TopicName, Username,
+    AsyncRead, ClientId, Encodable, Error, Protocol, QoS, SyncWrite, ToError, TopicName, Username,
+    read_bytes, read_bytes_async, read_string, read_string_async, read_u8, read_u8_async, read_u16,
+    read_u16_async, write_bytes, write_u8, write_u16,
 };
 
 use super::{
-    decode_properties, decode_properties_async, encode_properties, encode_properties_len, ErrorV5,
-    Header, PacketType, UserProperty,
+    ErrorV5, Header, PacketType, UserProperty, decode_properties, decode_properties_async,
+    encode_properties, encode_properties_len,
 };
 
 /// Body type of CONNECT packet.

@@ -200,9 +200,9 @@ where
     loop {
         match state {
             GenericPollPacketState::Header {
-                ref mut control_byte,
-                ref mut var_idx,
-                ref mut var_int,
+                control_byte,
+                var_idx,
+                var_int,
             } => {
                 #[allow(clippy::useless_conversion)]
                 let header: H = poll_packet_header(reader, control_byte, var_idx, var_int)
@@ -254,10 +254,7 @@ where
     type Output = Result<(usize, Vec<MaybeUninit<u8>>, H::Packet), H::Error>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let GenericPollPacket {
-            ref mut state,
-            ref mut reader,
-        } = self.get_mut();
+        let GenericPollPacket { state, reader } = self.get_mut();
 
         let future = poll_packet(state, reader);
         futures_lite::pin!(future);
@@ -275,10 +272,7 @@ where
     type Output = Result<(usize, Vec<MaybeUninit<u8>>, H::Packet), H::Error>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let GenericPollPacket {
-            ref mut state,
-            ref mut reader,
-        } = self.get_mut();
+        let GenericPollPacket { state, reader } = self.get_mut();
 
         let future = poll_packet(state, reader);
         futures_lite::pin!(future);

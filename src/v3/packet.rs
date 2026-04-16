@@ -4,8 +4,8 @@ use core::convert::AsRef;
 use tokio::io::AsyncWriteExt;
 
 use crate::{
-    block_on, decode_raw_header_async, encode_packet, packet_from, read_u16_async, total_len,
-    AsyncRead, AsyncWrite, Encodable, Error, Pid, QoS, QosPid, VarBytes,
+    AsyncRead, AsyncWrite, Encodable, Error, Pid, QoS, QosPid, VarBytes, block_on,
+    decode_raw_header_async, encode_packet, packet_from, read_u16_async, total_len,
 };
 
 use super::{Connack, Connect, Publish, Suback, Subscribe, Unsubscribe};

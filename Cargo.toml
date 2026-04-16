@@ -1,14 +1,13 @@
 [package]
 name = "mqtt-proto"
 version = "0.4.0"
-license = "MIT"
-description = "MQTT v3.1/v3.1.1/v5.0 protocol sync/async codec."
 authors = ["LinFeng <thewawar@gmail.com>"]
+edition = "2024"
+description = "MQTT v3.1/v3.1.1/v5.0 protocol sync/async codec."
 repository = "https://github.com/akasamq/mqtt-proto"
-readme = "README.md"
+license = "MIT"
 keywords = ["mqtt", "codec", "network", "async"]
 categories = ["network-programming", "asynchronous"]
-edition = "2021"
 
 [lib]
 bench = false

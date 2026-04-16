@@ -5,9 +5,9 @@ use bytes::Bytes;
 use tokio::io::AsyncReadExt;
 
 use crate::{
-    read_bytes, read_bytes_async, read_string, read_string_async, read_u16, read_u16_async,
-    read_u8, read_u8_async, write_bytes, write_string, write_u16, write_u8, AsyncRead, ClientId,
-    Encodable, Error, Protocol, QoS, SyncWrite, ToError, TopicName, Username,
+    AsyncRead, ClientId, Encodable, Error, Protocol, QoS, SyncWrite, ToError, TopicName, Username,
+    read_bytes, read_bytes_async, read_string, read_string_async, read_u8, read_u8_async, read_u16,
+    read_u16_async, write_bytes, write_string, write_u8, write_u16,
 };
 
 /// Connect packet body type.
