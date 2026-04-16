@@ -1,4 +1,8 @@
-# mqtt-proto
+# mqtt-proto patch
+
+> [!CAUTION]
+> **DO NOT DELETE**: This branch is pinned in `Cargo.toml` via `[patch]` / git dependency to lock `mqtt-proto` features and prevent feature unification pollution with `akasa-core`. Removing this will break the build.
+
 MQTT encoding/decoding library (support no-std)
 
 ## Simple usage example
