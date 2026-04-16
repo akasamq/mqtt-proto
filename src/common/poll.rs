@@ -244,30 +244,11 @@ where
     }
 }
 
-#[cfg(feature = "tokio")]
 impl<'a, T, H> Future for GenericPollPacket<'a, T, H>
 where
     T: AsyncRead + Unpin,
     H: PollHeader + Copy + Unpin,
-    H::Error: From<Error> + From<std::io::Error>,
-{
-    type Output = Result<(usize, Vec<MaybeUninit<u8>>, H::Packet), H::Error>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let GenericPollPacket { state, reader } = self.get_mut();
-
-        let future = poll_packet(state, reader);
-        futures_lite::pin!(future);
-        future.as_mut().poll(cx)
-    }
-}
-
-#[cfg(not(feature = "tokio"))]
-impl<'a, T, H> Future for GenericPollPacket<'a, T, H>
-where
-    T: AsyncRead + Unpin,
-    H: PollHeader + Copy + Unpin,
-    H::Error: From<Error> + From<T::Error>,
+    H::Error: From<Error>,
 {
     type Output = Result<(usize, Vec<MaybeUninit<u8>>, H::Packet), H::Error>;
 
